@@ -81,6 +81,16 @@ docker compose up -d --build
 
 Die App speichert ihre lokalen Daten im Volume `avis-data`. Der externe Port kann mit `AVIS_HTTP_PORT` gesetzt werden, standardmaessig ist `3000`.
 
+## Fertiges Docker Image
+
+Bei jedem Push auf `main` baut GitHub Actions automatisch ein Image:
+
+```text
+ghcr.io/manemm2103/avis:latest
+```
+
+Fuer Portainer kann `docker-compose.image.yml` verwendet werden, wenn das Image aus der GitHub Container Registry gezogen werden soll. Falls Portainer beim Pull `denied` meldet, ist das Image noch nicht gebaut oder das Package ist in GitHub noch privat. In diesem Fall den Workflow `Docker image` einmal abwarten und das Package in GitHub unter `Packages` auf `Public` stellen oder in Portainer Registry-Zugangsdaten hinterlegen.
+
 ## Portainer
 
 1. Neues Stack aus dem GitHub-Repository erstellen.

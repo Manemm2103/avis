@@ -93,6 +93,7 @@ const elements = {
     deliveryDate: document.querySelector("#edit-delivery-date"),
     driver: document.querySelector("#edit-driver"),
     note: document.querySelector("#edit-note"),
+    customerInfo: document.querySelector("#edit-customer-info"),
     notified: document.querySelector("#edit-notified")
   },
   log: {
@@ -667,6 +668,7 @@ function openDrawer(orderNumber) {
   elements.drawerFields.tour.textContent = order.tour || "-";
   elements.drawerFields.deliveryDate.value = order.avis.deliveryDate || order.deliveryDate || "";
   elements.drawerFields.note.value = order.avis.note || "";
+  elements.drawerFields.customerInfo.value = order.avis.customerInfo || "";
   elements.drawerFields.notified.checked = order.avis.notified;
   renderDriverOptions(elements.drawerFields.driver, order.avis.driverPhoneId);
   renderOrderLog(order);
@@ -727,6 +729,7 @@ async function saveSelectedOrder(event) {
       deliveryDate: elements.drawerFields.deliveryDate.value,
       driverPhoneId: elements.drawerFields.driver.value,
       note: elements.drawerFields.note.value,
+      customerInfo: elements.drawerFields.customerInfo.value,
       notified: elements.drawerFields.notified.checked
     })
   });

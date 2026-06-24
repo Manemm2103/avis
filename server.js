@@ -416,6 +416,7 @@ function mergeOrder(order, avis, driverMap) {
       notifiedAt: avis?.notifiedAt || "",
       notifiedBy: avis?.notifiedBy || "",
       note: avis?.note || "",
+      customerInfo: avis?.customerInfo || "",
       updatedAt: avis?.updatedAt || "",
       updatedBy: avis?.updatedBy || "",
       log: avis?.log || []
@@ -465,6 +466,10 @@ function sanitizeAvisUpdate(input) {
 
   if (Object.hasOwn(input, "note")) {
     update.note = text(input.note);
+  }
+
+  if (Object.hasOwn(input, "customerInfo")) {
+    update.customerInfo = text(input.customerInfo);
   }
 
   return update;

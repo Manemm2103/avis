@@ -400,6 +400,50 @@ th {
   text-transform: uppercase;
 }
 
+.sort-button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.sort-button:hover,
+.sort-button:focus-visible,
+.sort-button.is-active {
+  color: var(--text);
+}
+
+.sort-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.sort-indicator::before {
+  content: "\2195";
+}
+
+.sort-button[data-direction="asc"] .sort-indicator::before {
+  content: "\2191";
+}
+
+.sort-button[data-direction="desc"] .sort-indicator::before {
+  content: "\2193";
+}
+
 tbody tr:hover {
   background: #f9fbfb;
 }

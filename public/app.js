@@ -10,6 +10,10 @@ const state = {
   tours: [],
   users: [],
   sqlSettings: null,
+  sort: {
+    key: "",
+    direction: "asc"
+  },
   selectedOrder: null,
   confirmResolve: null
 };
@@ -160,6 +164,13 @@ function bindEvents() {
     });
   });
 
+  document.querySelectorAll("[data-sort]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setOrderSort(button.dataset.sort);
+      renderOrders();
+    });
+  });
+
   elements.searchInput.addEventListener("input", debounce(() => {
     state.search = elements.searchInput.value;
     loadOrders();
@@ -281,6 +292,16 @@ function setStatusFilter(status) {
   });
 }
 
+function setOrderSort(key) {
+  if (state.sort.key === key) {
+    state.sort.direction = state.sort.direction === "asc" ? "desc" : "asc";
+    return;
+  }
+
+  state.sort.key = key;
+  state.sort.direction = "asc";
+}
+
 function showLogin(message = "") {
   elements.appShell.hidden = true;
   elements.loginView.hidden = false;
@@ -382,6 +403,8 @@ function renderStats(summary) {
 }
 
 function renderOrders(errorMessage = "") {
+  updateSortHeaders();
+
   if (errorMessage) {
     elements.ordersBody.innerHTML = `<tr><td class="empty is-error" colspan="9">${escapeHtml(errorMessage)}</td></tr>`;
     return;
@@ -392,7 +415,7 @@ function renderOrders(errorMessage = "") {
     return;
   }
 
-  elements.ordersBody.innerHTML = state.orders.map((order) => `
+  elements.ordersBody.innerHTML = sortedOrders().map((order) => `
     <tr>
       <td>${statusBadge(order.avis.notified)}</td>
       <td>${driverPhoneBadge(order.avis.driverPhoneId)}</td>
@@ -416,6 +439,100 @@ function renderOrders(errorMessage = "") {
       </td>
     </tr>
   `).join("");
+}
+
+function sortedOrders() {
+  if (!state.sort.key) {
+    return state.orders;
+  }
+
+  return state.orders
+    .map((order, index) => ({ order, index }))
+    .sort((left, right) => {
+      const leftValue = orderSortValue(left.order, state.sort.key);
+      const rightValue = orderSortValue(right.order, state.sort.key);
+      const leftEmpty = isEmptySortValue(leftValue);
+      const rightEmpty = isEmptySortValue(rightValue);
+
+      if (leftEmpty && rightEmpty) {
+        return left.index - right.index;
+      }
+
+      if (leftEmpty) {
+        return 1;
+      }
+
+      if (rightEmpty) {
+        return -1;
+      }
+
+      const result = compareSortValues(leftValue, rightValue);
+
+      if (result === 0) {
+        return left.index - right.index;
+      }
+
+      return state.sort.direction === "desc" ? -result : result;
+    })
+    .map((entry) => entry.order);
+}
+
+function orderSortValue(order, key) {
+  const values = {
+    status: order.avis.notified ? 1 : 0,
+    driver: order.avis.driverPhoneLabel || "",
+    orderNumber: order.orderNumber,
+    customer: `${order.customerName || ""} ${order.customerNumber || ""}`.trim(),
+    commission: order.commission,
+    deliveryDate: order.displayDeliveryDate || order.deliveryDate,
+    tour: order.displayTour || order.tour,
+    contact: `${order.sourcePhone || ""} ${order.sourceEmail || ""}`.trim()
+  };
+
+  return values[key] ?? "";
+}
+
+function compareSortValues(left, right) {
+  if (typeof left === "number" && typeof right === "number") {
+    return left - right;
+  }
+
+  return String(left).localeCompare(String(right), "de", {
+    numeric: true,
+    sensitivity: "base"
+  });
+}
+
+function isEmptySortValue(value) {
+  return value === "" || value === null || value === undefined;
+}
+
+function updateSortHeaders() {
+  document.querySelectorAll("[data-sort]").forEach((button) => {
+    const active = button.dataset.sort === state.sort.key;
+    const direction = active ? state.sort.direction : "";
+    const header = button.closest("th");
+
+    button.classList.toggle("is-active", active);
+    button.dataset.direction = direction;
+    button.setAttribute("aria-label", sortButtonLabel(button, active, direction));
+
+    if (header) {
+      header.setAttribute("aria-sort", active && direction === "desc" ? "descending" : active ? "ascending" : "none");
+    }
+  });
+}
+
+function sortButtonLabel(button, active, direction) {
+  const label = button.textContent.trim();
+
+  if (!active) {
+    return `${label} aufsteigend sortieren`;
+  }
+
+  return direction === "asc"
+    ? `${label} absteigend sortieren`
+    : `${label} aufsteigend sortieren`;
 }
 
 function renderTours() {

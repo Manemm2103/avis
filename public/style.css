@@ -309,6 +309,12 @@ select:disabled {
   color: #7c2d12;
 }
 
+.notice.is-error {
+  border-left-color: var(--danger);
+  background: #fef2f2;
+  color: var(--danger);
+}
+
 .bulk-panel {
   margin-bottom: 14px;
   padding: 12px;
@@ -448,6 +454,10 @@ tbody tr:last-child td {
   padding: 28px 12px;
   color: var(--muted);
   text-align: center;
+}
+
+.empty.is-error {
+  color: var(--danger);
 }
 
 .masterdata-layout {

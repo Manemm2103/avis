@@ -43,6 +43,7 @@ const elements = {
   bulkNotify: document.querySelector("#bulk-notify"),
   bulkHint: document.querySelector("#bulk-hint"),
   demoNotice: document.querySelector("#demo-notice"),
+  sourceErrorNotice: document.querySelector("#source-error-notice"),
   drawer: document.querySelector("#order-drawer"),
   drawerClose: document.querySelector("#drawer-close"),
   manualOrderModal: document.querySelector("#manual-order-modal"),
@@ -325,12 +326,23 @@ async function loadOrders() {
     deliveryDate: state.deliveryDate,
     tour: state.tour
   });
-  const data = await api(`/api/orders?${params.toString()}`);
-  state.orders = data.orders;
-  elements.demoNotice.hidden = !data.usingDemoData;
-  renderStats(data.summary);
-  renderOrders();
-  renderBulkState();
+
+  try {
+    const data = await api(`/api/orders?${params.toString()}`);
+    state.orders = data.orders;
+    elements.demoNotice.hidden = !data.usingDemoData;
+    hideSourceError();
+    renderStats(data.summary);
+    renderOrders();
+    renderBulkState();
+  } catch (error) {
+    state.orders = [];
+    elements.demoNotice.hidden = true;
+    showSourceError(error);
+    renderStats({ total: 0, open: 0, notified: 0 });
+    renderOrders(sourceErrorMessage(error));
+    renderBulkState();
+  }
 }
 
 async function loadDrivers() {
@@ -342,8 +354,14 @@ async function loadDrivers() {
 }
 
 async function loadTours() {
-  state.tours = await api("/api/tours");
-  renderTours();
+  try {
+    state.tours = await api("/api/tours");
+    renderTours();
+  } catch (error) {
+    state.tours = [];
+    renderTours();
+    showSourceError(error);
+  }
 }
 
 async function loadUsers() {
@@ -363,7 +381,12 @@ function renderStats(summary) {
   elements.stats.notified.textContent = summary.notified;
 }
 
-function renderOrders() {
+function renderOrders(errorMessage = "") {
+  if (errorMessage) {
+    elements.ordersBody.innerHTML = `<tr><td class="empty is-error" colspan="9">${escapeHtml(errorMessage)}</td></tr>`;
+    return;
+  }
+
   if (state.orders.length === 0) {
     elements.ordersBody.innerHTML = `<tr><td class="empty" colspan="9">Keine Aufträge gefunden.</td></tr>`;
     return;
@@ -409,6 +432,20 @@ function renderTours() {
       <option value="${escapeHtml(tour)}">${escapeHtml(tour)}</option>
     `)
   ].join("");
+}
+
+function showSourceError(error) {
+  elements.sourceErrorNotice.textContent = sourceErrorMessage(error);
+  elements.sourceErrorNotice.hidden = false;
+}
+
+function hideSourceError() {
+  elements.sourceErrorNotice.hidden = true;
+  elements.sourceErrorNotice.textContent = "";
+}
+
+function sourceErrorMessage(error) {
+  return `MS-SQL-Verbindung fehlgeschlagen: ${error.message}`;
 }
 
 function renderDrivers() {

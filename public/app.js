@@ -8,6 +8,7 @@ const state = {
   orders: [],
   drivers: [],
   tours: [],
+  filterTours: [],
   users: [],
   sqlSettings: null,
   sort: {
@@ -39,6 +40,7 @@ const elements = {
   searchInput: document.querySelector("#search-input"),
   filterDate: document.querySelector("#filter-date"),
   filterTour: document.querySelector("#filter-tour"),
+  clearFiltersButton: document.querySelector("#clear-filters-button"),
   refreshButton: document.querySelector("#refresh-button"),
   newOrderButton: document.querySelector("#new-order-button"),
   bulkCount: document.querySelector("#bulk-count"),
@@ -131,12 +133,14 @@ function bindEvents() {
   elements.refreshButton.addEventListener("click", loadOrders);
   elements.filterDate.addEventListener("change", () => {
     state.deliveryDate = elements.filterDate.value;
+    state.tour = "";
     loadOrders();
   });
   elements.filterTour.addEventListener("change", () => {
     state.tour = elements.filterTour.value;
     loadOrders();
   });
+  elements.clearFiltersButton.addEventListener("click", clearFilters);
   elements.newOrderButton.addEventListener("click", openManualOrderModal);
   elements.bulkSave.addEventListener("click", () => applyBulk(false));
   elements.bulkNotify.addEventListener("click", () => applyBulk(true));
@@ -303,6 +307,17 @@ function setOrderSort(key) {
   state.sort.direction = "asc";
 }
 
+function clearFilters() {
+  setStatusFilter("all");
+  state.search = "";
+  state.deliveryDate = "";
+  state.tour = "";
+  elements.searchInput.value = "";
+  elements.filterDate.value = "";
+  elements.filterTour.value = "";
+  loadOrders();
+}
+
 function showLogin(message = "") {
   elements.appShell.hidden = true;
   elements.loginView.hidden = false;
@@ -352,6 +367,13 @@ async function loadOrders() {
   try {
     const data = await api(`/api/orders?${params.toString()}`);
     state.orders = data.orders;
+    const tourWasCleared = updateFilterTours(data.availableTours || []);
+
+    if (tourWasCleared) {
+      await loadOrders();
+      return;
+    }
+
     elements.demoNotice.hidden = !data.usingDemoData;
     hideSourceError();
     renderStats(data.summary);
@@ -359,6 +381,7 @@ async function loadOrders() {
     renderBulkState();
   } catch (error) {
     state.orders = [];
+    updateFilterTours([]);
     elements.demoNotice.hidden = true;
     showSourceError(error);
     renderStats({ total: 0, open: 0, notified: 0 });
@@ -378,9 +401,11 @@ async function loadDrivers() {
 async function loadTours() {
   try {
     state.tours = await api("/api/tours");
+    state.filterTours = state.tours;
     renderTours();
   } catch (error) {
     state.tours = [];
+    state.filterTours = [];
     renderTours();
     showSourceError(error);
   }
@@ -539,7 +564,7 @@ function sortButtonLabel(button, active, direction) {
 function renderTours() {
   elements.filterTour.innerHTML = [
     `<option value="">Alle Touren</option>`,
-    ...state.tours.map((tour) => `
+    ...state.filterTours.map((tour) => `
       <option value="${escapeHtml(tour)}" ${tour === state.tour ? "selected" : ""}>${escapeHtml(tour)}</option>
     `)
   ].join("");
@@ -550,6 +575,19 @@ function renderTours() {
       <option value="${escapeHtml(tour)}">${escapeHtml(tour)}</option>
     `)
   ].join("");
+}
+
+function updateFilterTours(tours) {
+  state.filterTours = tours;
+
+  if (state.tour && !state.filterTours.includes(state.tour)) {
+    state.tour = "";
+    renderTours();
+    return true;
+  }
+
+  renderTours();
+  return false;
 }
 
 function showSourceError(error) {

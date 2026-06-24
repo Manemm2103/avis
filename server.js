@@ -106,40 +106,16 @@ app.patch("/api/sql-settings", requireSuperuser, async (request, response) => {
 app.get("/api/orders", async (request, response) => {
   try {
     const source = await loadSourceOrders();
-    const drivers = await store.listDriverPhones();
-    const driverMap = new Map(drivers.map((driver) => [driver.id, driver]));
-    const status = String(request.query.status || "all");
-    const search = String(request.query.search || "").trim().toLowerCase();
-    const deliveryDate = String(request.query.deliveryDate || "").trim();
-    const tour = String(request.query.tour || "").trim();
-
-    const allOrders = source.orders.map((order) => mergeOrder(order, store.getAvis(order.orderNumber), driverMap));
-    let orders = allOrders;
-
-    if (status === "open") {
-      orders = orders.filter((order) => !order.avis.notified);
-    }
-
-    if (status === "notified") {
-      orders = orders.filter((order) => order.avis.notified);
-    }
-
-    if (search) {
-      orders = orders.filter((order) => orderMatchesSearch(order, search));
-    }
-
-    if (deliveryDate) {
-      orders = orders.filter((order) => order.displayDeliveryDate === deliveryDate);
-    }
-
-    if (tour) {
-      orders = orders.filter((order) => order.tour === tour);
-    }
+    const allOrders = await loadMergedOrders(source.orders);
+    const filters = readOrderFilters(request.query);
+    const ordersBeforeTourFilter = applyOrderFilters(allOrders, filters, { includeTour: false });
+    const orders = applyOrderFilters(ordersBeforeTourFilter, filters, { includeTour: true });
 
     response.json({
       usingDemoData: source.usingDemoData,
       orders,
-      summary: createSummary(allOrders)
+      summary: createSummary(allOrders),
+      availableTours: uniqueTours(ordersBeforeTourFilter)
     });
   } catch (error) {
     response.status(500).json({
@@ -330,6 +306,13 @@ async function loadSourceOrders() {
   };
 }
 
+async function loadMergedOrders(sourceOrders) {
+  const drivers = await store.listDriverPhones();
+  const driverMap = new Map(drivers.map((driver) => [driver.id, driver]));
+
+  return sourceOrders.map((order) => mergeOrder(order, store.getAvis(order.orderNumber), driverMap));
+}
+
 async function loadTours() {
   const source = await loadSourceOrders();
   const mssqlConfig = effectiveMssqlConfig();
@@ -432,6 +415,46 @@ function createSummary(orders) {
     notified,
     open: orders.length - notified
   };
+}
+
+function readOrderFilters(query) {
+  return {
+    status: String(query.status || "all"),
+    search: String(query.search || "").trim().toLowerCase(),
+    deliveryDate: String(query.deliveryDate || "").trim(),
+    tour: String(query.tour || "").trim()
+  };
+}
+
+function applyOrderFilters(orders, filters, options = {}) {
+  let result = orders;
+
+  if (filters.status === "open") {
+    result = result.filter((order) => !order.avis.notified);
+  }
+
+  if (filters.status === "notified") {
+    result = result.filter((order) => order.avis.notified);
+  }
+
+  if (filters.search) {
+    result = result.filter((order) => orderMatchesSearch(order, filters.search));
+  }
+
+  if (filters.deliveryDate) {
+    result = result.filter((order) => order.displayDeliveryDate === filters.deliveryDate);
+  }
+
+  if (options.includeTour && filters.tour) {
+    result = result.filter((order) => order.tour === filters.tour);
+  }
+
+  return result;
+}
+
+function uniqueTours(orders) {
+  return [...new Set(orders.map((order) => order.tour).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "de"));
 }
 
 function orderMatchesSearch(order, search) {

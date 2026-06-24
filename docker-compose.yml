@@ -1,0 +1,39 @@
+services:
+  avis:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: avis
+    restart: unless-stopped
+    ports:
+      - "${AVIS_HTTP_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      AVIS_DATA_FILE: /data/avis.json
+      AVIS_DEFAULT_ADMIN_USER: ${AVIS_DEFAULT_ADMIN_USER:-admin}
+      AVIS_DEFAULT_ADMIN_PASSWORD: ${AVIS_DEFAULT_ADMIN_PASSWORD:-admin}
+      MSSQL_HOST: ${MSSQL_HOST:-}
+      MSSQL_PORT: ${MSSQL_PORT:-1433}
+      MSSQL_DATABASE: ${MSSQL_DATABASE:-}
+      MSSQL_USER: ${MSSQL_USER:-}
+      MSSQL_PASSWORD: ${MSSQL_PASSWORD:-}
+      MSSQL_ENCRYPT: ${MSSQL_ENCRYPT:-false}
+      MSSQL_TRUST_SERVER_CERTIFICATE: ${MSSQL_TRUST_SERVER_CERTIFICATE:-true}
+      MSSQL_QUERY: ${MSSQL_QUERY:-}
+      MSSQL_QUERY_FILE: ${MSSQL_QUERY_FILE:-}
+      MSSQL_TOURS_QUERY: ${MSSQL_TOURS_QUERY:-}
+      MSSQL_TOURS_QUERY_FILE: ${MSSQL_TOURS_QUERY_FILE:-}
+    volumes:
+      - avis-data:/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  avis-data:

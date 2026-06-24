@@ -302,6 +302,50 @@ export class LocalStore {
     return next;
   }
 
+  async deleteDriverPhone(id, actor) {
+    const index = this.state.driverPhones.findIndex((driver) => driver.id === id);
+
+    if (index === -1) {
+      throw new Error("Fahrertelefon nicht gefunden.");
+    }
+
+    const [deleted] = this.state.driverPhones.splice(index, 1);
+    const now = new Date().toISOString();
+    const actorName = actor?.displayName || actor?.username || "Unbekannt";
+    let clearedOrders = 0;
+
+    for (const [orderNumber, avis] of Object.entries(this.state.avisByOrder)) {
+      if (avis?.driverPhoneId !== id) {
+        continue;
+      }
+
+      this.state.avisByOrder[orderNumber] = {
+        ...avis,
+        driverPhoneId: "",
+        log: [
+          ...(avis.log || []),
+          {
+            id: crypto.randomUUID(),
+            type: "fahrertelefon_geloescht",
+            at: now,
+            by: actorName,
+            byUserId: actor?.id || ""
+          }
+        ],
+        updatedAt: now,
+        updatedBy: actorName,
+        updatedByUserId: actor?.id || ""
+      };
+      clearedOrders += 1;
+    }
+
+    await this.save();
+    return {
+      deleted,
+      clearedOrders
+    };
+  }
+
   getSqlSettings(defaults = {}) {
     return {
       ordersQuery: this.state.sqlSettings.ordersQuery || defaults.ordersQuery || "",

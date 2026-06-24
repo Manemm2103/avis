@@ -61,6 +61,11 @@ const elements = {
   confirmAccept: document.querySelector("#confirm-accept"),
   orderForm: document.querySelector("#order-form"),
   driverForm: document.querySelector("#driver-form"),
+  driverId: document.querySelector("#driver-id"),
+  driverLabel: document.querySelector("#driver-label"),
+  driverPhone: document.querySelector("#driver-phone"),
+  driverSubmit: document.querySelector("#driver-submit"),
+  driverCancel: document.querySelector("#driver-cancel"),
   manualOrderForm: document.querySelector("#manual-order-form"),
   manualTour: document.querySelector("#manual-tour"),
   manualDriver: document.querySelector("#manual-driver"),
@@ -151,7 +156,8 @@ function bindEvents() {
   elements.confirmCancel.addEventListener("click", () => closeConfirm(false));
   elements.confirmAccept.addEventListener("click", () => closeConfirm(true));
   elements.orderForm.addEventListener("submit", saveSelectedOrder);
-  elements.driverForm.addEventListener("submit", createDriverPhone);
+  elements.driverForm.addEventListener("submit", saveDriverPhone);
+  elements.driverCancel.addEventListener("click", resetDriverForm);
   elements.manualOrderForm.addEventListener("submit", createLocalOrder);
   elements.csvImportForm.addEventListener("submit", importCsvOrders);
   elements.sqlSettingsForm.addEventListener("submit", saveSqlSettings);
@@ -199,17 +205,20 @@ function bindEvents() {
   });
 
   elements.driversBody.addEventListener("click", async (event) => {
-    const button = event.target.closest("[data-archive-driver]");
+    const editButton = event.target.closest("[data-edit-driver]");
 
-    if (!button) {
+    if (editButton) {
+      editDriverPhone(editButton.dataset.editDriver);
       return;
     }
 
-    await api(`/api/driver-phones/${encodeURIComponent(button.dataset.archiveDriver)}`, {
-      method: "DELETE"
-    });
-    await loadDrivers();
-    showToast("Fahrertelefon archiviert.");
+    const deleteButton = event.target.closest("[data-delete-driver]");
+
+    if (!deleteButton) {
+      return;
+    }
+
+    await deleteDriverPhone(deleteButton.dataset.deleteDriver);
   });
 
   elements.usersBody.addEventListener("click", async (event) => {
@@ -393,6 +402,7 @@ async function loadOrders() {
 async function loadDrivers() {
   state.drivers = await api("/api/driver-phones");
   renderDrivers();
+  resetDriverForm();
   renderDriverOptions(elements.drawerFields.driver);
   renderDriverOptions(elements.bulkDriver);
   renderDriverOptions(elements.manualDriver);
@@ -616,7 +626,10 @@ function renderDrivers() {
       <td>${escapeHtml(driver.phone)}</td>
       <td>${driver.active ? "Ja" : "Nein"}</td>
       <td>
-        ${driver.active ? `<button class="secondary small" data-archive-driver="${escapeHtml(driver.id)}" type="button">Archivieren</button>` : ""}
+        <div class="row-actions">
+          <button class="secondary small" data-edit-driver="${escapeHtml(driver.id)}" type="button">Bearbeiten</button>
+          <button class="secondary danger small" data-delete-driver="${escapeHtml(driver.id)}" type="button">Löschen</button>
+        </div>
       </td>
     </tr>
   `).join("");
@@ -727,7 +740,7 @@ function renderOrderLog(order) {
 
   elements.log.list.innerHTML = entries.map((entry) => `
     <div class="log-entry">
-      <strong>${escapeHtml(entry.type === "avisiert" ? "Avisiert" : "Gespeichert")}</strong>
+      <strong>${escapeHtml(logTypeLabel(entry.type))}</strong>
       <span>${escapeHtml(formatDateTime(entry.at))}</span>
       <span>${escapeHtml(entry.by || "-")}</span>
     </div>
@@ -842,12 +855,14 @@ function closeConfirm(confirmed) {
   }
 }
 
-async function createDriverPhone(event) {
+async function saveDriverPhone(event) {
   event.preventDefault();
   const form = new FormData(elements.driverForm);
+  const driverId = String(form.get("id") || "").trim();
+  const url = driverId ? `/api/driver-phones/${encodeURIComponent(driverId)}` : "/api/driver-phones";
 
-  await api("/api/driver-phones", {
-    method: "POST",
+  await api(url, {
+    method: driverId ? "PATCH" : "POST",
     body: JSON.stringify({
       label: form.get("label"),
       phone: form.get("phone"),
@@ -855,9 +870,53 @@ async function createDriverPhone(event) {
     })
   });
 
-  elements.driverForm.reset();
   await loadDrivers();
-  showToast("Fahrertelefon gespeichert.");
+  showToast(driverId ? "Fahrertelefon geändert." : "Fahrertelefon gespeichert.");
+}
+
+function editDriverPhone(driverId) {
+  const driver = state.drivers.find((item) => item.id === driverId);
+
+  if (!driver) {
+    return;
+  }
+
+  elements.driverId.value = driver.id;
+  elements.driverLabel.value = driver.label;
+  elements.driverPhone.value = driver.phone;
+  elements.driverSubmit.textContent = "Fahrertelefon speichern";
+  elements.driverCancel.hidden = false;
+  elements.driverLabel.focus();
+}
+
+function resetDriverForm() {
+  elements.driverForm.reset();
+  elements.driverId.value = "";
+  elements.driverSubmit.textContent = "Fahrertelefon anlegen";
+  elements.driverCancel.hidden = true;
+}
+
+async function deleteDriverPhone(driverId) {
+  const driver = state.drivers.find((item) => item.id === driverId);
+
+  if (!driver) {
+    return;
+  }
+
+  const confirmed = await requestConfirm(`Fahrertelefon "${driver.label} - ${driver.phone}" wirklich löschen? Die Zuordnung wird aus allen Aufträgen entfernt.`);
+
+  if (!confirmed) {
+    showToast("Löschen abgebrochen.");
+    return;
+  }
+
+  const result = await api(`/api/driver-phones/${encodeURIComponent(driverId)}`, {
+    method: "DELETE"
+  });
+
+  await loadDrivers();
+  await loadOrders();
+  showToast(`Fahrertelefon gelöscht. ${result.clearedOrders || 0} Aufträge bereinigt.`);
 }
 
 async function createLocalOrder(event) {
@@ -1228,6 +1287,18 @@ function formatAudit(at, by) {
   }
 
   return `${formatDateTime(at)} von ${by || "-"}`;
+}
+
+function logTypeLabel(type) {
+  if (type === "avisiert") {
+    return "Avisiert";
+  }
+
+  if (type === "fahrertelefon_geloescht") {
+    return "Fahrertelefon gelöscht";
+  }
+
+  return "Gespeichert";
 }
 
 function escapeHtml(value) {

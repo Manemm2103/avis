@@ -271,11 +271,11 @@ app.patch("/api/driver-phones/:id", requireAdmin, async (request, response) => {
 
 app.delete("/api/driver-phones/:id", requireAdmin, async (request, response) => {
   try {
-    const driver = await store.updateDriverPhone(request.params.id, { active: false });
-    response.json(driver);
+    const result = await store.deleteDriverPhone(request.params.id, request.user);
+    response.json(result);
   } catch (error) {
     response.status(400).json({
-      error: "DRIVER_ARCHIVE_FAILED",
+      error: "DRIVER_DELETE_FAILED",
       message: error.message
     });
   }

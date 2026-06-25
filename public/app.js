@@ -124,6 +124,9 @@ const elements = {
     contact: document.querySelector("#drawer-contact"),
     tour: document.querySelector("#drawer-tour"),
     deliveryDate: document.querySelector("#edit-delivery-date-display"),
+    deliveryDateReadonly: document.querySelector("#edit-delivery-date-readonly"),
+    deliveryDateEdit: document.querySelector("#edit-delivery-date-edit"),
+    deliveryDateInput: document.querySelector("#edit-delivery-date-input"),
     twoDayTour: document.querySelector("#edit-two-day-tour"),
     driver: document.querySelector("#edit-driver"),
     note: document.querySelector("#edit-note"),
@@ -952,7 +955,12 @@ function openDrawer(orderNumber) {
   elements.drawerFields.address.textContent = order.deliveryAddress || order.customerAddress || "-";
   elements.drawerFields.contact.textContent = [order.sourcePhone, order.sourceEmail].filter(Boolean).join(" / ") || "-";
   elements.drawerFields.tour.textContent = order.tour || "-";
-  elements.drawerFields.deliveryDate.textContent = formatDate(order.displayDeliveryDate || order.deliveryDate);
+  const deliveryDate = order.displayDeliveryDate || order.deliveryDate || "";
+  const canEditDeliveryDate = Boolean(order.canDelete);
+  elements.drawerFields.deliveryDate.textContent = formatDate(deliveryDate);
+  elements.drawerFields.deliveryDateInput.value = deliveryDate;
+  elements.drawerFields.deliveryDateReadonly.hidden = canEditDeliveryDate;
+  elements.drawerFields.deliveryDateEdit.hidden = !canEditDeliveryDate;
   elements.drawerFields.twoDayTour.checked = Boolean(order.avis.twoDayTour);
   elements.drawerFields.note.value = order.avis.note || "";
   elements.drawerFields.customerInfo.value = order.avis.customerInfo || "";
@@ -1010,15 +1018,21 @@ async function saveSelectedOrder(event) {
     return;
   }
 
+  const payload = {
+    driverPhoneId: elements.drawerFields.driver.value,
+    twoDayTour: elements.drawerFields.twoDayTour.checked,
+    note: elements.drawerFields.note.value,
+    customerInfo: elements.drawerFields.customerInfo.value,
+    notified: elements.drawerFields.notified.checked
+  };
+
+  if (state.selectedOrder.canDelete) {
+    payload.deliveryDate = elements.drawerFields.deliveryDateInput.value;
+  }
+
   await api(`/api/orders/${encodeURIComponent(state.selectedOrder.orderNumber)}`, {
     method: "PATCH",
-    body: JSON.stringify({
-      driverPhoneId: elements.drawerFields.driver.value,
-      twoDayTour: elements.drawerFields.twoDayTour.checked,
-      note: elements.drawerFields.note.value,
-      customerInfo: elements.drawerFields.customerInfo.value,
-      notified: elements.drawerFields.notified.checked
-    })
+    body: JSON.stringify(payload)
   });
 
   closeDrawer();

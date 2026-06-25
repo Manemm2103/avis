@@ -253,6 +253,11 @@ app.patch("/api/orders/:orderNumber", async (request, response) => {
   try {
     const orderNumber = normalizeRequiredText(request.params.orderNumber, "Auftrag");
     const update = sanitizeAvisUpdate(request.body);
+
+    if (Object.hasOwn(update, "deliveryDate") && !store.hasLocalOrder(orderNumber)) {
+      throw new Error("Liefertermin kann nur bei selbst angelegten oder importierten Auftraegen geaendert werden.");
+    }
+
     const saved = await store.updateAvis(orderNumber, update, request.user);
     response.json(saved);
   } catch (error) {
@@ -539,7 +544,7 @@ function sanitizeAvisUpdate(input) {
   const update = {};
 
   if (Object.hasOwn(input, "deliveryDate")) {
-    update.deliveryDate = text(input.deliveryDate);
+    update.deliveryDate = dateText(input.deliveryDate);
   }
 
   if (Object.hasOwn(input, "driverPhoneId")) {

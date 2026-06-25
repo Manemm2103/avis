@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AVIS</title>
-    <link rel="stylesheet" href="/style.css?v=20260625-kw-picker">
+    <link rel="stylesheet" href="/style.css?v=20260625-local-date-version">
   </head>
   <body>
     <section class="login-view" id="login-view">
@@ -307,6 +307,8 @@
           </div>
         </section>
       </main>
+
+      <footer class="app-footer">Version 2026.06.25.1</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -342,10 +344,15 @@
           </div>
         </div>
 
-        <div class="readonly-field">
+        <div class="readonly-field" id="edit-delivery-date-readonly">
           <span>Liefertermin</span>
           <strong class="readonly-value" id="edit-delivery-date-display">-</strong>
         </div>
+
+        <label id="edit-delivery-date-edit" hidden>
+          <span>Liefertermin</span>
+          <input id="edit-delivery-date-input" name="deliveryDate" type="date">
+        </label>
 
         <label class="checkbox">
           <input id="edit-two-day-tour" name="twoDayTour" type="checkbox">
@@ -459,6 +466,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260625-kw-picker" type="module"></script>
+    <script src="/app.js?v=20260625-local-date-version" type="module"></script>
   </body>
 </html>

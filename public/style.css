@@ -43,6 +43,8 @@ button {
 
 .app-shell {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .login-view {
@@ -76,7 +78,7 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 12px 28px;
+  padding: 8px 28px;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
 }
@@ -189,7 +191,15 @@ h2 {
 }
 
 main {
+  flex: 1;
   padding: 16px 28px 32px;
+}
+
+.app-footer {
+  padding: 8px 28px 12px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
 }
 
 .view {

@@ -126,13 +126,18 @@ app.get("/api/orders", async (request, response) => {
     const allOrders = await loadMergedOrders(source.orders);
     const filters = readOrderFilters(request.query);
     const ordersBeforeTourFilter = applyOrderFilters(allOrders, filters, { includeTour: false });
+    const ordersBeforeWeekFilter = applyOrderFilters(allOrders, filters, {
+      includeDeliveryWeek: false,
+      includeTour: true
+    });
     const orders = applyOrderFilters(ordersBeforeTourFilter, filters, { includeTour: true });
 
     response.json({
       usingDemoData: source.usingDemoData,
       orders,
       summary: createSummary(allOrders),
-      availableTours: uniqueTours(ordersBeforeTourFilter)
+      availableTours: uniqueTours(ordersBeforeTourFilter),
+      availableWeeks: uniqueWeeks(ordersBeforeWeekFilter)
     });
   } catch (error) {
     response.status(500).json({
@@ -489,7 +494,7 @@ function applyOrderFilters(orders, filters, options = {}) {
     result = result.filter((order) => order.displayDeliveryDate === filters.deliveryDate);
   }
 
-  if (filters.deliveryWeek) {
+  if (options.includeDeliveryWeek !== false && filters.deliveryWeek) {
     result = result.filter((order) => order.displayDeliveryWeek === filters.deliveryWeek);
   }
 
@@ -502,6 +507,11 @@ function applyOrderFilters(orders, filters, options = {}) {
 
 function uniqueTours(orders) {
   return [...new Set(orders.map((order) => order.tour).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "de"));
+}
+
+function uniqueWeeks(orders) {
+  return [...new Set(orders.map((order) => order.displayDeliveryWeek).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, "de"));
 }
 

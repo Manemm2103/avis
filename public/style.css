@@ -235,6 +235,81 @@ main {
   min-width: min(320px, 100%);
 }
 
+.week-control {
+  position: relative;
+}
+
+.week-toggle,
+.readonly-value {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 9px 10px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+}
+
+.week-toggle {
+  font-weight: 700;
+}
+
+.week-toggle.is-active {
+  border-color: var(--accent);
+}
+
+.week-popover {
+  position: absolute;
+  z-index: 15;
+  top: calc(100% + 6px);
+  left: 0;
+  width: min(340px, calc(100vw - 32px));
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 18px 40px rgba(31, 41, 51, 0.18);
+}
+
+.week-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.week-option {
+  min-height: 38px;
+  padding: 6px;
+  border-radius: 6px;
+  font-weight: 700;
+}
+
+.week-option small {
+  display: block;
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.week-option.is-active {
+  border-color: var(--accent);
+  background: #e6f3f1;
+  color: var(--accent-dark);
+}
+
+.readonly-field {
+  display: grid;
+  gap: 5px;
+}
+
+.readonly-value {
+  display: flex;
+  align-items: center;
+  background: var(--surface-strong);
+}
+
 label span,
 .label {
   display: block;

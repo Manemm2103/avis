@@ -10,6 +10,7 @@ const state = {
   drivers: [],
   tours: [],
   filterTours: [],
+  filterWeeks: [],
   users: [],
   sqlSettings: null,
   ldapSettings: null,
@@ -41,7 +42,9 @@ const elements = {
   usersBody: document.querySelector("#users-body"),
   searchInput: document.querySelector("#search-input"),
   filterDate: document.querySelector("#filter-date"),
-  filterWeek: document.querySelector("#filter-week"),
+  filterWeekButton: document.querySelector("#filter-week-button"),
+  filterWeekPopover: document.querySelector("#filter-week-popover"),
+  filterWeekList: document.querySelector("#filter-week-list"),
   filterTour: document.querySelector("#filter-tour"),
   clearFiltersButton: document.querySelector("#clear-filters-button"),
   refreshButton: document.querySelector("#refresh-button"),
@@ -115,7 +118,7 @@ const elements = {
     address: document.querySelector("#drawer-address"),
     contact: document.querySelector("#drawer-contact"),
     tour: document.querySelector("#drawer-tour"),
-    deliveryDate: document.querySelector("#edit-delivery-date"),
+    deliveryDate: document.querySelector("#edit-delivery-date-display"),
     driver: document.querySelector("#edit-driver"),
     note: document.querySelector("#edit-note"),
     customerInfo: document.querySelector("#edit-customer-info"),
@@ -157,16 +160,29 @@ function bindEvents() {
   elements.filterDate.addEventListener("change", () => {
     state.deliveryDate = elements.filterDate.value;
     state.deliveryWeek = "";
-    elements.filterWeek.value = "";
+    renderWeekPicker();
     state.tour = "";
     loadOrders();
   });
-  elements.filterWeek.addEventListener("change", () => {
-    state.deliveryWeek = elements.filterWeek.value;
-    state.deliveryDate = "";
-    elements.filterDate.value = "";
-    state.tour = "";
-    loadOrders();
+  elements.filterWeekButton.addEventListener("click", () => toggleWeekPicker());
+  elements.filterWeekList.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-week]");
+
+    if (!button) {
+      return;
+    }
+
+    selectWeekFilter(button.dataset.week || "");
+  });
+  document.addEventListener("click", (event) => {
+    if (!elements.filterWeekPopover.hidden && !event.target.closest(".week-control")) {
+      closeWeekPicker();
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeWeekPicker();
+    }
   });
   elements.filterTour.addEventListener("change", () => {
     state.tour = elements.filterTour.value;
@@ -353,7 +369,7 @@ function clearFilters() {
   state.tour = "";
   elements.searchInput.value = "";
   elements.filterDate.value = "";
-  elements.filterWeek.value = "";
+  renderWeekPicker();
   elements.filterTour.value = "";
   loadOrders();
 }
@@ -409,9 +425,10 @@ async function loadOrders() {
   try {
     const data = await api(`/api/orders?${params.toString()}`);
     state.orders = data.orders;
+    const weekWasCleared = updateFilterWeeks(data.availableWeeks || []);
     const tourWasCleared = updateFilterTours(data.availableTours || []);
 
-    if (tourWasCleared) {
+    if (weekWasCleared || tourWasCleared) {
       await loadOrders();
       return;
     }
@@ -423,6 +440,7 @@ async function loadOrders() {
     renderBulkState();
   } catch (error) {
     state.orders = [];
+    updateFilterWeeks([]);
     updateFilterTours([]);
     elements.demoNotice.hidden = true;
     showSourceError(error);
@@ -639,6 +657,54 @@ function renderTours() {
   ].join("");
 }
 
+function renderWeekPicker() {
+  elements.filterWeekButton.textContent = state.deliveryWeek ? formatWeek(state.deliveryWeek) : "Alle KW";
+  elements.filterWeekButton.classList.toggle("is-active", Boolean(state.deliveryWeek));
+
+  const weekButtons = [
+    `<button class="week-option ${state.deliveryWeek ? "" : "is-active"}" data-week="" type="button">Alle KW</button>`,
+    ...state.filterWeeks.map((week) => `
+      <button class="week-option ${week === state.deliveryWeek ? "is-active" : ""}" data-week="${escapeHtml(week)}" type="button">
+        <span>${escapeHtml(formatWeek(week))}</span>
+        <small>${escapeHtml(week.slice(0, 4))}</small>
+      </button>
+    `)
+  ];
+
+  elements.filterWeekList.innerHTML = weekButtons.join("");
+}
+
+function toggleWeekPicker() {
+  elements.filterWeekPopover.hidden = !elements.filterWeekPopover.hidden;
+}
+
+function closeWeekPicker() {
+  elements.filterWeekPopover.hidden = true;
+}
+
+function selectWeekFilter(week) {
+  state.deliveryWeek = week;
+  state.deliveryDate = "";
+  state.tour = "";
+  elements.filterDate.value = "";
+  closeWeekPicker();
+  renderWeekPicker();
+  loadOrders();
+}
+
+function updateFilterWeeks(weeks) {
+  state.filterWeeks = weeks;
+
+  if (state.deliveryWeek && !state.filterWeeks.includes(state.deliveryWeek)) {
+    state.deliveryWeek = "";
+    renderWeekPicker();
+    return true;
+  }
+
+  renderWeekPicker();
+  return false;
+}
+
 function updateFilterTours(tours) {
   state.filterTours = tours;
 
@@ -769,7 +835,7 @@ function openDrawer(orderNumber) {
   elements.drawerFields.address.textContent = order.deliveryAddress || order.customerAddress || "-";
   elements.drawerFields.contact.textContent = [order.sourcePhone, order.sourceEmail].filter(Boolean).join(" / ") || "-";
   elements.drawerFields.tour.textContent = order.tour || "-";
-  elements.drawerFields.deliveryDate.value = order.avis.deliveryDate || order.deliveryDate || "";
+  elements.drawerFields.deliveryDate.textContent = formatDate(order.displayDeliveryDate || order.deliveryDate);
   elements.drawerFields.note.value = order.avis.note || "";
   elements.drawerFields.customerInfo.value = order.avis.customerInfo || "";
   elements.drawerFields.notified.checked = order.avis.notified;
@@ -829,7 +895,6 @@ async function saveSelectedOrder(event) {
   await api(`/api/orders/${encodeURIComponent(state.selectedOrder.orderNumber)}`, {
     method: "PATCH",
     body: JSON.stringify({
-      deliveryDate: elements.drawerFields.deliveryDate.value,
       driverPhoneId: elements.drawerFields.driver.value,
       note: elements.drawerFields.note.value,
       customerInfo: elements.drawerFields.customerInfo.value,
@@ -1368,7 +1433,7 @@ function formatWeek(value) {
     return "-";
   }
 
-  return `KW ${match[2]}/${match[1]}`;
+  return `KW${match[2]}`;
 }
 
 function isoWeekValue(value) {

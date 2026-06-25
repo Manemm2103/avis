@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AVIS</title>
-    <link rel="stylesheet" href="/style.css?v=20260624-logo-left">
+    <link rel="stylesheet" href="/style.css?v=20260625-ldap">
   </head>
   <body>
     <section class="login-view" id="login-view">
@@ -180,6 +180,67 @@
             </form>
           </div>
 
+          <div class="masterdata-section" id="ldap-settings-section">
+            <h2>LDAPS-Anmeldung</h2>
+            <form id="ldap-settings-form" class="panel compact-grid">
+              <label class="checkbox wide-field">
+                <input id="ldap-enabled" name="enabled" type="checkbox">
+                <span>LDAPS-Anmeldung aktiv</span>
+              </label>
+              <label>
+                <span>Name</span>
+                <input id="ldap-name" name="name" placeholder="DC - Bayerwald">
+              </label>
+              <label>
+                <span>Host</span>
+                <input id="ldap-host" name="host" placeholder="ldap.example.local">
+              </label>
+              <label>
+                <span>Port</span>
+                <input id="ldap-port" name="port" type="number" min="1" max="65535" value="636">
+              </label>
+              <label>
+                <span>Benutzername-Attribut</span>
+                <input id="ldap-login-attribute" name="loginAttribute" value="sAMAccountName">
+              </label>
+              <label class="checkbox wide-field">
+                <input id="ldap-verify-certificate" name="verifyCertificate" type="checkbox" checked>
+                <span>SSL-Zertifikat überprüfen</span>
+              </label>
+              <label class="wide-field">
+                <span>LDAP-Server SSL-Zertifikat</span>
+                <textarea id="ldap-certificate" class="code-textarea" name="certificate" rows="8" spellcheck="false" placeholder="-----BEGIN CERTIFICATE-----"></textarea>
+              </label>
+              <label class="wide-field">
+                <span>Systemkonto DN</span>
+                <input id="ldap-bind-dn" name="bindDn" placeholder="CN=avis,OU=System,DC=bayerwald,DC=local">
+              </label>
+              <label class="wide-field">
+                <span>Systemkonto Kennwort</span>
+                <input id="ldap-bind-password" name="bindPassword" type="password" autocomplete="new-password">
+              </label>
+              <label class="wide-field">
+                <span>Basis-DN</span>
+                <input id="ldap-base-dn" name="baseDn" placeholder="DC=bayerwald,DC=local">
+              </label>
+              <label class="wide-field">
+                <span>Zusatzfilter</span>
+                <input id="ldap-user-filter" name="userFilter" placeholder="(objectClass=*)">
+              </label>
+              <label class="wide-field">
+                <span>Admin-Gruppe DN</span>
+                <input id="ldap-admin-group-dn" name="adminGroupDn" placeholder="CN=AVIS_Admin,OU=Apps,OU=Gruppen,DC=bayerwald,DC=local">
+              </label>
+              <label class="wide-field">
+                <span>Abteilungsleiter-Gruppe DN</span>
+                <input id="ldap-department-lead-group-dn" name="departmentLeadGroupDn" placeholder="CN=AVIS_Abteilungsleiter,OU=Apps,OU=Gruppen,DC=bayerwald,DC=local">
+              </label>
+              <div class="form-actions wide-field">
+                <button class="primary" type="submit">LDAPS speichern</button>
+              </div>
+            </form>
+          </div>
+
           <div class="masterdata-section">
             <h2>Benutzerverwaltung</h2>
             <div class="masterdata-layout">
@@ -202,7 +263,7 @@
                   <select id="user-role" name="role">
                     <option value="user">User</option>
                     <option value="admin">Admin</option>
-                    <option value="superuser">Superuser</option>
+                    <option value="superuser">Abteilungsleiter</option>
                   </select>
                 </label>
                 <label class="checkbox">
@@ -380,6 +441,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260624-logo-left" type="module"></script>
+    <script src="/app.js?v=20260625-ldap" type="module"></script>
   </body>
 </html>

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { loadConfig } from "./src/config.js";
 import { demoOrders } from "./src/demo-orders.js";
+import { authenticateWithLdap } from "./src/ldap-auth.js";
 import { LocalStore } from "./src/local-store.js";
 import { fetchOrdersFromMssql, fetchToursFromMssql, isMssqlConfigured } from "./src/mssql-source.js";
 
@@ -36,7 +37,7 @@ app.post("/api/auth/login", async (request, response) => {
   try {
     const username = normalizeRequiredText(request.body.username, "Benutzername");
     const password = normalizeRequiredText(request.body.password, "Passwort");
-    response.json(await store.login(username, password));
+    response.json(await loginUser(username, password));
   } catch (error) {
     response.status(401).json({
       error: "LOGIN_FAILED",
@@ -84,20 +85,36 @@ app.patch("/api/users/:id", requireAdmin, async (request, response) => {
   }
 });
 
-app.get("/api/sql-settings", requireSuperuser, (request, response) => {
+app.get("/api/sql-settings", requireFullAdmin, (request, response) => {
   response.json(store.getSqlSettings({
     ordersQuery: config.mssql.query,
     toursQuery: config.mssql.toursQuery
   }));
 });
 
-app.patch("/api/sql-settings", requireSuperuser, async (request, response) => {
+app.patch("/api/sql-settings", requireFullAdmin, async (request, response) => {
   try {
     const settings = await store.updateSqlSettings(sanitizeSqlSettings(request.body), request.user);
     response.json(settings);
   } catch (error) {
     response.status(400).json({
       error: "SQL_SETTINGS_SAVE_FAILED",
+      message: error.message
+    });
+  }
+});
+
+app.get("/api/ldap-settings", requireFullAdmin, (request, response) => {
+  response.json(store.getLdapSettings());
+});
+
+app.patch("/api/ldap-settings", requireFullAdmin, async (request, response) => {
+  try {
+    const settings = await store.updateLdapSettings(sanitizeLdapSettings(request.body), request.user);
+    response.json(settings);
+  } catch (error) {
+    response.status(400).json({
+      error: "LDAP_SETTINGS_SAVE_FAILED",
       message: error.message
     });
   }
@@ -288,6 +305,30 @@ app.get("*", (request, response) => {
 app.listen(config.port, () => {
   console.log(`AVIS listening on port ${config.port}`);
 });
+
+async function loginUser(username, password) {
+  let ldapError = null;
+  const ldapSettings = store.getLdapSettings();
+
+  if (ldapSettings.enabled) {
+    try {
+      const ldapUser = await authenticateWithLdap(ldapSettings, username, password);
+
+      if (ldapUser) {
+        const user = await store.upsertLdapUser(ldapUser);
+        return store.createSessionForUserId(user.id);
+      }
+    } catch (error) {
+      ldapError = error;
+    }
+  }
+
+  try {
+    return await store.login(username, password);
+  } catch (localError) {
+    throw ldapError || localError;
+  }
+}
 
 async function loadSourceOrders() {
   const source = await loadExternalOrders();
@@ -561,6 +602,41 @@ function sanitizeSqlSettings(input) {
   return settings;
 }
 
+function sanitizeLdapSettings(input) {
+  const settings = {};
+
+  if (Object.hasOwn(input, "enabled")) {
+    settings.enabled = Boolean(input.enabled);
+  }
+
+  for (const field of [
+    "name",
+    "host",
+    "bindDn",
+    "bindPassword",
+    "baseDn",
+    "userFilter",
+    "loginAttribute",
+    "adminGroupDn",
+    "departmentLeadGroupDn",
+    "certificate"
+  ]) {
+    if (Object.hasOwn(input, field)) {
+      settings[field] = text(input[field]);
+    }
+  }
+
+  if (Object.hasOwn(input, "port")) {
+    settings.port = number(input.port, 636);
+  }
+
+  if (Object.hasOwn(input, "verifyCertificate")) {
+    settings.verifyCertificate = Boolean(input.verifyCertificate);
+  }
+
+  return settings;
+}
+
 function sanitizeLocalOrder(input, origin) {
   return {
     orderNumber: normalizeRequiredText(input.orderNumber ?? input.ABNUMMER, "Auftragsnummer"),
@@ -654,11 +730,11 @@ function requireAdmin(request, response, next) {
   next();
 }
 
-function requireSuperuser(request, response, next) {
-  if (request.user?.role !== "superuser") {
+function requireFullAdmin(request, response, next) {
+  if (request.user?.role !== "admin") {
     response.status(403).json({
-      error: "SUPERUSER_REQUIRED",
-      message: "Nur Superuser duerfen SQL-Abfragen bearbeiten."
+      error: "ADMIN_REQUIRED",
+      message: "Nur Admins duerfen diesen Bereich nutzen."
     });
     return;
   }

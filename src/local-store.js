@@ -14,6 +14,23 @@ const EMPTY_STATE = {
     toursQuery: "",
     updatedAt: "",
     updatedBy: ""
+  },
+  ldapSettings: {
+    enabled: false,
+    name: "",
+    host: "",
+    port: 636,
+    verifyCertificate: true,
+    certificate: "",
+    bindDn: "",
+    bindPassword: "",
+    baseDn: "",
+    userFilter: "(objectClass=*)",
+    loginAttribute: "sAMAccountName",
+    adminGroupDn: "",
+    departmentLeadGroupDn: "",
+    updatedAt: "",
+    updatedBy: ""
   }
 };
 
@@ -58,6 +75,10 @@ export class LocalStore {
       updatedAt: "",
       updatedBy: ""
     };
+    this.state.ldapSettings = {
+      ...structuredClone(EMPTY_STATE.ldapSettings),
+      ...(this.state.ldapSettings || {})
+    };
 
     for (const avis of Object.values(this.state.avisByOrder)) {
       avis.log ||= [];
@@ -70,8 +91,8 @@ export class LocalStore {
     if (this.state.users.length > 0) {
       const defaultUser = this.state.users.find((user) => user.username.toLowerCase() === normalizedUsername);
 
-      if (defaultUser && defaultUser.role === ROLE_ADMIN) {
-        defaultUser.role = ROLE_SUPERUSER;
+      if (defaultUser && defaultUser.role === ROLE_SUPERUSER) {
+        defaultUser.role = ROLE_ADMIN;
         defaultUser.updatedAt = new Date().toISOString();
         await this.save();
       }
@@ -83,7 +104,7 @@ export class LocalStore {
       id: crypto.randomUUID(),
       username: normalizedUsername,
       displayName: username,
-      role: ROLE_SUPERUSER,
+      role: ROLE_ADMIN,
       active: true,
       passwordHash: hashPassword(password),
       createdAt: new Date().toISOString(),
@@ -181,6 +202,16 @@ export class LocalStore {
       throw new Error("Benutzername oder Passwort ist falsch.");
     }
 
+    return this.createSessionForUserId(user.id);
+  }
+
+  async createSessionForUserId(userId) {
+    const user = this.state.users.find((item) => item.id === userId && item.active);
+
+    if (!user) {
+      throw new Error("Benutzer nicht gefunden oder inaktiv.");
+    }
+
     const token = crypto.randomBytes(32).toString("hex");
     const now = new Date().toISOString();
 
@@ -195,6 +226,48 @@ export class LocalStore {
       token,
       user: publicUser(user)
     };
+  }
+
+  async upsertLdapUser(input) {
+    const username = input.username.trim().toLowerCase();
+    const now = new Date().toISOString();
+    const index = this.state.users.findIndex((user) => user.username.toLowerCase() === username);
+
+    if (index === -1) {
+      const user = {
+        id: crypto.randomUUID(),
+        username,
+        displayName: input.displayName || username,
+        email: input.email || "",
+        role: input.role || ROLE_USER,
+        active: true,
+        authProvider: "ldap",
+        passwordHash: "",
+        createdAt: now,
+        updatedAt: now,
+        updatedBy: "LDAP"
+      };
+
+      this.state.users.push(user);
+      await this.save();
+      return publicUser(user);
+    }
+
+    const next = {
+      ...this.state.users[index],
+      displayName: input.displayName || this.state.users[index].displayName || username,
+      email: input.email || this.state.users[index].email || "",
+      role: input.role || this.state.users[index].role || ROLE_USER,
+      active: true,
+      authProvider: "ldap",
+      updatedAt: now,
+      updatedBy: "LDAP"
+    };
+
+    this.ensureAdminWouldRemain(next, this.state.users[index].id);
+    this.state.users[index] = next;
+    await this.save();
+    return publicUser(next);
   }
 
   getSession(token) {
@@ -367,6 +440,25 @@ export class LocalStore {
     return this.getSqlSettings();
   }
 
+  getLdapSettings() {
+    return {
+      ...structuredClone(EMPTY_STATE.ldapSettings),
+      ...(this.state.ldapSettings || {})
+    };
+  }
+
+  async updateLdapSettings(input, actor) {
+    this.state.ldapSettings = {
+      ...this.getLdapSettings(),
+      ...input,
+      updatedAt: new Date().toISOString(),
+      updatedBy: actor?.displayName || actor?.username || ""
+    };
+
+    await this.save();
+    return this.getLdapSettings();
+  }
+
   async listLocalOrders() {
     return [...this.state.localOrders].sort((a, b) => a.orderNumber.localeCompare(b.orderNumber, "de"));
   }
@@ -431,16 +523,10 @@ export class LocalStore {
 
   ensureAdminWouldRemain(nextUser, userId) {
     const users = this.state.users.map((user) => user.id === userId ? nextUser : user);
-    const activeAdmins = users.filter((user) => user.active !== false && canManageMasterdata(user.role));
+    const activeAdmins = users.filter((user) => user.active !== false && user.role === ROLE_ADMIN);
 
     if (activeAdmins.length === 0) {
       throw new Error("Mindestens ein aktiver Admin muss erhalten bleiben.");
-    }
-
-    const activeSuperusers = users.filter((user) => user.active !== false && user.role === ROLE_SUPERUSER);
-
-    if (activeSuperusers.length === 0) {
-      throw new Error("Mindestens ein aktiver Superuser muss erhalten bleiben.");
     }
   }
 
@@ -449,12 +535,12 @@ export class LocalStore {
       throw new Error("Nur Admins duerfen Benutzer verwalten.");
     }
 
-    const actorIsSuperuser = actor?.role === ROLE_SUPERUSER;
+    const actorIsAdmin = actor?.role === ROLE_ADMIN;
     const targetRole = input.role || existingUser?.role || ROLE_USER;
     const existingRole = existingUser?.role || "";
 
-    if (!actorIsSuperuser && (targetRole === ROLE_SUPERUSER || existingRole === ROLE_SUPERUSER)) {
-      throw new Error("Nur Superuser duerfen Superuser verwalten.");
+    if (!actorIsAdmin && (targetRole === ROLE_ADMIN || existingRole === ROLE_ADMIN)) {
+      throw new Error("Nur Admins duerfen Admins verwalten.");
     }
   }
 
@@ -472,6 +558,7 @@ function publicUser(user) {
     displayName: user.displayName || user.username,
     role: user.role || ROLE_USER,
     active: user.active !== false,
+    authProvider: user.authProvider || "local",
     createdAt: user.createdAt || "",
     updatedAt: user.updatedAt || ""
   };

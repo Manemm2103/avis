@@ -7,11 +7,12 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check src/config.js && node --check src/local-store.js && node --check src/mssql-source.js && node --check src/demo-orders.js && node --check public/app.js"
+    "check": "node --check server.js && node --check src/config.js && node --check src/local-store.js && node --check src/mssql-source.js && node --check src/ldap-auth.js && node --check src/demo-orders.js && node --check public/app.js"
   },
   "dependencies": {
     "dotenv": "^16.4.7",
     "express": "^4.18.3",
+    "ldapts": "^8.1.8",
     "mssql": "^11.0.1"
   }
 }

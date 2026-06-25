@@ -11,6 +11,7 @@ const state = {
   filterTours: [],
   users: [],
   sqlSettings: null,
+  ldapSettings: null,
   sort: {
     key: "",
     direction: "asc"
@@ -75,6 +76,21 @@ const elements = {
   sqlSettingsForm: document.querySelector("#sql-settings-form"),
   sqlOrdersQuery: document.querySelector("#sql-orders-query"),
   sqlToursQuery: document.querySelector("#sql-tours-query"),
+  ldapSection: document.querySelector("#ldap-settings-section"),
+  ldapSettingsForm: document.querySelector("#ldap-settings-form"),
+  ldapEnabled: document.querySelector("#ldap-enabled"),
+  ldapName: document.querySelector("#ldap-name"),
+  ldapHost: document.querySelector("#ldap-host"),
+  ldapPort: document.querySelector("#ldap-port"),
+  ldapVerifyCertificate: document.querySelector("#ldap-verify-certificate"),
+  ldapCertificate: document.querySelector("#ldap-certificate"),
+  ldapBindDn: document.querySelector("#ldap-bind-dn"),
+  ldapBindPassword: document.querySelector("#ldap-bind-password"),
+  ldapBaseDn: document.querySelector("#ldap-base-dn"),
+  ldapUserFilter: document.querySelector("#ldap-user-filter"),
+  ldapLoginAttribute: document.querySelector("#ldap-login-attribute"),
+  ldapAdminGroupDn: document.querySelector("#ldap-admin-group-dn"),
+  ldapDepartmentLeadGroupDn: document.querySelector("#ldap-department-lead-group-dn"),
   userForm: document.querySelector("#user-form"),
   userId: document.querySelector("#user-id"),
   userUsername: document.querySelector("#user-username"),
@@ -161,6 +177,7 @@ function bindEvents() {
   elements.manualOrderForm.addEventListener("submit", createLocalOrder);
   elements.csvImportForm.addEventListener("submit", importCsvOrders);
   elements.sqlSettingsForm.addEventListener("submit", saveSqlSettings);
+  elements.ldapSettingsForm.addEventListener("submit", saveLdapSettings);
   elements.userForm.addEventListener("submit", saveUser);
   elements.userCancel.addEventListener("click", resetUserForm);
   elements.markNotified.addEventListener("click", () => {
@@ -293,8 +310,9 @@ async function enterApp() {
     await loadUsers();
   }
 
-  if (isSuperuser()) {
+  if (isFullAdmin()) {
     await loadSqlSettings();
+    await loadLdapSettings();
   }
   await loadOrders();
 }
@@ -349,7 +367,8 @@ function showView(view) {
 function configureRoleUi() {
   const admin = isAdmin();
   elements.tabs.masterdata.hidden = !admin;
-  elements.sqlSection.hidden = !isSuperuser();
+  elements.sqlSection.hidden = !isFullAdmin();
+  elements.ldapSection.hidden = !isFullAdmin();
   renderUserRoleOptions();
 
   if (!admin) {
@@ -361,8 +380,8 @@ function isAdmin() {
   return ["admin", "superuser"].includes(state.currentUser?.role);
 }
 
-function isSuperuser() {
-  return state.currentUser?.role === "superuser";
+function isFullAdmin() {
+  return state.currentUser?.role === "admin";
 }
 
 async function loadOrders() {
@@ -430,6 +449,23 @@ async function loadSqlSettings() {
   state.sqlSettings = await api("/api/sql-settings");
   elements.sqlOrdersQuery.value = state.sqlSettings.ordersQuery || "";
   elements.sqlToursQuery.value = state.sqlSettings.toursQuery || "";
+}
+
+async function loadLdapSettings() {
+  state.ldapSettings = await api("/api/ldap-settings");
+  elements.ldapEnabled.checked = Boolean(state.ldapSettings.enabled);
+  elements.ldapName.value = state.ldapSettings.name || "";
+  elements.ldapHost.value = state.ldapSettings.host || "";
+  elements.ldapPort.value = state.ldapSettings.port || 636;
+  elements.ldapVerifyCertificate.checked = state.ldapSettings.verifyCertificate !== false;
+  elements.ldapCertificate.value = state.ldapSettings.certificate || "";
+  elements.ldapBindDn.value = state.ldapSettings.bindDn || "";
+  elements.ldapBindPassword.value = state.ldapSettings.bindPassword || "";
+  elements.ldapBaseDn.value = state.ldapSettings.baseDn || "";
+  elements.ldapUserFilter.value = state.ldapSettings.userFilter || "(objectClass=*)";
+  elements.ldapLoginAttribute.value = state.ldapSettings.loginAttribute || "sAMAccountName";
+  elements.ldapAdminGroupDn.value = state.ldapSettings.adminGroupDn || "";
+  elements.ldapDepartmentLeadGroupDn.value = state.ldapSettings.departmentLeadGroupDn || "";
 }
 
 function renderStats(summary) {
@@ -656,12 +692,12 @@ function renderUsers() {
 }
 
 function canEditUser(user) {
-  return isSuperuser() || user.role !== "superuser";
+  return isFullAdmin() || user.role !== "admin";
 }
 
 function roleLabel(role) {
   if (role === "superuser") {
-    return "Superuser";
+    return "Abteilungsleiter";
   }
 
   return role === "admin" ? "Admin" : "User";
@@ -980,8 +1016,8 @@ async function deleteLocalOrder(orderNumber) {
 async function saveSqlSettings(event) {
   event.preventDefault();
 
-  if (!isSuperuser()) {
-    showToast("Nur Superuser dürfen SQL-Abfragen speichern.");
+  if (!isFullAdmin()) {
+    showToast("Nur Admins dürfen SQL-Abfragen speichern.");
     return;
   }
 
@@ -997,6 +1033,37 @@ async function saveSqlSettings(event) {
   await loadTours();
   await loadOrders();
   showToast("SQL-Abfragen gespeichert.");
+}
+
+async function saveLdapSettings(event) {
+  event.preventDefault();
+
+  if (!isFullAdmin()) {
+    showToast("Nur Admins dürfen LDAPS-Einstellungen speichern.");
+    return;
+  }
+
+  await api("/api/ldap-settings", {
+    method: "PATCH",
+    body: JSON.stringify({
+      enabled: elements.ldapEnabled.checked,
+      name: elements.ldapName.value,
+      host: elements.ldapHost.value,
+      port: elements.ldapPort.value,
+      verifyCertificate: elements.ldapVerifyCertificate.checked,
+      certificate: elements.ldapCertificate.value,
+      bindDn: elements.ldapBindDn.value,
+      bindPassword: elements.ldapBindPassword.value,
+      baseDn: elements.ldapBaseDn.value,
+      userFilter: elements.ldapUserFilter.value,
+      loginAttribute: elements.ldapLoginAttribute.value,
+      adminGroupDn: elements.ldapAdminGroupDn.value,
+      departmentLeadGroupDn: elements.ldapDepartmentLeadGroupDn.value
+    })
+  });
+
+  await loadLdapSettings();
+  showToast("LDAPS-Einstellungen gespeichert.");
 }
 
 async function saveUser(event) {
@@ -1078,9 +1145,13 @@ function renderUserRoleOptions(selectedRole = elements.userRole?.value || "user"
 
   const roles = [
     ["user", "User"],
-    ["admin", "Admin"],
-    ...(isSuperuser() ? [["superuser", "Superuser"]] : [])
+    ["superuser", "Abteilungsleiter"],
+    ...(isFullAdmin() ? [["admin", "Admin"]] : [])
   ];
+
+  if (!isFullAdmin() && selectedRole === "admin") {
+    selectedRole = "user";
+  }
 
   elements.userRole.innerHTML = roles.map(([value, label]) => `
     <option value="${value}" ${value === selectedRole ? "selected" : ""}>${label}</option>

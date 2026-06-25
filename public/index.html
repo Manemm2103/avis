@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AVIS</title>
-    <link rel="stylesheet" href="/style.css?v=20260625-ldap">
+    <link rel="stylesheet" href="/style.css?v=20260625-kw-ldap">
   </head>
   <body>
     <section class="login-view" id="login-view">
@@ -63,6 +63,10 @@
               <span>Liefertag</span>
               <input id="filter-date" type="date">
             </label>
+            <label class="filter-control">
+              <span>KW</span>
+              <input id="filter-week" type="week">
+            </label>
             <label class="filter-control wide">
               <span>Tour</span>
               <select id="filter-tour">
@@ -119,6 +123,7 @@
                   <th aria-sort="none"><button class="sort-button" data-sort="customer" type="button">Kunde <span class="sort-indicator" aria-hidden="true"></span></button></th>
                   <th aria-sort="none"><button class="sort-button" data-sort="commission" type="button">Kommission <span class="sort-indicator" aria-hidden="true"></span></button></th>
                   <th aria-sort="none"><button class="sort-button" data-sort="deliveryDate" type="button">Liefertermin <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                  <th aria-sort="none"><button class="sort-button" data-sort="deliveryWeek" type="button">KW <span class="sort-indicator" aria-hidden="true"></span></button></th>
                   <th aria-sort="none"><button class="sort-button" data-sort="tour" type="button">Tour <span class="sort-indicator" aria-hidden="true"></span></button></th>
                   <th aria-sort="none"><button class="sort-button" data-sort="contact" type="button">Kontakt <span class="sort-indicator" aria-hidden="true"></span></button></th>
                   <th></th>
@@ -441,6 +446,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260625-ldap" type="module"></script>
+    <script src="/app.js?v=20260625-kw-ldap" type="module"></script>
   </body>
 </html>

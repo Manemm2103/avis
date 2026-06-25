@@ -427,10 +427,12 @@ function normalizeOrder(row, origin = "mssql", canDelete = false) {
 
 function mergeOrder(order, avis, driverMap) {
   const driver = avis?.driverPhoneId ? driverMap.get(avis.driverPhoneId) : null;
+  const displayDeliveryDate = avis?.deliveryDate || order.deliveryDate;
 
   return {
     ...order,
-    displayDeliveryDate: avis?.deliveryDate || order.deliveryDate,
+    displayDeliveryDate,
+    displayDeliveryWeek: isoWeekText(displayDeliveryDate),
     displayTour: order.tour,
     avis: {
       deliveryDate: avis?.deliveryDate || "",
@@ -463,6 +465,7 @@ function readOrderFilters(query) {
     status: String(query.status || "all"),
     search: String(query.search || "").trim().toLowerCase(),
     deliveryDate: String(query.deliveryDate || "").trim(),
+    deliveryWeek: String(query.deliveryWeek || "").trim(),
     tour: String(query.tour || "").trim()
   };
 }
@@ -484,6 +487,10 @@ function applyOrderFilters(orders, filters, options = {}) {
 
   if (filters.deliveryDate) {
     result = result.filter((order) => order.displayDeliveryDate === filters.deliveryDate);
+  }
+
+  if (filters.deliveryWeek) {
+    result = result.filter((order) => order.displayDeliveryWeek === filters.deliveryWeek);
   }
 
   if (options.includeTour && filters.tour) {
@@ -771,6 +778,11 @@ function text(value) {
   return value === null || value === undefined ? "" : String(value).trim();
 }
 
+function number(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function dateText(value) {
   if (!value) {
     return "";
@@ -795,4 +807,28 @@ function dateText(value) {
   }
 
   return raw.slice(0, 10);
+}
+
+function isoWeekText(value) {
+  const isoDate = dateText(value);
+  const match = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (!match) {
+    return "";
+  }
+
+  const [, year, month, day] = match;
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const weekday = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - weekday);
+  const weekYear = date.getUTCFullYear();
+  const yearStart = new Date(Date.UTC(weekYear, 0, 1));
+  const week = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+
+  return `${weekYear}-W${String(week).padStart(2, "0")}`;
 }

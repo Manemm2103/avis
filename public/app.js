@@ -4,6 +4,7 @@ const state = {
   status: "open",
   search: "",
   deliveryDate: "",
+  deliveryWeek: "",
   tour: "",
   orders: [],
   drivers: [],
@@ -40,6 +41,7 @@ const elements = {
   usersBody: document.querySelector("#users-body"),
   searchInput: document.querySelector("#search-input"),
   filterDate: document.querySelector("#filter-date"),
+  filterWeek: document.querySelector("#filter-week"),
   filterTour: document.querySelector("#filter-tour"),
   clearFiltersButton: document.querySelector("#clear-filters-button"),
   refreshButton: document.querySelector("#refresh-button"),
@@ -154,6 +156,15 @@ function bindEvents() {
   elements.refreshButton.addEventListener("click", loadOrders);
   elements.filterDate.addEventListener("change", () => {
     state.deliveryDate = elements.filterDate.value;
+    state.deliveryWeek = "";
+    elements.filterWeek.value = "";
+    state.tour = "";
+    loadOrders();
+  });
+  elements.filterWeek.addEventListener("change", () => {
+    state.deliveryWeek = elements.filterWeek.value;
+    state.deliveryDate = "";
+    elements.filterDate.value = "";
     state.tour = "";
     loadOrders();
   });
@@ -338,9 +349,11 @@ function clearFilters() {
   setStatusFilter("all");
   state.search = "";
   state.deliveryDate = "";
+  state.deliveryWeek = "";
   state.tour = "";
   elements.searchInput.value = "";
   elements.filterDate.value = "";
+  elements.filterWeek.value = "";
   elements.filterTour.value = "";
   loadOrders();
 }
@@ -389,6 +402,7 @@ async function loadOrders() {
     status: state.status,
     search: state.search,
     deliveryDate: state.deliveryDate,
+    deliveryWeek: state.deliveryWeek,
     tour: state.tour
   });
 
@@ -478,12 +492,12 @@ function renderOrders(errorMessage = "") {
   updateSortHeaders();
 
   if (errorMessage) {
-    elements.ordersBody.innerHTML = `<tr><td class="empty is-error" colspan="9">${escapeHtml(errorMessage)}</td></tr>`;
+    elements.ordersBody.innerHTML = `<tr><td class="empty is-error" colspan="10">${escapeHtml(errorMessage)}</td></tr>`;
     return;
   }
 
   if (state.orders.length === 0) {
-    elements.ordersBody.innerHTML = `<tr><td class="empty" colspan="9">Keine Aufträge gefunden.</td></tr>`;
+    elements.ordersBody.innerHTML = `<tr><td class="empty" colspan="10">Keine Aufträge gefunden.</td></tr>`;
     return;
   }
 
@@ -498,6 +512,7 @@ function renderOrders(errorMessage = "") {
       </td>
       <td>${escapeHtml(order.commission || "-")}</td>
       <td>${formatDate(order.displayDeliveryDate)}</td>
+      <td>${formatWeek(order.displayDeliveryWeek || isoWeekValue(order.displayDeliveryDate || order.deliveryDate))}</td>
       <td>${escapeHtml(order.displayTour || "-")}</td>
       <td>
         <span class="main-text">${escapeHtml(order.sourcePhone || "-")}</span>
@@ -557,6 +572,7 @@ function orderSortValue(order, key) {
     customer: `${order.customerName || ""} ${order.customerNumber || ""}`.trim(),
     commission: order.commission,
     deliveryDate: order.displayDeliveryDate || order.deliveryDate,
+    deliveryWeek: order.displayDeliveryWeek || isoWeekValue(order.displayDeliveryDate || order.deliveryDate),
     tour: order.displayTour || order.tour,
     contact: `${order.sourcePhone || ""} ${order.sourceEmail || ""}`.trim()
   };
@@ -1043,27 +1059,31 @@ async function saveLdapSettings(event) {
     return;
   }
 
-  await api("/api/ldap-settings", {
-    method: "PATCH",
-    body: JSON.stringify({
-      enabled: elements.ldapEnabled.checked,
-      name: elements.ldapName.value,
-      host: elements.ldapHost.value,
-      port: elements.ldapPort.value,
-      verifyCertificate: elements.ldapVerifyCertificate.checked,
-      certificate: elements.ldapCertificate.value,
-      bindDn: elements.ldapBindDn.value,
-      bindPassword: elements.ldapBindPassword.value,
-      baseDn: elements.ldapBaseDn.value,
-      userFilter: elements.ldapUserFilter.value,
-      loginAttribute: elements.ldapLoginAttribute.value,
-      adminGroupDn: elements.ldapAdminGroupDn.value,
-      departmentLeadGroupDn: elements.ldapDepartmentLeadGroupDn.value
-    })
-  });
+  try {
+    await api("/api/ldap-settings", {
+      method: "PATCH",
+      body: JSON.stringify({
+        enabled: elements.ldapEnabled.checked,
+        name: elements.ldapName.value,
+        host: elements.ldapHost.value,
+        port: elements.ldapPort.value,
+        verifyCertificate: elements.ldapVerifyCertificate.checked,
+        certificate: elements.ldapCertificate.value,
+        bindDn: elements.ldapBindDn.value,
+        bindPassword: elements.ldapBindPassword.value,
+        baseDn: elements.ldapBaseDn.value,
+        userFilter: elements.ldapUserFilter.value,
+        loginAttribute: elements.ldapLoginAttribute.value,
+        adminGroupDn: elements.ldapAdminGroupDn.value,
+        departmentLeadGroupDn: elements.ldapDepartmentLeadGroupDn.value
+      })
+    });
 
-  await loadLdapSettings();
-  showToast("LDAPS-Einstellungen gespeichert.");
+    await loadLdapSettings();
+    showToast("LDAPS-Einstellungen gespeichert.");
+  } catch (error) {
+    showToast(`LDAPS konnte nicht gespeichert werden: ${error.message}`);
+  }
 }
 
 async function saveUser(event) {
@@ -1339,6 +1359,39 @@ function formatDate(value) {
   }
 
   return new Intl.DateTimeFormat("de-DE").format(new Date(`${value}T00:00:00`));
+}
+
+function formatWeek(value) {
+  const match = String(value || "").match(/^(\d{4})-W(\d{2})$/);
+
+  if (!match) {
+    return "-";
+  }
+
+  return `KW ${match[2]}/${match[1]}`;
+}
+
+function isoWeekValue(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (!match) {
+    return "";
+  }
+
+  const [, year, month, day] = match;
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const weekday = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - weekday);
+  const weekYear = date.getUTCFullYear();
+  const yearStart = new Date(Date.UTC(weekYear, 0, 1));
+  const week = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+
+  return `${weekYear}-W${String(week).padStart(2, "0")}`;
 }
 
 function formatDateTime(value) {

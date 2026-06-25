@@ -18,6 +18,8 @@ const state = {
     key: "",
     direction: "asc"
   },
+  bulkSelectedOrderNumbers: new Set(),
+  bulkLastSelectedOrderNumber: "",
   selectedOrder: null,
   confirmResolve: null
 };
@@ -50,6 +52,8 @@ const elements = {
   refreshButton: document.querySelector("#refresh-button"),
   newOrderButton: document.querySelector("#new-order-button"),
   bulkCount: document.querySelector("#bulk-count"),
+  bulkSubline: document.querySelector("#bulk-subline"),
+  bulkClearSelection: document.querySelector("#bulk-clear-selection"),
   bulkDriver: document.querySelector("#bulk-driver"),
   bulkTwoDayTour: document.querySelector("#bulk-two-day-tour"),
   bulkSave: document.querySelector("#bulk-save"),
@@ -194,6 +198,7 @@ function bindEvents() {
   elements.newOrderButton.addEventListener("click", openManualOrderModal);
   elements.bulkSave.addEventListener("click", () => applyBulk(false));
   elements.bulkNotify.addEventListener("click", () => applyBulk(true));
+  elements.bulkClearSelection.addEventListener("click", clearBulkSelection);
   elements.bulkDriver.addEventListener("change", renderBulkState);
   elements.bulkTwoDayTour.addEventListener("change", renderBulkState);
   elements.drawerClose.addEventListener("click", closeDrawer);
@@ -244,11 +249,18 @@ function bindEvents() {
 
     const button = event.target.closest("[data-edit-order]");
 
-    if (!button) {
+    if (button) {
+      openDrawer(button.dataset.editOrder);
       return;
     }
 
-    openDrawer(button.dataset.editOrder);
+    const row = event.target.closest("[data-order-number]");
+
+    if (!row) {
+      return;
+    }
+
+    handleBulkRowSelection(event, row.dataset.orderNumber);
   });
 
   elements.driversBody.addEventListener("click", async (event) => {
@@ -428,6 +440,7 @@ async function loadOrders() {
   try {
     const data = await api(`/api/orders?${params.toString()}`);
     state.orders = data.orders;
+    reconcileBulkSelection();
     const weekWasCleared = updateFilterWeeks(data.availableWeeks || []);
     const tourWasCleared = updateFilterTours(data.availableTours || []);
 
@@ -443,6 +456,7 @@ async function loadOrders() {
     renderBulkState();
   } catch (error) {
     state.orders = [];
+    reconcileBulkSelection();
     updateFilterWeeks([]);
     updateFilterTours([]);
     elements.demoNotice.hidden = true;
@@ -522,34 +536,38 @@ function renderOrders(errorMessage = "") {
     return;
   }
 
-  elements.ordersBody.innerHTML = sortedOrders().map((order) => `
-    <tr>
-      <td>${statusBadge(order.avis.notified)}</td>
-      <td>${driverPhoneBadge(order.avis.driverPhoneId)}</td>
-      <td><strong>${escapeHtml(order.orderNumber)}</strong></td>
-      <td>
-        <span class="main-text">${escapeHtml(order.customerName || "-")}</span>
-        <span class="sub-text">${escapeHtml(order.customerNumber || "")}</span>
-      </td>
-      <td>${escapeHtml(order.commission || "-")}</td>
-      <td>
-        <span class="main-text">${formatDate(order.displayDeliveryDate)}</span>
-        ${order.avis.twoDayTour ? `<span class="sub-text two-day-text">2-Tagestour</span>` : ""}
-      </td>
-      <td>${formatWeek(order.displayDeliveryWeek || isoWeekValue(order.displayDeliveryDate || order.deliveryDate))}</td>
-      <td>${escapeHtml(order.displayTour || "-")}</td>
-      <td>
-        <span class="main-text">${escapeHtml(order.sourcePhone || "-")}</span>
-        <span class="sub-text">${escapeHtml(order.sourceEmail || "")}</span>
-      </td>
-      <td>
-        <div class="row-actions">
-          <button class="secondary small" data-edit-order="${escapeHtml(order.orderNumber)}" type="button">Bearbeiten</button>
-          ${isAdmin() && order.canDelete ? `<button class="secondary danger small" data-delete-order="${escapeHtml(order.orderNumber)}" type="button">Löschen</button>` : ""}
-        </div>
-      </td>
-    </tr>
-  `).join("");
+  elements.ordersBody.innerHTML = sortedOrders().map((order) => {
+    const selected = state.bulkSelectedOrderNumbers.has(order.orderNumber);
+
+    return `
+      <tr class="${selected ? "is-selected" : ""}" data-order-number="${escapeHtml(order.orderNumber)}" aria-selected="${selected ? "true" : "false"}">
+        <td>${statusBadge(order.avis.notified)}</td>
+        <td>${driverPhoneBadge(order.avis.driverPhoneId)}</td>
+        <td><strong>${escapeHtml(order.orderNumber)}</strong></td>
+        <td>
+          <span class="main-text">${escapeHtml(order.customerName || "-")}</span>
+          <span class="sub-text">${escapeHtml(order.customerNumber || "")}</span>
+        </td>
+        <td>${escapeHtml(order.commission || "-")}</td>
+        <td>
+          <span class="main-text">${formatDate(order.displayDeliveryDate)}</span>
+          ${order.avis.twoDayTour ? `<span class="sub-text two-day-text">2-Tagestour</span>` : ""}
+        </td>
+        <td>${formatWeek(order.displayDeliveryWeek || isoWeekValue(order.displayDeliveryDate || order.deliveryDate))}</td>
+        <td>${escapeHtml(order.displayTour || "-")}</td>
+        <td>
+          <span class="main-text">${escapeHtml(order.sourcePhone || "-")}</span>
+          <span class="sub-text">${escapeHtml(order.sourceEmail || "")}</span>
+        </td>
+        <td>
+          <div class="row-actions">
+            <button class="secondary small" data-edit-order="${escapeHtml(order.orderNumber)}" type="button">Bearbeiten</button>
+            ${isAdmin() && order.canDelete ? `<button class="secondary danger small" data-delete-order="${escapeHtml(order.orderNumber)}" type="button">Löschen</button>` : ""}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
 }
 
 function sortedOrders() {
@@ -617,6 +635,74 @@ function compareSortValues(left, right) {
 
 function isEmptySortValue(value) {
   return value === "" || value === null || value === undefined;
+}
+
+function visibleOrderNumbers() {
+  return sortedOrders().map((order) => order.orderNumber);
+}
+
+function selectedBulkOrderNumbers() {
+  const visible = new Set(state.orders.map((order) => order.orderNumber));
+  return [...state.bulkSelectedOrderNumbers].filter((orderNumber) => visible.has(orderNumber));
+}
+
+function bulkTargetOrderNumbers() {
+  const selected = selectedBulkOrderNumbers();
+  return selected.length > 0
+    ? selected
+    : state.orders.map((order) => order.orderNumber);
+}
+
+function reconcileBulkSelection() {
+  const visible = new Set(state.orders.map((order) => order.orderNumber));
+  state.bulkSelectedOrderNumbers = new Set([...state.bulkSelectedOrderNumbers].filter((orderNumber) => visible.has(orderNumber)));
+
+  if (state.bulkLastSelectedOrderNumber && !visible.has(state.bulkLastSelectedOrderNumber)) {
+    state.bulkLastSelectedOrderNumber = "";
+  }
+}
+
+function handleBulkRowSelection(event, orderNumber) {
+  const visible = visibleOrderNumbers();
+
+  if (!visible.includes(orderNumber)) {
+    return;
+  }
+
+  if (event.shiftKey && state.bulkLastSelectedOrderNumber && visible.includes(state.bulkLastSelectedOrderNumber)) {
+    const start = visible.indexOf(state.bulkLastSelectedOrderNumber);
+    const end = visible.indexOf(orderNumber);
+    const range = visible.slice(Math.min(start, end), Math.max(start, end) + 1);
+
+    if (!event.ctrlKey && !event.metaKey) {
+      state.bulkSelectedOrderNumbers = new Set();
+    }
+
+    for (const item of range) {
+      state.bulkSelectedOrderNumbers.add(item);
+    }
+  } else if (event.ctrlKey || event.metaKey) {
+    if (state.bulkSelectedOrderNumbers.has(orderNumber)) {
+      state.bulkSelectedOrderNumbers.delete(orderNumber);
+    } else {
+      state.bulkSelectedOrderNumbers.add(orderNumber);
+    }
+
+    state.bulkLastSelectedOrderNumber = orderNumber;
+  } else {
+    state.bulkSelectedOrderNumbers = new Set([orderNumber]);
+    state.bulkLastSelectedOrderNumber = orderNumber;
+  }
+
+  renderOrders();
+  renderBulkState();
+}
+
+function clearBulkSelection() {
+  state.bulkSelectedOrderNumbers.clear();
+  state.bulkLastSelectedOrderNumber = "";
+  renderOrders();
+  renderBulkState();
 }
 
 function updateSortHeaders() {
@@ -804,16 +890,23 @@ function renderDriverOptions(target, selectedId = "") {
 }
 
 function renderBulkState() {
-  const countLabel = state.orders.length === 1 ? "1 Auftrag" : `${state.orders.length} Aufträge`;
+  const selectedCount = selectedBulkOrderNumbers().length;
+  const targetOrderNumbers = bulkTargetOrderNumbers();
+  const targetCount = targetOrderNumbers.length;
+  const hasSelection = selectedCount > 0;
+  const countLabel = targetCount === 1 ? "1 Auftrag" : `${targetCount} Aufträge`;
+  const countVerb = hasSelection ? "markiert" : "gefiltert";
   const missing = [];
-  const hasOrders = state.orders.length > 0;
+  const hasOrders = targetCount > 0;
   const hasDriver = Boolean(elements.bulkDriver.value);
   const marksTwoDayTour = elements.bulkTwoDayTour.checked;
 
   elements.bulkCount.textContent = countLabel;
+  elements.bulkSubline.textContent = hasSelection ? "markiert" : "im aktuellen Filter";
+  elements.bulkClearSelection.hidden = !hasSelection;
 
   if (!hasOrders) {
-    missing.push("Aufträge im Filter");
+    missing.push(hasSelection ? "markierte Aufträge" : "Aufträge im Filter");
   }
 
   const saveReady = hasOrders && (hasDriver || marksTwoDayTour);
@@ -832,11 +925,17 @@ function renderBulkState() {
   }
 
   if (!notifyReady) {
-    elements.bulkHint.textContent = `Wird für alle Aufträge im Filter angewandt. Es wurden ${countLabel} gefiltert. Avisieren benötigt zusätzlich ein Fahrertelefon.`;
+    elements.bulkHint.textContent = `${bulkScopeLabel(hasSelection)} Es wurden ${countLabel} ${countVerb}. Avisieren benötigt zusätzlich ein Fahrertelefon.`;
     return;
   }
 
-  elements.bulkHint.textContent = `Wird für alle Aufträge im Filter angewandt. Es wurden ${countLabel} gefiltert.`;
+  elements.bulkHint.textContent = `${bulkScopeLabel(hasSelection)} Es wurden ${countLabel} ${countVerb}.`;
+}
+
+function bulkScopeLabel(hasSelection) {
+  return hasSelection
+    ? "Wird nur für die markierten Aufträge angewandt."
+    : "Wird für alle Aufträge im Filter angewandt.";
 }
 
 function openDrawer(orderNumber) {
@@ -930,9 +1029,11 @@ async function saveSelectedOrder(event) {
 async function applyBulk(notified) {
   const hasDriver = Boolean(elements.bulkDriver.value);
   const marksTwoDayTour = elements.bulkTwoDayTour.checked;
+  const targetOrderNumbers = bulkTargetOrderNumbers();
+  const hasSelection = selectedBulkOrderNumbers().length > 0;
 
-  if (state.orders.length === 0) {
-    showToast("Keine Aufträge im aktuellen Filter.");
+  if (targetOrderNumbers.length === 0) {
+    showToast(hasSelection ? "Keine markierten Aufträge." : "Keine Aufträge im aktuellen Filter.");
     return;
   }
 
@@ -948,14 +1049,15 @@ async function applyBulk(notified) {
 
   const driverLabel = selectedBulkDriverLabel();
   const action = notified ? "avisieren" : "speichern";
-  const recordLabel = state.orders.length === 1 ? "1 Datensatz" : `${state.orders.length} Datensätze`;
-  const isSingleRecord = state.orders.length === 1;
+  const recordLabel = targetOrderNumbers.length === 1 ? "1 Datensatz" : `${targetOrderNumbers.length} Datensätze`;
+  const isSingleRecord = targetOrderNumbers.length === 1;
+  const sourceLabel = hasSelection ? "aus der Markierung" : "aus der aktuell sichtbaren Liste";
   const changes = [
     hasDriver ? `Fahrertelefon "${driverLabel}" zugewiesen` : "",
     marksTwoDayTour ? "als 2-Tagestour markiert" : "",
     notified ? "als avisiert markiert" : ""
   ].filter(Boolean).join(" und ");
-  const confirmed = await requestConfirm(`${isSingleRecord ? "Soll" : "Sollen"} ${recordLabel} aus der aktuell sichtbaren Liste wirklich ${changes} werden?`);
+  const confirmed = await requestConfirm(`${isSingleRecord ? "Soll" : "Sollen"} ${recordLabel} ${sourceLabel} wirklich ${changes} werden?`);
 
   if (!confirmed) {
     showToast(`${action[0].toUpperCase()}${action.slice(1)} abgebrochen.`);
@@ -965,7 +1067,7 @@ async function applyBulk(notified) {
   const result = await api("/api/orders/bulk", {
     method: "PATCH",
     body: JSON.stringify({
-      orderNumbers: state.orders.map((order) => order.orderNumber),
+      orderNumbers: targetOrderNumbers,
       driverPhoneId: elements.bulkDriver.value,
       notified,
       twoDayTour: marksTwoDayTour

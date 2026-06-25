@@ -412,7 +412,7 @@ select:disabled {
 
 .bulk-bar {
   display: grid;
-  grid-template-columns: minmax(150px, auto) minmax(260px, 1fr) auto auto;
+  grid-template-columns: minmax(150px, auto) minmax(260px, 1fr) auto auto auto;
   gap: 12px;
   align-items: end;
 }
@@ -439,6 +439,13 @@ select:disabled {
 .bulk-driver {
   display: grid;
   gap: 5px;
+}
+
+.bulk-option {
+  min-height: 40px;
+  align-items: center;
+  margin-bottom: 0;
+  white-space: nowrap;
 }
 
 .bulk-hint {
@@ -536,6 +543,11 @@ tbody tr:last-child td {
   margin-top: 3px;
   color: var(--muted);
   font-size: 13px;
+}
+
+.two-day-text {
+  color: var(--danger);
+  font-weight: 800;
 }
 
 .badge {

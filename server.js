@@ -443,6 +443,7 @@ function mergeOrder(order, avis, driverMap) {
       deliveryDate: avis?.deliveryDate || "",
       driverPhoneId: avis?.driverPhoneId || "",
       driverPhoneLabel: driver ? `${driver.label} (${driver.phone})` : "",
+      twoDayTour: Boolean(avis?.twoDayTour),
       notified: Boolean(avis?.notified),
       notifiedAt: avis?.notifiedAt || "",
       notifiedBy: avis?.notifiedBy || "",
@@ -516,6 +517,10 @@ function uniqueWeeks(orders) {
 }
 
 function orderMatchesSearch(order, search) {
+  if (search === "2-tagestour") {
+    return Boolean(order.avis.twoDayTour);
+  }
+
   return [
     order.orderNumber,
     order.customerNumber,
@@ -525,7 +530,8 @@ function orderMatchesSearch(order, search) {
     order.deliveryAddress,
     order.tour,
     order.sourcePhone,
-    order.sourceEmail
+    order.sourceEmail,
+    order.avis.twoDayTour ? "2-Tagestour" : ""
   ].some((value) => String(value || "").toLowerCase().includes(search));
 }
 
@@ -538,6 +544,10 @@ function sanitizeAvisUpdate(input) {
 
   if (Object.hasOwn(input, "driverPhoneId")) {
     update.driverPhoneId = text(input.driverPhoneId);
+  }
+
+  if (Object.hasOwn(input, "twoDayTour")) {
+    update.twoDayTour = Boolean(input.twoDayTour);
   }
 
   if (Object.hasOwn(input, "notified")) {
@@ -565,14 +575,28 @@ function sanitizeBulkAvisUpdate(input) {
     throw new Error("Keine Auftraege fuer die Massenbearbeitung ausgewaehlt.");
   }
 
-  const driverPhoneId = normalizeRequiredText(input.driverPhoneId, "Fahrertelefon");
-  const values = {
-    driverPhoneId
-  };
+  const driverPhoneId = text(input.driverPhoneId);
+  const values = {};
+
+  if (driverPhoneId) {
+    values.driverPhoneId = driverPhoneId;
+  }
+
+  if (input.twoDayTour === true) {
+    values.twoDayTour = true;
+  }
 
   if (input.notified === true) {
+    if (!driverPhoneId) {
+      throw new Error("Fahrertelefon fehlt.");
+    }
+
     values.notified = true;
     values.notifiedAt = new Date().toISOString();
+  }
+
+  if (Object.keys(values).length === 0) {
+    throw new Error("Keine Aenderung fuer die Massenbearbeitung ausgewaehlt.");
   }
 
   return {

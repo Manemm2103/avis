@@ -51,6 +51,7 @@ const elements = {
   newOrderButton: document.querySelector("#new-order-button"),
   bulkCount: document.querySelector("#bulk-count"),
   bulkDriver: document.querySelector("#bulk-driver"),
+  bulkTwoDayTour: document.querySelector("#bulk-two-day-tour"),
   bulkSave: document.querySelector("#bulk-save"),
   bulkNotify: document.querySelector("#bulk-notify"),
   bulkHint: document.querySelector("#bulk-hint"),
@@ -119,6 +120,7 @@ const elements = {
     contact: document.querySelector("#drawer-contact"),
     tour: document.querySelector("#drawer-tour"),
     deliveryDate: document.querySelector("#edit-delivery-date-display"),
+    twoDayTour: document.querySelector("#edit-two-day-tour"),
     driver: document.querySelector("#edit-driver"),
     note: document.querySelector("#edit-note"),
     customerInfo: document.querySelector("#edit-customer-info"),
@@ -193,6 +195,7 @@ function bindEvents() {
   elements.bulkSave.addEventListener("click", () => applyBulk(false));
   elements.bulkNotify.addEventListener("click", () => applyBulk(true));
   elements.bulkDriver.addEventListener("change", renderBulkState);
+  elements.bulkTwoDayTour.addEventListener("change", renderBulkState);
   elements.drawerClose.addEventListener("click", closeDrawer);
   elements.manualOrderClose.addEventListener("click", closeManualOrderModal);
   elements.manualOrderCancel.addEventListener("click", closeManualOrderModal);
@@ -529,7 +532,10 @@ function renderOrders(errorMessage = "") {
         <span class="sub-text">${escapeHtml(order.customerNumber || "")}</span>
       </td>
       <td>${escapeHtml(order.commission || "-")}</td>
-      <td>${formatDate(order.displayDeliveryDate)}</td>
+      <td>
+        <span class="main-text">${formatDate(order.displayDeliveryDate)}</span>
+        ${order.avis.twoDayTour ? `<span class="sub-text two-day-text">2-Tagestour</span>` : ""}
+      </td>
       <td>${formatWeek(order.displayDeliveryWeek || isoWeekValue(order.displayDeliveryDate || order.deliveryDate))}</td>
       <td>${escapeHtml(order.displayTour || "-")}</td>
       <td>
@@ -800,25 +806,37 @@ function renderDriverOptions(target, selectedId = "") {
 function renderBulkState() {
   const countLabel = state.orders.length === 1 ? "1 Auftrag" : `${state.orders.length} Aufträge`;
   const missing = [];
+  const hasOrders = state.orders.length > 0;
+  const hasDriver = Boolean(elements.bulkDriver.value);
+  const marksTwoDayTour = elements.bulkTwoDayTour.checked;
 
   elements.bulkCount.textContent = countLabel;
 
-  if (state.orders.length === 0) {
+  if (!hasOrders) {
     missing.push("Aufträge im Filter");
   }
 
-  if (state.drivers.filter((driver) => driver.active).length === 0) {
-    missing.push("Fahrertelefon in Stammdaten");
-  } else if (!elements.bulkDriver.value) {
-    missing.push("Fahrertelefon");
+  const saveReady = hasOrders && (hasDriver || marksTwoDayTour);
+  const notifyReady = hasOrders && hasDriver;
+  elements.bulkSave.disabled = !saveReady;
+  elements.bulkNotify.disabled = !notifyReady;
+
+  if (missing.length > 0) {
+    elements.bulkHint.textContent = `Noch erforderlich: ${missing.join(", ")}.`;
+    return;
   }
 
-  const canBulk = missing.length === 0;
-  elements.bulkSave.disabled = !canBulk;
-  elements.bulkNotify.disabled = !canBulk;
-  elements.bulkHint.textContent = canBulk
-    ? `Wird für alle Aufträge im Filter angewandt. Es wurden ${countLabel} gefiltert.`
-    : `Noch erforderlich: ${missing.join(", ")}.`;
+  if (!saveReady) {
+    elements.bulkHint.textContent = "Für Nur speichern bitte Fahrertelefon auswählen oder 2-Tagestour markieren.";
+    return;
+  }
+
+  if (!notifyReady) {
+    elements.bulkHint.textContent = `Wird für alle Aufträge im Filter angewandt. Es wurden ${countLabel} gefiltert. Avisieren benötigt zusätzlich ein Fahrertelefon.`;
+    return;
+  }
+
+  elements.bulkHint.textContent = `Wird für alle Aufträge im Filter angewandt. Es wurden ${countLabel} gefiltert.`;
 }
 
 function openDrawer(orderNumber) {
@@ -836,6 +854,7 @@ function openDrawer(orderNumber) {
   elements.drawerFields.contact.textContent = [order.sourcePhone, order.sourceEmail].filter(Boolean).join(" / ") || "-";
   elements.drawerFields.tour.textContent = order.tour || "-";
   elements.drawerFields.deliveryDate.textContent = formatDate(order.displayDeliveryDate || order.deliveryDate);
+  elements.drawerFields.twoDayTour.checked = Boolean(order.avis.twoDayTour);
   elements.drawerFields.note.value = order.avis.note || "";
   elements.drawerFields.customerInfo.value = order.avis.customerInfo || "";
   elements.drawerFields.notified.checked = order.avis.notified;
@@ -896,6 +915,7 @@ async function saveSelectedOrder(event) {
     method: "PATCH",
     body: JSON.stringify({
       driverPhoneId: elements.drawerFields.driver.value,
+      twoDayTour: elements.drawerFields.twoDayTour.checked,
       note: elements.drawerFields.note.value,
       customerInfo: elements.drawerFields.customerInfo.value,
       notified: elements.drawerFields.notified.checked
@@ -908,13 +928,21 @@ async function saveSelectedOrder(event) {
 }
 
 async function applyBulk(notified) {
+  const hasDriver = Boolean(elements.bulkDriver.value);
+  const marksTwoDayTour = elements.bulkTwoDayTour.checked;
+
   if (state.orders.length === 0) {
     showToast("Keine Aufträge im aktuellen Filter.");
     return;
   }
 
-  if (!elements.bulkDriver.value) {
+  if (notified && !hasDriver) {
     showToast("Bitte Fahrertelefon auswählen.");
+    return;
+  }
+
+  if (!notified && !hasDriver && !marksTwoDayTour) {
+    showToast("Bitte Fahrertelefon auswählen oder 2-Tagestour markieren.");
     return;
   }
 
@@ -922,9 +950,12 @@ async function applyBulk(notified) {
   const action = notified ? "avisieren" : "speichern";
   const recordLabel = state.orders.length === 1 ? "1 Datensatz" : `${state.orders.length} Datensätze`;
   const isSingleRecord = state.orders.length === 1;
-  const confirmed = await requestConfirm(notified
-    ? `${isSingleRecord ? "Soll" : "Sollen"} ${recordLabel} aus der aktuell sichtbaren Liste wirklich das Fahrertelefon "${driverLabel}" zugewiesen bekommen und als avisiert markiert werden?`
-    : `${isSingleRecord ? "Soll" : "Sollen"} ${recordLabel} aus der aktuell sichtbaren Liste wirklich das Fahrertelefon "${driverLabel}" zugewiesen bekommen?`);
+  const changes = [
+    hasDriver ? `Fahrertelefon "${driverLabel}" zugewiesen` : "",
+    marksTwoDayTour ? "als 2-Tagestour markiert" : "",
+    notified ? "als avisiert markiert" : ""
+  ].filter(Boolean).join(" und ");
+  const confirmed = await requestConfirm(`${isSingleRecord ? "Soll" : "Sollen"} ${recordLabel} aus der aktuell sichtbaren Liste wirklich ${changes} werden?`);
 
   if (!confirmed) {
     showToast(`${action[0].toUpperCase()}${action.slice(1)} abgebrochen.`);
@@ -936,7 +967,8 @@ async function applyBulk(notified) {
     body: JSON.stringify({
       orderNumbers: state.orders.map((order) => order.orderNumber),
       driverPhoneId: elements.bulkDriver.value,
-      notified
+      notified,
+      twoDayTour: marksTwoDayTour
     })
   });
 

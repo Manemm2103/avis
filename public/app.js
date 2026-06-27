@@ -14,6 +14,7 @@ const state = {
   users: [],
   sqlSettings: null,
   ldapSettings: null,
+  mailSettings: null,
   sort: {
     key: "",
     direction: "asc"
@@ -21,7 +22,8 @@ const state = {
   bulkSelectedOrderNumbers: new Set(),
   bulkLastSelectedOrderNumber: "",
   selectedOrder: null,
-  confirmResolve: null
+  confirmResolve: null,
+  toastTimer: null
 };
 
 const elements = {
@@ -86,6 +88,23 @@ const elements = {
   sqlSettingsForm: document.querySelector("#sql-settings-form"),
   sqlOrdersQuery: document.querySelector("#sql-orders-query"),
   sqlToursQuery: document.querySelector("#sql-tours-query"),
+  mailSection: document.querySelector("#mail-settings-section"),
+  mailSettingsForm: document.querySelector("#mail-settings-form"),
+  mailSubject: document.querySelector("#mail-subject"),
+  mailBody: document.querySelector("#mail-body"),
+  mailTextmarks: document.querySelector("#mail-textmarks"),
+  mailAdminOnly: document.querySelectorAll(".mail-admin-only"),
+  mailSmtpHost: document.querySelector("#mail-smtp-host"),
+  mailSmtpPort: document.querySelector("#mail-smtp-port"),
+  mailSmtpSecure: document.querySelector("#mail-smtp-secure"),
+  mailSmtpUser: document.querySelector("#mail-smtp-user"),
+  mailSmtpPassword: document.querySelector("#mail-smtp-password"),
+  mailFromName: document.querySelector("#mail-from-name"),
+  mailFromEmail: document.querySelector("#mail-from-email"),
+  mailReplyTo: document.querySelector("#mail-reply-to"),
+  mailDemoMode: document.querySelector("#mail-demo-mode"),
+  mailDemoRecipients: document.querySelector("#mail-demo-recipients"),
+  mailDemoRecipientsRow: document.querySelector("#mail-demo-recipients-row"),
   ldapSection: document.querySelector("#ldap-settings-section"),
   ldapSettingsForm: document.querySelector("#ldap-settings-form"),
   ldapEnabled: document.querySelector("#ldap-enabled"),
@@ -214,6 +233,17 @@ function bindEvents() {
   elements.driverCancel.addEventListener("click", resetDriverForm);
   elements.manualOrderForm.addEventListener("submit", createLocalOrder);
   elements.csvImportForm.addEventListener("submit", importCsvOrders);
+  elements.mailSettingsForm.addEventListener("submit", saveMailSettings);
+  elements.mailDemoMode.addEventListener("change", renderMailDemoState);
+  elements.mailTextmarks.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-mail-token]");
+
+    if (!button) {
+      return;
+    }
+
+    insertMailToken(button.dataset.mailToken);
+  });
   elements.sqlSettingsForm.addEventListener("submit", saveSqlSettings);
   elements.ldapSettingsForm.addEventListener("submit", saveLdapSettings);
   elements.userForm.addEventListener("submit", saveUser);
@@ -352,6 +382,7 @@ async function enterApp() {
   await loadTours();
   if (isAdmin()) {
     resetUserForm();
+    await loadMailSettings();
     await loadUsers();
   }
 
@@ -416,6 +447,11 @@ function configureRoleUi() {
   elements.tabs.masterdata.hidden = !admin;
   elements.sqlSection.hidden = !isFullAdmin();
   elements.ldapSection.hidden = !isFullAdmin();
+  elements.mailSection.hidden = !admin;
+  elements.mailAdminOnly.forEach((item) => {
+    item.hidden = !isFullAdmin();
+  });
+  renderMailDemoState();
   renderUserRoleOptions();
 
   if (!admin) {
@@ -518,6 +554,63 @@ async function loadLdapSettings() {
   elements.ldapLoginAttribute.value = state.ldapSettings.loginAttribute || "sAMAccountName";
   elements.ldapAdminGroupDn.value = state.ldapSettings.adminGroupDn || "";
   elements.ldapDepartmentLeadGroupDn.value = state.ldapSettings.departmentLeadGroupDn || "";
+}
+
+async function loadMailSettings() {
+  state.mailSettings = await api("/api/mail-settings");
+  elements.mailSubject.value = state.mailSettings.subject || "";
+  elements.mailBody.value = state.mailSettings.body || "";
+  renderMailTextmarks(state.mailSettings.textMarks || []);
+
+  if (isFullAdmin()) {
+    elements.mailSmtpHost.value = state.mailSettings.smtpHost || "";
+    elements.mailSmtpPort.value = state.mailSettings.smtpPort || 587;
+    elements.mailSmtpSecure.checked = Boolean(state.mailSettings.smtpSecure);
+    elements.mailSmtpUser.value = state.mailSettings.smtpUser || "";
+    elements.mailSmtpPassword.value = state.mailSettings.smtpPassword || "";
+    elements.mailFromName.value = state.mailSettings.fromName || "";
+    elements.mailFromEmail.value = state.mailSettings.fromEmail || "";
+    elements.mailReplyTo.value = state.mailSettings.replyTo || "";
+    elements.mailDemoMode.checked = state.mailSettings.demoMode !== false;
+    elements.mailDemoRecipients.value = state.mailSettings.demoRecipients || "";
+  }
+
+  renderMailDemoState();
+}
+
+function renderMailTextmarks(textMarks) {
+  if (textMarks.length === 0) {
+    elements.mailTextmarks.innerHTML = `<span class="sub-text">Keine Textmarken geladen.</span>`;
+    return;
+  }
+
+  elements.mailTextmarks.innerHTML = textMarks.map((item) => `
+    <button class="textmark-button" data-mail-token="${escapeHtml(item.token)}" type="button">
+      <strong>${escapeHtml(item.token)}</strong>
+      <span>${escapeHtml(item.description || "")}</span>
+    </button>
+  `).join("");
+}
+
+function renderMailDemoState() {
+  if (!elements.mailDemoRecipientsRow) {
+    return;
+  }
+
+  elements.mailDemoRecipientsRow.hidden = !isFullAdmin() || !elements.mailDemoMode.checked;
+}
+
+function insertMailToken(token) {
+  if (!token) {
+    return;
+  }
+
+  const target = elements.mailBody;
+  const start = target.selectionStart ?? target.value.length;
+  const end = target.selectionEnd ?? target.value.length;
+  target.value = `${target.value.slice(0, start)}${token}${target.value.slice(end)}`;
+  target.focus();
+  target.setSelectionRange(start + token.length, start + token.length);
 }
 
 function renderStats(summary) {
@@ -1030,14 +1123,14 @@ async function saveSelectedOrder(event) {
     payload.deliveryDate = elements.drawerFields.deliveryDateInput.value;
   }
 
-  await api(`/api/orders/${encodeURIComponent(state.selectedOrder.orderNumber)}`, {
+  const result = await api(`/api/orders/${encodeURIComponent(state.selectedOrder.orderNumber)}`, {
     method: "PATCH",
     body: JSON.stringify(payload)
   });
 
   closeDrawer();
   await loadOrders();
-  showToast("Auftrag gespeichert.");
+  showToast(`Auftrag gespeichert.${mailToastSuffix(result.mail)}`);
 }
 
 async function applyBulk(notified) {
@@ -1089,12 +1182,52 @@ async function applyBulk(notified) {
   });
 
   await loadOrders();
-  showToast(notified ? `${result.updated} Aufträge avisiert.` : `${result.updated} Aufträge gespeichert.`);
+  showToast(notified ? `${result.updated} Aufträge avisiert.${mailToastSuffix(result.mail)}` : `${result.updated} Aufträge gespeichert.`);
 }
 
 function selectedBulkDriverLabel() {
   const selected = elements.bulkDriver.selectedOptions[0];
   return selected ? selected.textContent.trim() : "";
+}
+
+function mailToastSuffix(mail) {
+  if (!mail) {
+    return "";
+  }
+
+  if (Object.hasOwn(mail, "total")) {
+    if (mail.total === 0) {
+      return "";
+    }
+
+    if (mail.failed > 0) {
+      return ` Mailfehler: ${mail.messages[0] || "Versand fehlgeschlagen."}`;
+    }
+
+    if (mail.sent > 0 && mail.skipped === 0) {
+      return mail.sent === 1 ? " E-Mail versendet." : ` ${mail.sent} E-Mails versendet.`;
+    }
+
+    if (mail.sent > 0) {
+      return ` ${mail.sent} E-Mails versendet, ${mail.skipped} ohne Mail.`;
+    }
+
+    return ` Keine Mail versendet: ${mail.messages[0] || "Mailversand wurde uebersprungen."}`;
+  }
+
+  if (mail.failed) {
+    return ` Mailfehler: ${mail.message || "Versand fehlgeschlagen."}`;
+  }
+
+  if (mail.sent) {
+    return mail.demoMode ? " E-Mail im Demobetrieb versendet." : " E-Mail versendet.";
+  }
+
+  if (mail.skipped) {
+    return ` Keine Mail versendet: ${mail.message || "Mailversand wurde uebersprungen."}`;
+  }
+
+  return "";
 }
 
 function requestConfirm(message) {
@@ -1262,6 +1395,43 @@ async function saveSqlSettings(event) {
   await loadTours();
   await loadOrders();
   showToast("SQL-Abfragen gespeichert.");
+}
+
+async function saveMailSettings(event) {
+  event.preventDefault();
+
+  if (!isAdmin()) {
+    showToast("Nur Admins und Abteilungsleiter dürfen E-Mail Avis speichern.");
+    return;
+  }
+
+  const body = {
+    subject: elements.mailSubject.value,
+    body: elements.mailBody.value
+  };
+
+  if (isFullAdmin()) {
+    Object.assign(body, {
+      smtpHost: elements.mailSmtpHost.value,
+      smtpPort: elements.mailSmtpPort.value,
+      smtpSecure: elements.mailSmtpSecure.checked,
+      smtpUser: elements.mailSmtpUser.value,
+      smtpPassword: elements.mailSmtpPassword.value,
+      fromName: elements.mailFromName.value,
+      fromEmail: elements.mailFromEmail.value,
+      replyTo: elements.mailReplyTo.value,
+      demoMode: elements.mailDemoMode.checked,
+      demoRecipients: elements.mailDemoRecipients.value
+    });
+  }
+
+  await api("/api/mail-settings", {
+    method: "PATCH",
+    body: JSON.stringify(body)
+  });
+
+  await loadMailSettings();
+  showToast("E-Mail Avis gespeichert.");
 }
 
 async function saveLdapSettings(event) {
@@ -1650,7 +1820,11 @@ function escapeHtml(value) {
 function showToast(message) {
   elements.toast.textContent = message;
   elements.toast.classList.add("is-visible");
-  setTimeout(() => elements.toast.classList.remove("is-visible"), 2200);
+  window.clearTimeout(state.toastTimer);
+  state.toastTimer = window.setTimeout(
+    () => elements.toast.classList.remove("is-visible"),
+    message.length > 90 ? 5200 : 2600
+  );
 }
 
 function debounce(callback, delay) {

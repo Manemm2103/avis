@@ -6,6 +6,7 @@ import { loadConfig } from "./src/config.js";
 import { demoOrders } from "./src/demo-orders.js";
 import { authenticateWithLdap } from "./src/ldap-auth.js";
 import { LocalStore } from "./src/local-store.js";
+import { MAIL_TEXT_MARKS, sendAvisMail } from "./src/mail-service.js";
 import { fetchOrdersFromMssql, fetchToursFromMssql, isMssqlConfigured } from "./src/mssql-source.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -120,6 +121,22 @@ app.patch("/api/ldap-settings", requireFullAdmin, async (request, response) => {
   }
 });
 
+app.get("/api/mail-settings", requireAdmin, (request, response) => {
+  response.json(publicMailSettings(store.getMailSettings(), isFullAdminRole(request.user)));
+});
+
+app.patch("/api/mail-settings", requireAdmin, async (request, response) => {
+  try {
+    const settings = await store.updateMailSettings(sanitizeMailSettings(request.body, isFullAdminRole(request.user)), request.user);
+    response.json(publicMailSettings(settings, isFullAdminRole(request.user)));
+  } catch (error) {
+    response.status(400).json({
+      error: "MAIL_SETTINGS_SAVE_FAILED",
+      message: error.message
+    });
+  }
+});
+
 app.get("/api/orders", async (request, response) => {
   try {
     const source = await loadSourceOrders();
@@ -163,13 +180,25 @@ app.patch("/api/orders/bulk", async (request, response) => {
   try {
     const update = sanitizeBulkAvisUpdate(request.body);
     const saved = [];
+    const avisOverrides = new Map();
+    const mailOrderNumbers = [];
 
     for (const orderNumber of update.orderNumbers) {
-      saved.push(await store.updateAvis(orderNumber, update.values, request.user));
+      const currentAvis = store.getAvis(orderNumber);
+      const shouldSendMail = update.values.notified === true && !currentAvis?.notified;
+      const savedAvis = await store.updateAvis(orderNumber, update.values, request.user);
+
+      saved.push(savedAvis);
+      avisOverrides.set(orderNumber, savedAvis);
+
+      if (shouldSendMail) {
+        mailOrderNumbers.push(orderNumber);
+      }
     }
 
     response.json({
-      updated: saved.length
+      updated: saved.length,
+      mail: await sendAvisMailsForOrders(mailOrderNumbers, avisOverrides)
     });
   } catch (error) {
     response.status(400).json({
@@ -253,13 +282,17 @@ app.patch("/api/orders/:orderNumber", async (request, response) => {
   try {
     const orderNumber = normalizeRequiredText(request.params.orderNumber, "Auftrag");
     const update = sanitizeAvisUpdate(request.body);
+    const currentAvis = store.getAvis(orderNumber);
+    const shouldSendMail = update.notified === true && !currentAvis?.notified;
 
     if (Object.hasOwn(update, "deliveryDate") && !store.hasLocalOrder(orderNumber)) {
       throw new Error("Liefertermin kann nur bei selbst angelegten oder importierten Auftraegen geaendert werden.");
     }
 
     const saved = await store.updateAvis(orderNumber, update, request.user);
-    response.json(saved);
+    const mail = shouldSendMail ? await sendAvisMailForOrder(orderNumber, saved) : null;
+
+    response.json({ avis: saved, mail });
   } catch (error) {
     response.status(400).json({
       error: "ORDER_SAVE_FAILED",
@@ -357,11 +390,45 @@ async function loadSourceOrders() {
   };
 }
 
-async function loadMergedOrders(sourceOrders) {
+async function loadMergedOrders(sourceOrders, avisOverrides = new Map()) {
   const drivers = await store.listDriverPhones();
   const driverMap = new Map(drivers.map((driver) => [driver.id, driver]));
 
-  return sourceOrders.map((order) => mergeOrder(order, store.getAvis(order.orderNumber), driverMap));
+  return sourceOrders.map((order) => mergeOrder(order, avisOverrides.get(order.orderNumber) || store.getAvis(order.orderNumber), driverMap));
+}
+
+async function sendAvisMailForOrder(orderNumber, avisOverride) {
+  const results = await sendAvisMailsForOrders([orderNumber], new Map([[orderNumber, avisOverride]]));
+  return results.items[0] || skippedMailResult("Auftrag wurde fuer den Mailversand nicht gefunden.");
+}
+
+async function sendAvisMailsForOrders(orderNumbers, avisOverrides = new Map()) {
+  if (orderNumbers.length === 0) {
+    return summarizeMailResults([]);
+  }
+
+  let orders = [];
+
+  try {
+    const source = await loadSourceOrders();
+    orders = await loadMergedOrders(source.orders, avisOverrides);
+  } catch (error) {
+    return summarizeMailResults(orderNumbers.map((orderNumber) => failedMailResult(`Auftrag ${orderNumber}: ${error.message}`)));
+  }
+
+  const orderMap = new Map(orders.map((order) => [order.orderNumber, order]));
+  const settings = store.getMailSettings();
+  const results = await Promise.all(orderNumbers.map((orderNumber) => {
+    const order = orderMap.get(orderNumber);
+
+    if (!order) {
+      return skippedMailResult(`Auftrag ${orderNumber} wurde fuer den Mailversand nicht gefunden.`);
+    }
+
+    return sendAvisMail(order, settings);
+  }));
+
+  return summarizeMailResults(results);
 }
 
 async function loadTours() {
@@ -448,6 +515,8 @@ function mergeOrder(order, avis, driverMap) {
       deliveryDate: avis?.deliveryDate || "",
       driverPhoneId: avis?.driverPhoneId || "",
       driverPhoneLabel: driver ? `${driver.label} (${driver.phone})` : "",
+      driverPhoneName: driver?.label || "",
+      driverPhoneNumber: driver?.phone || "",
       twoDayTour: Boolean(avis?.twoDayTour),
       notified: Boolean(avis?.notified),
       notifiedAt: avis?.notifiedAt || "",
@@ -468,6 +537,43 @@ function createSummary(orders) {
     total: orders.length,
     notified,
     open: orders.length - notified
+  };
+}
+
+function summarizeMailResults(results) {
+  const items = results.filter(Boolean);
+
+  return {
+    total: items.length,
+    sent: items.filter((item) => item.sent).length,
+    skipped: items.filter((item) => item.skipped).length,
+    failed: items.filter((item) => item.failed).length,
+    messages: [...new Set(items.map((item) => item.message).filter(Boolean))],
+    items
+  };
+}
+
+function skippedMailResult(message) {
+  return {
+    status: "skipped",
+    sent: false,
+    skipped: true,
+    failed: false,
+    recipients: [],
+    message,
+    demoMode: false
+  };
+}
+
+function failedMailResult(message) {
+  return {
+    status: "failed",
+    sent: false,
+    skipped: false,
+    failed: true,
+    recipients: [],
+    message,
+    demoMode: false
   };
 }
 
@@ -557,7 +663,6 @@ function sanitizeAvisUpdate(input) {
 
   if (Object.hasOwn(input, "notified")) {
     update.notified = Boolean(input.notified);
-    update.notifiedAt = update.notified ? new Date().toISOString() : "";
   }
 
   if (Object.hasOwn(input, "note")) {
@@ -597,7 +702,6 @@ function sanitizeBulkAvisUpdate(input) {
     }
 
     values.notified = true;
-    values.notifiedAt = new Date().toISOString();
   }
 
   if (Object.keys(values).length === 0) {
@@ -681,6 +785,78 @@ function sanitizeLdapSettings(input) {
   }
 
   return settings;
+}
+
+function sanitizeMailSettings(input, fullAdmin) {
+  const settings = {};
+
+  if (Object.hasOwn(input, "subject")) {
+    settings.subject = normalizeRequiredText(input.subject, "Betreff");
+  }
+
+  if (Object.hasOwn(input, "body")) {
+    settings.body = normalizeRequiredText(input.body, "Mailtext");
+  }
+
+  if (!fullAdmin) {
+    return settings;
+  }
+
+  for (const field of [
+    "smtpHost",
+    "smtpUser",
+    "smtpPassword",
+    "fromName",
+    "fromEmail",
+    "replyTo",
+    "demoRecipients"
+  ]) {
+    if (Object.hasOwn(input, field)) {
+      settings[field] = text(input[field]);
+    }
+  }
+
+  if (Object.hasOwn(input, "smtpPort")) {
+    settings.smtpPort = number(input.smtpPort, 587);
+  }
+
+  if (Object.hasOwn(input, "smtpSecure")) {
+    settings.smtpSecure = Boolean(input.smtpSecure);
+  }
+
+  if (Object.hasOwn(input, "demoMode")) {
+    settings.demoMode = Boolean(input.demoMode);
+  }
+
+  return settings;
+}
+
+function publicMailSettings(settings, fullAdmin) {
+  const result = {
+    subject: settings.subject || "",
+    body: settings.body || "",
+    updatedAt: settings.updatedAt || "",
+    updatedBy: settings.updatedBy || "",
+    textMarks: MAIL_TEXT_MARKS
+  };
+
+  if (!fullAdmin) {
+    return result;
+  }
+
+  return {
+    ...result,
+    smtpHost: settings.smtpHost || "",
+    smtpPort: settings.smtpPort || 587,
+    smtpSecure: Boolean(settings.smtpSecure),
+    smtpUser: settings.smtpUser || "",
+    smtpPassword: settings.smtpPassword || "",
+    fromName: settings.fromName || "",
+    fromEmail: settings.fromEmail || "",
+    replyTo: settings.replyTo || "",
+    demoMode: settings.demoMode !== false,
+    demoRecipients: settings.demoRecipients || ""
+  };
 }
 
 function sanitizeLocalOrder(input, origin) {
@@ -777,7 +953,7 @@ function requireAdmin(request, response, next) {
 }
 
 function requireFullAdmin(request, response, next) {
-  if (request.user?.role !== "admin") {
+  if (!isFullAdminRole(request.user)) {
     response.status(403).json({
       error: "ADMIN_REQUIRED",
       message: "Nur Admins duerfen diesen Bereich nutzen."
@@ -790,6 +966,10 @@ function requireFullAdmin(request, response, next) {
 
 function canManageMasterdata(role) {
   return ["admin", "superuser"].includes(role);
+}
+
+function isFullAdminRole(user) {
+  return user?.role === "admin";
 }
 
 function readBearerToken(request) {

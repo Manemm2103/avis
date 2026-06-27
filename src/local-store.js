@@ -31,6 +31,35 @@ const EMPTY_STATE = {
     departmentLeadGroupDn: "",
     updatedAt: "",
     updatedBy: ""
+  },
+  mailSettings: {
+    subject: "Avisierung Auftrag {{auftrag}}",
+    body: `Guten Tag,
+
+Ihr Auftrag {{auftrag}} ist fuer den {{liefertag}} eingeplant.
+
+Kunde: {{kunde}}
+Kommission: {{kommission}}
+Lieferanschrift: {{lieferanschrift}}
+Tour: {{tour}}
+Fahrertelefon: {{fahrertelefon}}
+
+{{info_fuer_kunden}}
+
+Mit freundlichen Gruessen
+Bayerwald Fenster und Tueren`,
+    smtpHost: "",
+    smtpPort: 587,
+    smtpSecure: false,
+    smtpUser: "",
+    smtpPassword: "",
+    fromName: "Bayerwald Fenster und Tueren",
+    fromEmail: "",
+    replyTo: "",
+    demoMode: true,
+    demoRecipients: "",
+    updatedAt: "",
+    updatedBy: ""
   }
 };
 
@@ -78,6 +107,10 @@ export class LocalStore {
     this.state.ldapSettings = {
       ...structuredClone(EMPTY_STATE.ldapSettings),
       ...(this.state.ldapSettings || {})
+    };
+    this.state.mailSettings = {
+      ...structuredClone(EMPTY_STATE.mailSettings),
+      ...(this.state.mailSettings || {})
     };
 
     for (const avis of Object.values(this.state.avisByOrder)) {
@@ -303,7 +336,7 @@ export class LocalStore {
     const current = this.state.avisByOrder[orderNumber] || {};
     const now = new Date().toISOString();
     const actorName = actor?.displayName || actor?.username || "Unbekannt";
-    const isNotifying = update.notified === true;
+    const isNotifying = update.notified === true && !current.notified;
     const next = {
       ...current,
       ...update,
@@ -457,6 +490,25 @@ export class LocalStore {
 
     await this.save();
     return this.getLdapSettings();
+  }
+
+  getMailSettings() {
+    return {
+      ...structuredClone(EMPTY_STATE.mailSettings),
+      ...(this.state.mailSettings || {})
+    };
+  }
+
+  async updateMailSettings(input, actor) {
+    this.state.mailSettings = {
+      ...this.getMailSettings(),
+      ...input,
+      updatedAt: new Date().toISOString(),
+      updatedBy: actor?.displayName || actor?.username || ""
+    };
+
+    await this.save();
+    return this.getMailSettings();
   }
 
   async listLocalOrders() {

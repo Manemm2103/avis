@@ -669,6 +669,45 @@ tbody tr:last-child td {
   line-height: 1.4;
 }
 
+.textmark-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+}
+
+.textmark-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.textmark-button {
+  display: grid;
+  gap: 3px;
+  min-height: 54px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  text-align: left;
+}
+
+.textmark-button strong {
+  color: var(--accent-dark);
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+}
+
+.textmark-button span {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
 .form-actions,
 .row-actions {
   display: flex;

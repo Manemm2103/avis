@@ -20,6 +20,9 @@ importers:
       mssql:
         specifier: ^11.0.1
         version: 11.0.1
+      nodemailer:
+        specifier: ^9.0.1
+        version: 9.0.1
 
 packages:
 
@@ -417,6 +420,10 @@ packages:
   negotiator@0.6.3:
     resolution: {integrity: sha512-+EUsqGPLsM+j/zdChZjsnX51g4XrHFOIXwfnCVPGlQk/k5giakcKsuxCObBRu6DSm9opw/O6slWbJdghQM4bBg==}
     engines: {node: '>= 0.6'}
+
+  nodemailer@9.0.1:
+    resolution: {integrity: sha512-Gwv8SQewT616ZM/URn0H54b8PWo/Wum7md3EW2aWy1lO27+WZCX+Xyak3J+NlmHUjDh5ME+uesJUDRbR3Ye8Bw==}
+    engines: {node: '>=6.0.0'}
 
   object-inspect@1.13.4:
     resolution: {integrity: sha512-W67iLl4J2EXEGTbfeHCffrjDfitvLANg0UlX3wFUUSTx92KXRFegMHUVgSqE+wvhAbi4WqjGg9czysTV2Epbew==}
@@ -1045,6 +1052,8 @@ snapshots:
   native-duplexpair@1.0.0: {}
 
   negotiator@0.6.3: {}
+
+  nodemailer@9.0.1: {}
 
   object-inspect@1.13.4: {}
 

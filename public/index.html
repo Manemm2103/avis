@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AVIS</title>
-    <link rel="stylesheet" href="/style.css?v=20260625-local-date-version">
+    <link rel="stylesheet" href="/style.css?v=20260627-mail-avis">
   </head>
   <body>
     <section class="login-view" id="login-view">
@@ -178,6 +178,67 @@
             </div>
           </div>
 
+          <div class="masterdata-section" id="mail-settings-section">
+            <h2>E-Mail Avis</h2>
+            <form id="mail-settings-form" class="panel compact-grid">
+              <label class="wide-field">
+                <span>Betreff</span>
+                <input id="mail-subject" name="subject" required>
+              </label>
+              <label class="wide-field">
+                <span>Mailtext</span>
+                <textarea id="mail-body" name="body" rows="12" required></textarea>
+              </label>
+              <div class="textmark-panel wide-field">
+                <strong>Textmarken</strong>
+                <div class="textmark-list" id="mail-textmarks"></div>
+              </div>
+              <label class="mail-admin-only">
+                <span>SMTP Host</span>
+                <input id="mail-smtp-host" name="smtpHost" placeholder="smtp.example.local">
+              </label>
+              <label class="mail-admin-only">
+                <span>SMTP Port</span>
+                <input id="mail-smtp-port" name="smtpPort" type="number" min="1" max="65535" value="587">
+              </label>
+              <label class="checkbox mail-admin-only wide-field">
+                <input id="mail-smtp-secure" name="smtpSecure" type="checkbox">
+                <span>SMTP SSL/TLS aktiv</span>
+              </label>
+              <label class="mail-admin-only">
+                <span>SMTP Benutzer</span>
+                <input id="mail-smtp-user" name="smtpUser" autocomplete="off">
+              </label>
+              <label class="mail-admin-only">
+                <span>SMTP Kennwort</span>
+                <input id="mail-smtp-password" name="smtpPassword" type="password" autocomplete="new-password">
+              </label>
+              <label class="mail-admin-only">
+                <span>Absender Name</span>
+                <input id="mail-from-name" name="fromName">
+              </label>
+              <label class="mail-admin-only">
+                <span>Absender E-Mail</span>
+                <input id="mail-from-email" name="fromEmail" type="email">
+              </label>
+              <label class="mail-admin-only wide-field">
+                <span>Antwort an</span>
+                <input id="mail-reply-to" name="replyTo" type="email">
+              </label>
+              <label class="checkbox mail-admin-only wide-field">
+                <input id="mail-demo-mode" name="demoMode" type="checkbox" checked>
+                <span>E-Mail Avis DEMOBETRIEB</span>
+              </label>
+              <label class="mail-admin-only wide-field" id="mail-demo-recipients-row">
+                <span>Demo-Empfänger</span>
+                <input id="mail-demo-recipients" name="demoRecipients" placeholder="test1@example.de; test2@example.de">
+              </label>
+              <div class="form-actions wide-field">
+                <button class="primary" type="submit">E-Mail Avis speichern</button>
+              </div>
+            </form>
+          </div>
+
           <div class="masterdata-section" id="sql-settings-section">
             <h2>SQL-Abfragen</h2>
             <form id="sql-settings-form" class="panel">
@@ -308,7 +369,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.06.25.1</footer>
+      <footer class="app-footer">Version 2026.06.27.1</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -466,6 +527,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260625-local-date-version" type="module"></script>
+    <script src="/app.js?v=20260627-mail-avis" type="module"></script>
   </body>
 </html>

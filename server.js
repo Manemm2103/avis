@@ -198,7 +198,7 @@ app.patch("/api/orders/bulk", async (request, response) => {
 
     response.json({
       updated: saved.length,
-      mail: await sendAvisMailsForOrders(mailOrderNumbers, avisOverrides)
+      mail: await sendAvisMailsForOrders(mailOrderNumbers, avisOverrides, request.user)
     });
   } catch (error) {
     response.status(400).json({
@@ -290,7 +290,7 @@ app.patch("/api/orders/:orderNumber", async (request, response) => {
     }
 
     const saved = await store.updateAvis(orderNumber, update, request.user);
-    const mail = shouldSendMail ? await sendAvisMailForOrder(orderNumber, saved) : null;
+    const mail = shouldSendMail ? await sendAvisMailForOrder(orderNumber, saved, request.user) : null;
 
     response.json({ avis: saved, mail });
   } catch (error) {
@@ -397,12 +397,12 @@ async function loadMergedOrders(sourceOrders, avisOverrides = new Map()) {
   return sourceOrders.map((order) => mergeOrder(order, avisOverrides.get(order.orderNumber) || store.getAvis(order.orderNumber), driverMap));
 }
 
-async function sendAvisMailForOrder(orderNumber, avisOverride) {
-  const results = await sendAvisMailsForOrders([orderNumber], new Map([[orderNumber, avisOverride]]));
+async function sendAvisMailForOrder(orderNumber, avisOverride, actor) {
+  const results = await sendAvisMailsForOrders([orderNumber], new Map([[orderNumber, avisOverride]]), actor);
   return results.items[0] || skippedMailResult("Auftrag wurde fuer den Mailversand nicht gefunden.");
 }
 
-async function sendAvisMailsForOrders(orderNumbers, avisOverrides = new Map()) {
+async function sendAvisMailsForOrders(orderNumbers, avisOverrides = new Map(), actor = null) {
   if (orderNumbers.length === 0) {
     return summarizeMailResults([]);
   }
@@ -418,15 +418,28 @@ async function sendAvisMailsForOrders(orderNumbers, avisOverrides = new Map()) {
 
   const orderMap = new Map(orders.map((order) => [order.orderNumber, order]));
   const settings = store.getMailSettings();
-  const results = await Promise.all(orderNumbers.map((orderNumber) => {
+  const results = [];
+
+  for (const orderNumber of orderNumbers) {
     const order = orderMap.get(orderNumber);
 
     if (!order) {
-      return skippedMailResult(`Auftrag ${orderNumber} wurde fuer den Mailversand nicht gefunden.`);
+      results.push(skippedMailResult(`Auftrag ${orderNumber} wurde fuer den Mailversand nicht gefunden.`));
+      continue;
     }
 
-    return sendAvisMail(order, settings);
-  }));
+    const result = await sendAvisMail(order, settings);
+
+    if (result.sent) {
+      try {
+        result.mailLogId = (await store.appendAvisMail(orderNumber, result, actor)).id;
+      } catch (error) {
+        result.mailLogError = error.message;
+      }
+    }
+
+    results.push(result);
+  }
 
   return summarizeMailResults(results);
 }
@@ -525,7 +538,8 @@ function mergeOrder(order, avis, driverMap) {
       customerInfo: avis?.customerInfo || "",
       updatedAt: avis?.updatedAt || "",
       updatedBy: avis?.updatedBy || "",
-      log: avis?.log || []
+      log: avis?.log || [],
+      mailLog: avis?.mailLog || []
     }
   };
 }

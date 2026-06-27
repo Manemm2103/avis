@@ -155,7 +155,8 @@ const elements = {
   log: {
     updated: document.querySelector("#log-updated"),
     notified: document.querySelector("#log-notified"),
-    list: document.querySelector("#log-list")
+    list: document.querySelector("#log-list"),
+    mailList: document.querySelector("#mail-log-list")
   },
   markNotified: document.querySelector("#mark-notified")
 };
@@ -1060,6 +1061,7 @@ function openDrawer(orderNumber) {
   elements.drawerFields.notified.checked = order.avis.notified;
   renderDriverOptions(elements.drawerFields.driver, order.avis.driverPhoneId);
   renderOrderLog(order);
+  renderMailLog(order);
   elements.drawer.classList.add("is-open");
   elements.drawer.setAttribute("aria-hidden", "false");
 }
@@ -1081,6 +1083,39 @@ function renderOrderLog(order) {
       <span>${escapeHtml(formatDateTime(entry.at))}</span>
       <span>${escapeHtml(entry.by || "-")}</span>
     </div>
+  `).join("");
+}
+
+function renderMailLog(order) {
+  const entries = [...(order.avis.mailLog || [])].reverse();
+
+  if (entries.length === 0) {
+    elements.log.mailList.innerHTML = `<p class="empty-log">Noch keine E-Mail zu diesem Auftrag versendet.</p>`;
+    return;
+  }
+
+  elements.log.mailList.innerHTML = entries.map((entry) => `
+    <details class="mail-log-entry">
+      <summary>
+        <span>
+          <strong>${escapeHtml(formatDateTime(entry.sentAt))}</strong>
+          <small>${escapeHtml(formatMailRecipients(entry.recipients))}</small>
+        </span>
+        ${entry.demoMode ? `<span class="badge is-demo-mail">Demo</span>` : `<span class="badge is-driver-ok">Versendet</span>`}
+      </summary>
+      <div class="mail-log-meta">
+        <span>Von</span>
+        <strong>${escapeHtml(entry.from || "-")}</strong>
+        <span>An</span>
+        <strong>${escapeHtml(formatMailRecipients(entry.recipients))}</strong>
+        <span>Betreff</span>
+        <strong>${escapeHtml(entry.subject || "-")}</strong>
+        <span>Gesendet von</span>
+        <strong>${escapeHtml(entry.by || "-")}</strong>
+        ${entry.messageId ? `<span>Message-ID</span><strong>${escapeHtml(entry.messageId)}</strong>` : ""}
+      </div>
+      <pre class="mail-log-body">${escapeHtml(entry.body || "")}</pre>
+    </details>
   `).join("");
 }
 
@@ -1806,6 +1841,11 @@ function logTypeLabel(type) {
   }
 
   return "Gespeichert";
+}
+
+function formatMailRecipients(recipients) {
+  const list = Array.isArray(recipients) ? recipients : [];
+  return list.length > 0 ? list.join("; ") : "-";
 }
 
 function escapeHtml(value) {

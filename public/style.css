@@ -611,6 +611,11 @@ tbody tr:last-child td {
   color: var(--danger);
 }
 
+.badge.is-demo-mail {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .empty {
   padding: 28px 12px;
   color: var(--muted);
@@ -880,6 +885,67 @@ tbody tr:last-child td {
   font-size: 13px;
 }
 
+.mail-log-list {
+  display: grid;
+  gap: 10px;
+}
+
+.mail-log-entry {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.mail-log-entry summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.mail-log-entry summary span:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.mail-log-entry summary small {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.mail-log-meta {
+  display: grid;
+  grid-template-columns: minmax(90px, auto) 1fr;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.mail-log-meta span {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.mail-log-meta strong {
+  overflow-wrap: anywhere;
+}
+
+.mail-log-body {
+  margin: 0;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+  background: #fbfdfe;
+  color: var(--text);
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
 .empty-log {
   margin: 0;
   color: var(--muted);
@@ -929,7 +995,8 @@ tbody tr:last-child td {
   }
 
   .log-summary,
-  .log-entry {
+  .log-entry,
+  .mail-log-meta {
     grid-template-columns: 1fr;
   }
 

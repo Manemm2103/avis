@@ -32,13 +32,16 @@ export const MAIL_TEXT_MARKS = [
 
 export async function sendAvisMail(order, settings = {}) {
   const recipients = targetRecipients(order, settings);
+  const body = renderMailTemplate(settings.body || "", order);
+  const subject = renderMailTemplate(settings.subject || "Avisierung Auftrag {{auftrag}}", order);
+  const from = mailAddress(settings.fromEmail, settings.fromName);
 
   if (!isMailConfigured(settings)) {
-    return skipped("SMTP oder Absender ist noch nicht vollstaendig eingerichtet.", recipients, settings);
+    return skipped("SMTP oder Absender ist noch nicht vollstaendig eingerichtet.", recipients, settings, { body, subject, from });
   }
 
   if (recipients.length === 0) {
-    return skipped(settings.demoMode ? "Demobetrieb ist aktiv, aber es sind keine Demo-Empfaenger eingetragen." : "Am Auftrag ist keine Kunden-E-Mail hinterlegt.", recipients, settings);
+    return skipped(settings.demoMode ? "Demobetrieb ist aktiv, aber es sind keine Demo-Empfaenger eingetragen." : "Am Auftrag ist keine Kunden-E-Mail hinterlegt.", recipients, settings, { body, subject, from });
   }
 
   try {
@@ -51,10 +54,8 @@ export async function sendAvisMail(order, settings = {}) {
         pass: settings.smtpPassword || ""
       } : undefined
     });
-    const body = renderMailTemplate(settings.body || "", order);
-    const subject = renderMailTemplate(settings.subject || "Avisierung Auftrag {{auftrag}}", order);
     const info = await transporter.sendMail({
-      from: mailAddress(settings.fromEmail, settings.fromName),
+      from,
       to: recipients.join(", "),
       replyTo: settings.replyTo || undefined,
       subject,
@@ -68,6 +69,11 @@ export async function sendAvisMail(order, settings = {}) {
       skipped: false,
       failed: false,
       recipients,
+      sentAt: new Date().toISOString(),
+      subject,
+      body,
+      from,
+      replyTo: settings.replyTo || "",
       messageId: info.messageId || "",
       demoMode: Boolean(settings.demoMode)
     };
@@ -79,6 +85,10 @@ export async function sendAvisMail(order, settings = {}) {
       failed: true,
       recipients,
       message: error.message,
+      subject,
+      body,
+      from,
+      replyTo: settings.replyTo || "",
       demoMode: Boolean(settings.demoMode)
     };
   }
@@ -102,7 +112,7 @@ function isMailConfigured(settings) {
   return Boolean(settings.smtpHost && settings.fromEmail);
 }
 
-function skipped(message, recipients, settings = {}) {
+function skipped(message, recipients, settings = {}, rendered = {}) {
   return {
     status: "skipped",
     sent: false,
@@ -110,6 +120,10 @@ function skipped(message, recipients, settings = {}) {
     failed: false,
     recipients,
     message,
+    subject: rendered.subject || "",
+    body: rendered.body || "",
+    from: rendered.from || "",
+    replyTo: settings.replyTo || "",
     demoMode: Boolean(settings.demoMode)
   };
 }

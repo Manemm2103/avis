@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AVIS</title>
-    <link rel="stylesheet" href="/style.css?v=20260627-mail-avis">
+    <link rel="stylesheet" href="/style.css?v=20260627-mail-log">
   </head>
   <body>
     <section class="login-view" id="login-view">
@@ -369,7 +369,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.06.27.1</footer>
+      <footer class="app-footer">Version 2026.06.27.2</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -451,6 +451,11 @@
           <div id="log-list" class="log-list"></div>
         </section>
 
+        <section class="order-log">
+          <h3>E-Mail Avis</h3>
+          <div id="mail-log-list" class="mail-log-list"></div>
+        </section>
+
         <div class="drawer-actions">
           <button class="primary" type="submit">Speichern</button>
           <button class="secondary" id="mark-notified" type="button">Als avisiert markieren</button>
@@ -527,6 +532,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260627-mail-avis" type="module"></script>
+    <script src="/app.js?v=20260627-mail-log" type="module"></script>
   </body>
 </html>

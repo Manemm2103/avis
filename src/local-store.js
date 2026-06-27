@@ -115,6 +115,7 @@ export class LocalStore {
 
     for (const avis of Object.values(this.state.avisByOrder)) {
       avis.log ||= [];
+      avis.mailLog ||= [];
     }
   }
 
@@ -369,6 +370,36 @@ export class LocalStore {
     this.state.avisByOrder[orderNumber] = next;
     await this.save();
     return next;
+  }
+
+  async appendAvisMail(orderNumber, mail, actor) {
+    const current = this.state.avisByOrder[orderNumber] || {};
+    const actorName = actor?.displayName || actor?.username || "Unbekannt";
+    const entry = {
+      id: crypto.randomUUID(),
+      status: mail.status || "sent",
+      sentAt: mail.sentAt || new Date().toISOString(),
+      recipients: Array.isArray(mail.recipients) ? mail.recipients : [],
+      subject: mail.subject || "",
+      body: mail.body || "",
+      from: mail.from || "",
+      replyTo: mail.replyTo || "",
+      messageId: mail.messageId || "",
+      demoMode: Boolean(mail.demoMode),
+      by: actorName,
+      byUserId: actor?.id || ""
+    };
+
+    this.state.avisByOrder[orderNumber] = {
+      ...current,
+      mailLog: [
+        ...(current.mailLog || []),
+        entry
+      ]
+    };
+
+    await this.save();
+    return entry;
   }
 
   async listDriverPhones() {

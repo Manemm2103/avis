@@ -429,12 +429,17 @@ async function sendAvisMailsForOrders(orderNumbers, avisOverrides = new Map(), a
     }
 
     const result = await sendAvisMail(order, settings);
+    logAvisMailResult(orderNumber, settings, result);
 
     if (result.sent) {
       try {
         result.mailLogId = (await store.appendAvisMail(orderNumber, result, actor)).id;
       } catch (error) {
         result.mailLogError = error.message;
+        logEvent("error", "avis-mail-log-save-failed", {
+          orderNumber,
+          message: error.message
+        });
       }
     }
 
@@ -589,6 +594,50 @@ function failedMailResult(message) {
     message,
     demoMode: false
   };
+}
+
+function logAvisMailResult(orderNumber, settings, result) {
+  const level = result.failed ? "error" : result.skipped ? "warn" : "info";
+
+  logEvent(level, "avis-mail", {
+    orderNumber,
+    status: result.status,
+    sent: Boolean(result.sent),
+    skipped: Boolean(result.skipped),
+    failed: Boolean(result.failed),
+    demoMode: Boolean(result.demoMode),
+    recipientCount: Array.isArray(result.recipients) ? result.recipients.length : 0,
+    smtpHost: settings.smtpHost || "",
+    smtpPort: settings.smtpPort || 587,
+    smtpSecure: Boolean(settings.smtpSecure),
+    message: result.message || "",
+    hint: result.hint || "",
+    code: result.code || "",
+    command: result.command || "",
+    responseCode: result.responseCode || "",
+    messageId: result.messageId || ""
+  });
+}
+
+function logEvent(level, event, details = {}) {
+  const entry = {
+    at: new Date().toISOString(),
+    event,
+    ...details
+  };
+  const line = JSON.stringify(entry);
+
+  if (level === "error") {
+    console.error(line);
+    return;
+  }
+
+  if (level === "warn") {
+    console.warn(line);
+    return;
+  }
+
+  console.log(line);
 }
 
 function readOrderFilters(query) {

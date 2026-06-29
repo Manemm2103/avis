@@ -78,13 +78,19 @@ export async function sendAvisMail(order, settings = {}) {
       demoMode: Boolean(settings.demoMode)
     };
   } catch (error) {
+    const errorInfo = mailErrorInfo(error, settings);
+
     return {
       status: "failed",
       sent: false,
       skipped: false,
       failed: true,
       recipients,
-      message: error.message,
+      message: errorInfo.message,
+      hint: errorInfo.hint,
+      code: errorInfo.code,
+      command: errorInfo.command,
+      responseCode: errorInfo.responseCode,
       subject,
       body,
       from,
@@ -110,6 +116,33 @@ function targetRecipients(order, settings) {
 
 function isMailConfigured(settings) {
   return Boolean(settings.smtpHost && settings.fromEmail);
+}
+
+function mailErrorInfo(error, settings) {
+  const message = error?.message || "Unbekannter SMTP-Fehler.";
+  const code = error?.code || "";
+  const lower = `${message} ${code}`.toLowerCase();
+  let hint = "";
+
+  if (lower.includes("wrong version number") || lower.includes("ssl routines")) {
+    hint = Number(settings.smtpPort) === 465
+      ? "SMTP-Server/Port erwartet vermutlich kein direktes SSL. Testweise SMTP SSL/TLS deaktivieren oder den korrekten SMTP-Port pruefen."
+      : "Wahrscheinlich ist SMTP SSL/TLS aktiv, obwohl der Port STARTTLS erwartet. Bei Port 587 SMTP SSL/TLS deaktivieren; bei Port 465 aktivieren.";
+  } else if (lower.includes("self-signed") || lower.includes("certificate") || lower.includes("cert")) {
+    hint = "Der SMTP-Server liefert ein Zertifikat, dem Node/Docker nicht vertraut. Zertifikat oder SMTP-Servernamen pruefen.";
+  } else if (lower.includes("auth") || lower.includes("login") || lower.includes("credential")) {
+    hint = "SMTP-Benutzer oder Kennwort pruefen.";
+  } else if (lower.includes("enotfound") || lower.includes("econnrefused") || lower.includes("etimedout")) {
+    hint = "SMTP Host, Port, DNS und Firewall-Verbindung aus dem Docker-Container pruefen.";
+  }
+
+  return {
+    message,
+    hint,
+    code,
+    command: error?.command || "",
+    responseCode: error?.responseCode || ""
+  };
 }
 
 function skipped(message, recipients, settings = {}, rendered = {}) {

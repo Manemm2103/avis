@@ -1236,7 +1236,7 @@ function mailToastSuffix(mail) {
     }
 
     if (mail.failed > 0) {
-      return ` Mailfehler: ${mail.messages[0] || "Versand fehlgeschlagen."}`;
+      return ` Mailfehler: ${mail.messages[0] || "Versand fehlgeschlagen."}${mailHintSuffix(mail.items)}`;
     }
 
     if (mail.sent > 0 && mail.skipped === 0) {
@@ -1251,7 +1251,7 @@ function mailToastSuffix(mail) {
   }
 
   if (mail.failed) {
-    return ` Mailfehler: ${mail.message || "Versand fehlgeschlagen."}`;
+    return ` Mailfehler: ${mail.message || "Versand fehlgeschlagen."}${mailHintSuffix([mail])}`;
   }
 
   if (mail.sent) {
@@ -1263,6 +1263,11 @@ function mailToastSuffix(mail) {
   }
 
   return "";
+}
+
+function mailHintSuffix(items = []) {
+  const hint = items.find((item) => item?.hint)?.hint;
+  return hint ? ` Hinweis: ${hint}` : "";
 }
 
 function requestConfirm(message) {

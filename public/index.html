@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AVIS</title>
-    <link rel="stylesheet" href="/style.css?v=20260629-smtp-verify">
+    <link rel="stylesheet" href="/style.css?v=20260629-avis-revoke">
   </head>
   <body>
     <section class="login-view" id="login-view">
@@ -103,6 +103,7 @@
               </label>
               <button class="secondary" id="bulk-save" type="button">Nur speichern</button>
               <button class="primary" id="bulk-notify" type="button">Avisieren</button>
+              <button class="secondary danger" id="bulk-revoke" type="button" hidden>Avisierung zurücknehmen</button>
               <span class="bulk-hint" id="bulk-hint"></span>
             </div>
           </div>
@@ -126,6 +127,7 @@
               <thead>
                 <tr>
                   <th aria-sort="none"><button class="sort-button" data-sort="status" type="button">Status <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                  <th aria-sort="none"><button class="sort-button" data-sort="notifiedAt" type="button">Letzte Avisierung <span class="sort-indicator" aria-hidden="true"></span></button></th>
                   <th aria-sort="none"><button class="sort-button" data-sort="driver" type="button">Fahrertelefon <span class="sort-indicator" aria-hidden="true"></span></button></th>
                   <th aria-sort="none"><button class="sort-button" data-sort="orderNumber" type="button">Auftrag <span class="sort-indicator" aria-hidden="true"></span></button></th>
                   <th aria-sort="none"><button class="sort-button" data-sort="customer" type="button">Kunde <span class="sort-indicator" aria-hidden="true"></span></button></th>
@@ -378,7 +380,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.06.29.3</footer>
+      <footer class="app-footer">Version 2026.06.29.4</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -467,7 +469,7 @@
 
         <div class="drawer-actions">
           <button class="primary" type="submit">Speichern</button>
-          <button class="secondary" id="mark-notified" type="button">Als avisiert markieren</button>
+          <button class="secondary" id="mark-notified" type="button">Avisieren</button>
         </div>
       </form>
     </aside>
@@ -541,6 +543,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260629-smtp-verify" type="module"></script>
+    <script src="/app.js?v=20260629-avis-revoke" type="module"></script>
   </body>
 </html>

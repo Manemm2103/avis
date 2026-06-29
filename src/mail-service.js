@@ -11,23 +11,15 @@ export const MAIL_TEXT_MARKS = [
   ["{{lieferanschrift}}", "Lieferanschrift"],
   ["{{liefertag}}", "Liefertermin formatiert"],
   ["{{liefertermin}}", "Liefertermin formatiert"],
-  ["{{liefertermin_iso}}", "Liefertermin als JJJJ-MM-TT"],
   ["{{kw}}", "Kalenderwoche, z. B. KW25"],
-  ["{{kalenderwoche}}", "Kalenderwoche mit Jahr"],
   ["{{tour}}", "Tour"],
   ["{{kontakt_telefon}}", "Telefon aus dem Auftrag"],
   ["{{kontakt_email}}", "E-Mail aus dem Auftrag"],
   ["{{fahrertelefon}}", "Fahrertelefon mit Bezeichnung"],
-  ["{{fahrertelefon_bezeichnung}}", "Bezeichnung des Fahrertelefons"],
   ["{{fahrertelefon_nummer}}", "Telefonnummer des Fahrers"],
   ["{{bemerkung}}", "Interne Bemerkung am Auftrag"],
   ["{{info_fuer_kunden}}", "Info fuer Kunden"],
-  ["{{zwei_tagestour}}", "Ja/Nein fuer 2-Tagestour"],
-  ["{{status}}", "Avisiert oder Nicht avisiert"],
-  ["{{gespeichert_am}}", "Letzte Speicherung"],
-  ["{{gespeichert_von}}", "Benutzer der letzten Speicherung"],
-  ["{{avisiert_am}}", "Letzte Avisierung"],
-  ["{{avisiert_von}}", "Benutzer der letzten Avisierung"]
+  ["{{gespeichert_von}}", "Benutzer der letzten Speicherung"]
 ].map(([token, description]) => ({ token, description }));
 
 export async function sendAvisMail(order, settings = {}) {
@@ -176,6 +168,7 @@ function mailValues(order = {}) {
   const avis = order.avis || {};
   const deliveryDate = order.displayDeliveryDate || order.deliveryDate || "";
   const deliveryWeek = order.displayDeliveryWeek || "";
+  const deliveryText = formatDeliveryDateForMail(deliveryDate, avis.twoDayTour);
 
   return {
     auftrag: order.orderNumber || "",
@@ -186,25 +179,17 @@ function mailValues(order = {}) {
     kundenanschrift: order.customerAddress || "",
     kommission: order.commission || "",
     lieferanschrift: order.deliveryAddress || "",
-    liefertag: formatDate(deliveryDate),
-    liefertermin: formatDate(deliveryDate),
-    liefertermin_iso: deliveryDate,
+    liefertag: deliveryText,
+    liefertermin: deliveryText,
     kw: formatWeekShort(deliveryWeek),
-    kalenderwoche: deliveryWeek,
     tour: order.displayTour || order.tour || "",
     kontakt_telefon: order.sourcePhone || "",
     kontakt_email: order.sourceEmail || "",
     fahrertelefon: avis.driverPhoneLabel || "",
-    fahrertelefon_bezeichnung: avis.driverPhoneName || "",
     fahrertelefon_nummer: avis.driverPhoneNumber || "",
     bemerkung: avis.note || "",
     info_fuer_kunden: avis.customerInfo || "",
-    zwei_tagestour: avis.twoDayTour ? "Ja" : "Nein",
-    status: avis.notified ? "Avisiert" : "Nicht avisiert",
-    gespeichert_am: formatDateTime(avis.updatedAt),
-    gespeichert_von: avis.updatedBy || "",
-    avisiert_am: formatDateTime(avis.notifiedAt),
-    avisiert_von: avis.notifiedBy || ""
+    gespeichert_von: avis.updatedBy || ""
   };
 }
 
@@ -246,21 +231,33 @@ function formatDate(value) {
   return `${match[3]}.${match[2]}.${match[1]}`;
 }
 
-function formatDateTime(value) {
-  if (!value) {
-    return "";
+function formatDeliveryDateForMail(value, twoDayTour) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (!match || !twoDayTour) {
+    return formatDate(value);
   }
 
-  const date = new Date(value);
+  const start = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 1);
 
-  if (Number.isNaN(date.getTime())) {
-    return value;
+  const startDay = String(start.getUTCDate()).padStart(2, "0");
+  const startMonth = String(start.getUTCMonth() + 1).padStart(2, "0");
+  const startYear = String(start.getUTCFullYear());
+  const endDay = String(end.getUTCDate()).padStart(2, "0");
+  const endMonth = String(end.getUTCMonth() + 1).padStart(2, "0");
+  const endYear = String(end.getUTCFullYear());
+
+  if (startYear === endYear && startMonth === endMonth) {
+    return `${startDay}-${endDay}.${startMonth}.${startYear}`;
   }
 
-  return new Intl.DateTimeFormat("de-DE", {
-    dateStyle: "short",
-    timeStyle: "short"
-  }).format(date);
+  if (startYear === endYear) {
+    return `${startDay}.${startMonth}-${endDay}.${endMonth}.${startYear}`;
+  }
+
+  return `${startDay}.${startMonth}.${startYear}-${endDay}.${endMonth}.${endYear}`;
 }
 
 function formatWeekShort(value) {

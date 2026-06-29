@@ -339,6 +339,7 @@ export class LocalStore {
     const now = new Date().toISOString();
     const actorName = actor?.displayName || actor?.username || "Unbekannt";
     const isNotifying = update.notified === true && !current.notified;
+    const isRevokingNotification = update.notified === false && current.notified;
     const next = {
       ...current,
       ...update,
@@ -350,7 +351,7 @@ export class LocalStore {
 
     next.log.push({
       id: crypto.randomUUID(),
-      type: isNotifying ? "avisiert" : "gespeichert",
+      type: isNotifying ? "avisiert" : isRevokingNotification ? "avisierung_zurueckgenommen" : "gespeichert",
       at: now,
       by: actorName,
       byUserId: actor?.id || ""

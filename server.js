@@ -183,6 +183,10 @@ app.patch("/api/orders/bulk", async (request, response) => {
     const avisOverrides = new Map();
     const mailOrderNumbers = [];
 
+    if (update.values.notified === false && !canManageMasterdata(request.user?.role)) {
+      throw new Error("Avisierungen duerfen per Massenbearbeitung nur von Admins und Abteilungsleitern zurueckgenommen werden.");
+    }
+
     for (const orderNumber of update.orderNumbers) {
       const currentAvis = store.getAvis(orderNumber);
       const shouldSendMail = update.values.notified === true && !currentAvis?.notified;
@@ -284,6 +288,10 @@ app.patch("/api/orders/:orderNumber", async (request, response) => {
     const update = sanitizeAvisUpdate(request.body);
     const currentAvis = store.getAvis(orderNumber);
     const shouldSendMail = update.notified === true && !currentAvis?.notified;
+
+    if (shouldSendMail && request.body?.notifyAction !== true) {
+      throw new Error("Avisiert kann nur ueber die Aktion Avisieren gesetzt werden.");
+    }
 
     if (Object.hasOwn(update, "deliveryDate") && !store.hasLocalOrder(orderNumber)) {
       throw new Error("Liefertermin kann nur bei selbst angelegten oder importierten Auftraegen geaendert werden.");
@@ -766,6 +774,8 @@ function sanitizeBulkAvisUpdate(input) {
     }
 
     values.notified = true;
+  } else if (input.notified === false) {
+    values.notified = false;
   }
 
   if (Object.keys(values).length === 0) {

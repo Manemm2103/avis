@@ -22,6 +22,7 @@ const state = {
   bulkSelectedOrderNumbers: new Set(),
   bulkLastSelectedOrderNumber: "",
   selectedOrder: null,
+  notifySelectedOrder: false,
   confirmResolve: null,
   toastTimer: null
 };
@@ -60,6 +61,7 @@ const elements = {
   bulkTwoDayTour: document.querySelector("#bulk-two-day-tour"),
   bulkSave: document.querySelector("#bulk-save"),
   bulkNotify: document.querySelector("#bulk-notify"),
+  bulkRevoke: document.querySelector("#bulk-revoke"),
   bulkHint: document.querySelector("#bulk-hint"),
   demoNotice: document.querySelector("#demo-notice"),
   sourceErrorNotice: document.querySelector("#source-error-notice"),
@@ -222,6 +224,7 @@ function bindEvents() {
   elements.newOrderButton.addEventListener("click", openManualOrderModal);
   elements.bulkSave.addEventListener("click", () => applyBulk(false));
   elements.bulkNotify.addEventListener("click", () => applyBulk(true));
+  elements.bulkRevoke.addEventListener("click", revokeBulkAvis);
   elements.bulkClearSelection.addEventListener("click", clearBulkSelection);
   elements.bulkDriver.addEventListener("change", renderBulkState);
   elements.bulkTwoDayTour.addEventListener("change", renderBulkState);
@@ -251,6 +254,7 @@ function bindEvents() {
   elements.userForm.addEventListener("submit", saveUser);
   elements.userCancel.addEventListener("click", resetUserForm);
   elements.markNotified.addEventListener("click", () => {
+    state.notifySelectedOrder = true;
     elements.drawerFields.notified.checked = true;
     elements.orderForm.requestSubmit();
   });
@@ -279,6 +283,13 @@ function bindEvents() {
 
     if (deleteButton) {
       await deleteLocalOrder(deleteButton.dataset.deleteOrder);
+      return;
+    }
+
+    const revokeButton = event.target.closest("[data-revoke-order]");
+
+    if (revokeButton) {
+      await revokeOrderAvis(revokeButton.dataset.revokeOrder);
       return;
     }
 
@@ -626,12 +637,12 @@ function renderOrders(errorMessage = "") {
   updateSortHeaders();
 
   if (errorMessage) {
-    elements.ordersBody.innerHTML = `<tr><td class="empty is-error" colspan="10">${escapeHtml(errorMessage)}</td></tr>`;
+    elements.ordersBody.innerHTML = `<tr><td class="empty is-error" colspan="11">${escapeHtml(errorMessage)}</td></tr>`;
     return;
   }
 
   if (state.orders.length === 0) {
-    elements.ordersBody.innerHTML = `<tr><td class="empty" colspan="10">Keine Aufträge gefunden.</td></tr>`;
+    elements.ordersBody.innerHTML = `<tr><td class="empty" colspan="11">Keine Aufträge gefunden.</td></tr>`;
     return;
   }
 
@@ -641,6 +652,10 @@ function renderOrders(errorMessage = "") {
     return `
       <tr class="${selected ? "is-selected" : ""}" data-order-number="${escapeHtml(order.orderNumber)}" aria-selected="${selected ? "true" : "false"}">
         <td>${statusBadge(order.avis.notified)}</td>
+        <td>
+          <span class="main-text">${formatDateTime(order.avis.notifiedAt)}</span>
+          ${order.avis.notifiedBy ? `<span class="sub-text">${escapeHtml(order.avis.notifiedBy)}</span>` : ""}
+        </td>
         <td>${driverPhoneBadge(order.avis.driverPhoneId)}</td>
         <td><strong>${escapeHtml(order.orderNumber)}</strong></td>
         <td>
@@ -661,6 +676,7 @@ function renderOrders(errorMessage = "") {
         <td>
           <div class="row-actions">
             <button class="secondary small" data-edit-order="${escapeHtml(order.orderNumber)}" type="button">Bearbeiten</button>
+            ${order.avis.notified ? `<button class="secondary small" data-revoke-order="${escapeHtml(order.orderNumber)}" type="button">Avisierung zurücknehmen</button>` : ""}
             ${isAdmin() && order.canDelete ? `<button class="secondary danger small" data-delete-order="${escapeHtml(order.orderNumber)}" type="button">Löschen</button>` : ""}
           </div>
         </td>
@@ -708,6 +724,7 @@ function sortedOrders() {
 function orderSortValue(order, key) {
   const values = {
     status: order.avis.notified ? 1 : 0,
+    notifiedAt: order.avis.notifiedAt || "",
     driver: order.avis.driverPhoneLabel || "",
     orderNumber: order.orderNumber,
     customer: `${order.customerName || ""} ${order.customerNumber || ""}`.trim(),
@@ -745,11 +762,21 @@ function selectedBulkOrderNumbers() {
   return [...state.bulkSelectedOrderNumbers].filter((orderNumber) => visible.has(orderNumber));
 }
 
+function bulkTargetOrders() {
+  const selected = new Set(selectedBulkOrderNumbers());
+  return selected.size > 0
+    ? state.orders.filter((order) => selected.has(order.orderNumber))
+    : state.orders;
+}
+
 function bulkTargetOrderNumbers() {
-  const selected = selectedBulkOrderNumbers();
-  return selected.length > 0
-    ? selected
-    : state.orders.map((order) => order.orderNumber);
+  return bulkTargetOrders().map((order) => order.orderNumber);
+}
+
+function bulkRevokeTargetOrderNumbers() {
+  return bulkTargetOrders()
+    .filter((order) => order.avis.notified)
+    .map((order) => order.orderNumber);
 }
 
 function reconcileBulkSelection() {
@@ -991,6 +1018,7 @@ function renderDriverOptions(target, selectedId = "") {
 function renderBulkState() {
   const selectedCount = selectedBulkOrderNumbers().length;
   const targetOrderNumbers = bulkTargetOrderNumbers();
+  const revokeTargetCount = bulkRevokeTargetOrderNumbers().length;
   const targetCount = targetOrderNumbers.length;
   const hasSelection = selectedCount > 0;
   const countLabel = targetCount === 1 ? "1 Auftrag" : `${targetCount} Aufträge`;
@@ -1010,8 +1038,11 @@ function renderBulkState() {
 
   const saveReady = hasOrders && (hasDriver || marksTwoDayTour);
   const notifyReady = hasOrders && hasDriver;
+  const revokeReady = isAdmin() && revokeTargetCount > 0;
   elements.bulkSave.disabled = !saveReady;
   elements.bulkNotify.disabled = !notifyReady;
+  elements.bulkRevoke.hidden = !isAdmin();
+  elements.bulkRevoke.disabled = !revokeReady;
 
   if (missing.length > 0) {
     elements.bulkHint.textContent = `Noch erforderlich: ${missing.join(", ")}.`;
@@ -1061,6 +1092,8 @@ function openDrawer(orderNumber) {
   elements.drawerFields.note.value = order.avis.note || "";
   elements.drawerFields.customerInfo.value = order.avis.customerInfo || "";
   elements.drawerFields.notified.checked = order.avis.notified;
+  elements.drawerFields.notified.disabled = !order.avis.notified;
+  elements.markNotified.hidden = order.avis.notified;
   renderDriverOptions(elements.drawerFields.driver, order.avis.driverPhoneId);
   renderOrderLog(order);
   renderMailLog(order);
@@ -1123,6 +1156,9 @@ function renderMailLog(order) {
 
 function closeDrawer() {
   state.selectedOrder = null;
+  state.notifySelectedOrder = false;
+  elements.drawerFields.notified.disabled = false;
+  elements.markNotified.hidden = false;
   elements.drawer.classList.remove("is-open");
   elements.drawer.setAttribute("aria-hidden", "true");
 }
@@ -1148,6 +1184,7 @@ async function saveSelectedOrder(event) {
     return;
   }
 
+  const notifyAction = state.notifySelectedOrder;
   const payload = {
     driverPhoneId: elements.drawerFields.driver.value,
     twoDayTour: elements.drawerFields.twoDayTour.checked,
@@ -1156,18 +1193,26 @@ async function saveSelectedOrder(event) {
     notified: elements.drawerFields.notified.checked
   };
 
+  if (notifyAction) {
+    payload.notifyAction = true;
+  }
+
   if (state.selectedOrder.canDelete) {
     payload.deliveryDate = elements.drawerFields.deliveryDateInput.value;
   }
 
-  const result = await api(`/api/orders/${encodeURIComponent(state.selectedOrder.orderNumber)}`, {
-    method: "PATCH",
-    body: JSON.stringify(payload)
-  });
+  try {
+    const result = await api(`/api/orders/${encodeURIComponent(state.selectedOrder.orderNumber)}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    });
 
-  closeDrawer();
-  await loadOrders();
-  showToast(`Auftrag gespeichert.${mailToastSuffix(result.mail)}`);
+    closeDrawer();
+    await loadOrders();
+    showToast(`${notifyAction ? "Auftrag avisiert" : "Auftrag gespeichert"}.${mailToastSuffix(result.mail)}`);
+  } finally {
+    state.notifySelectedOrder = false;
+  }
 }
 
 async function applyBulk(notified) {
@@ -1220,6 +1265,41 @@ async function applyBulk(notified) {
 
   await loadOrders();
   showToast(notified ? `${result.updated} Aufträge avisiert.${mailToastSuffix(result.mail)}` : `${result.updated} Aufträge gespeichert.`);
+}
+
+async function revokeBulkAvis() {
+  if (!isAdmin()) {
+    showToast("Nur Admins und Abteilungsleiter dürfen Avisierungen per Massenbearbeitung zurücknehmen.");
+    return;
+  }
+
+  const targetOrderNumbers = bulkRevokeTargetOrderNumbers();
+  const hasSelection = selectedBulkOrderNumbers().length > 0;
+
+  if (targetOrderNumbers.length === 0) {
+    showToast(hasSelection ? "Keine avisierten Aufträge markiert." : "Keine avisierten Aufträge im aktuellen Filter.");
+    return;
+  }
+
+  const recordLabel = targetOrderNumbers.length === 1 ? "1 Avisierung" : `${targetOrderNumbers.length} Avisierungen`;
+  const sourceLabel = hasSelection ? "aus der Markierung" : "aus der aktuell sichtbaren Liste";
+  const confirmed = await requestConfirm(`${targetOrderNumbers.length === 1 ? "Soll" : "Sollen"} ${recordLabel} ${sourceLabel} wirklich zurückgenommen werden?`);
+
+  if (!confirmed) {
+    showToast("Zurücknehmen abgebrochen.");
+    return;
+  }
+
+  const result = await api("/api/orders/bulk", {
+    method: "PATCH",
+    body: JSON.stringify({
+      orderNumbers: targetOrderNumbers,
+      notified: false
+    })
+  });
+
+  await loadOrders();
+  showToast(`${result.updated} Avisierungen zurückgenommen.`);
 }
 
 function selectedBulkDriverLabel() {
@@ -1415,6 +1495,29 @@ async function deleteLocalOrder(orderNumber) {
   await loadTours();
   await loadOrders();
   showToast("Auftrag gelöscht.");
+}
+
+async function revokeOrderAvis(orderNumber) {
+  const order = state.orders.find((item) => item.orderNumber === orderNumber);
+
+  if (!order?.avis?.notified) {
+    showToast("Dieser Auftrag ist nicht avisiert.");
+    return;
+  }
+
+  const confirmed = await requestConfirm(`Soll die Avisierung für Auftrag "${orderNumber}" wirklich zurückgenommen werden?`);
+
+  if (!confirmed) {
+    return;
+  }
+
+  await api(`/api/orders/${encodeURIComponent(orderNumber)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ notified: false })
+  });
+
+  await loadOrders();
+  showToast("Avisierung zurückgenommen.");
 }
 
 async function saveSqlSettings(event) {
@@ -1846,6 +1949,10 @@ function logTypeLabel(type) {
 
   if (type === "fahrertelefon_geloescht") {
     return "Fahrertelefon gelöscht";
+  }
+
+  if (type === "avisierung_zurueckgenommen") {
+    return "Avisierung zurückgenommen";
   }
 
   return "Gespeichert";

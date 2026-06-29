@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AVIS</title>
-    <link rel="stylesheet" href="/style.css?v=20260629-mail-logs">
+    <link rel="stylesheet" href="/style.css?v=20260629-smtp-cert">
   </head>
   <body>
     <section class="login-view" id="login-view">
@@ -206,6 +206,15 @@
                 <span>SMTP SSL/TLS aktiv</span>
               </label>
               <p class="help-text mail-admin-only wide-field">Hinweis: Fuer Port 587 normalerweise deaktiviert lassen (STARTTLS). Fuer Port 465 normalerweise aktivieren.</p>
+              <label class="checkbox mail-admin-only wide-field">
+                <input id="mail-smtp-verify-certificate" name="smtpVerifyCertificate" type="checkbox" checked>
+                <span>SMTP-Zertifikat prüfen</span>
+              </label>
+              <label class="mail-admin-only wide-field">
+                <span>SMTP Root-/Intermediate-CA Zertifikat</span>
+                <textarea id="mail-smtp-certificate" class="code-textarea" name="smtpCertificate" rows="8" spellcheck="false" placeholder="-----BEGIN CERTIFICATE-----"></textarea>
+              </label>
+              <p class="help-text mail-admin-only wide-field">Wenn Exchange ein internes Zertifikat nutzt, hier die Root-CA oder Intermediate-CA als PEM einfuegen. Pruefung nur fuer Tests deaktivieren.</p>
               <label class="mail-admin-only">
                 <span>SMTP Benutzer</span>
                 <input id="mail-smtp-user" name="smtpUser" autocomplete="off">
@@ -370,7 +379,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.06.29.1</footer>
+      <footer class="app-footer">Version 2026.06.29.2</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -533,6 +542,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260629-mail-logs" type="module"></script>
+    <script src="/app.js?v=20260629-smtp-cert" type="module"></script>
   </body>
 </html>

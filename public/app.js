@@ -97,6 +97,8 @@ const elements = {
   mailSmtpHost: document.querySelector("#mail-smtp-host"),
   mailSmtpPort: document.querySelector("#mail-smtp-port"),
   mailSmtpSecure: document.querySelector("#mail-smtp-secure"),
+  mailSmtpVerifyCertificate: document.querySelector("#mail-smtp-verify-certificate"),
+  mailSmtpCertificate: document.querySelector("#mail-smtp-certificate"),
   mailSmtpUser: document.querySelector("#mail-smtp-user"),
   mailSmtpPassword: document.querySelector("#mail-smtp-password"),
   mailFromName: document.querySelector("#mail-from-name"),
@@ -567,6 +569,8 @@ async function loadMailSettings() {
     elements.mailSmtpHost.value = state.mailSettings.smtpHost || "";
     elements.mailSmtpPort.value = state.mailSettings.smtpPort || 587;
     elements.mailSmtpSecure.checked = Boolean(state.mailSettings.smtpSecure);
+    elements.mailSmtpVerifyCertificate.checked = state.mailSettings.smtpVerifyCertificate !== false;
+    elements.mailSmtpCertificate.value = state.mailSettings.smtpCertificate || "";
     elements.mailSmtpUser.value = state.mailSettings.smtpUser || "";
     elements.mailSmtpPassword.value = state.mailSettings.smtpPassword || "";
     elements.mailFromName.value = state.mailSettings.fromName || "";
@@ -1455,6 +1459,8 @@ async function saveMailSettings(event) {
       smtpHost: elements.mailSmtpHost.value,
       smtpPort: elements.mailSmtpPort.value,
       smtpSecure: elements.mailSmtpSecure.checked,
+      smtpVerifyCertificate: elements.mailSmtpVerifyCertificate.checked,
+      smtpCertificate: elements.mailSmtpCertificate.value,
       smtpUser: elements.mailSmtpUser.value,
       smtpPassword: elements.mailSmtpPassword.value,
       fromName: elements.mailFromName.value,

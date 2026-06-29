@@ -610,6 +610,8 @@ function logAvisMailResult(orderNumber, settings, result) {
     smtpHost: settings.smtpHost || "",
     smtpPort: settings.smtpPort || 587,
     smtpSecure: Boolean(settings.smtpSecure),
+    smtpVerifyCertificate: settings.smtpVerifyCertificate !== false,
+    smtpCertificateConfigured: Boolean(settings.smtpCertificate),
     message: result.message || "",
     hint: result.hint || "",
     code: result.code || "",
@@ -867,6 +869,7 @@ function sanitizeMailSettings(input, fullAdmin) {
 
   for (const field of [
     "smtpHost",
+    "smtpCertificate",
     "smtpUser",
     "smtpPassword",
     "fromName",
@@ -885,6 +888,10 @@ function sanitizeMailSettings(input, fullAdmin) {
 
   if (Object.hasOwn(input, "smtpSecure")) {
     settings.smtpSecure = Boolean(input.smtpSecure);
+  }
+
+  if (Object.hasOwn(input, "smtpVerifyCertificate")) {
+    settings.smtpVerifyCertificate = Boolean(input.smtpVerifyCertificate);
   }
 
   if (Object.hasOwn(input, "demoMode")) {
@@ -912,6 +919,8 @@ function publicMailSettings(settings, fullAdmin) {
     smtpHost: settings.smtpHost || "",
     smtpPort: settings.smtpPort || 587,
     smtpSecure: Boolean(settings.smtpSecure),
+    smtpVerifyCertificate: settings.smtpVerifyCertificate !== false,
+    smtpCertificate: settings.smtpCertificate || "",
     smtpUser: settings.smtpUser || "",
     smtpPassword: settings.smtpPassword || "",
     fromName: settings.fromName || "",

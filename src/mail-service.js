@@ -49,6 +49,11 @@ export async function sendAvisMail(order, settings = {}) {
       host: settings.smtpHost,
       port: Number(settings.smtpPort) || 587,
       secure: Boolean(settings.smtpSecure),
+      tls: {
+        rejectUnauthorized: settings.smtpVerifyCertificate !== false,
+        ca: settings.smtpCertificate ? [settings.smtpCertificate] : undefined,
+        servername: settings.smtpHost || undefined
+      },
       auth: settings.smtpUser ? {
         user: settings.smtpUser,
         pass: settings.smtpPassword || ""
@@ -128,8 +133,8 @@ function mailErrorInfo(error, settings) {
     hint = Number(settings.smtpPort) === 465
       ? "SMTP-Server/Port erwartet vermutlich kein direktes SSL. Testweise SMTP SSL/TLS deaktivieren oder den korrekten SMTP-Port pruefen."
       : "Wahrscheinlich ist SMTP SSL/TLS aktiv, obwohl der Port STARTTLS erwartet. Bei Port 587 SMTP SSL/TLS deaktivieren; bei Port 465 aktivieren.";
-  } else if (lower.includes("self-signed") || lower.includes("certificate") || lower.includes("cert")) {
-    hint = "Der SMTP-Server liefert ein Zertifikat, dem Node/Docker nicht vertraut. Zertifikat oder SMTP-Servernamen pruefen.";
+  } else if (lower.includes("unable to verify") || lower.includes("self-signed") || lower.includes("certificate") || lower.includes("cert")) {
+    hint = "Der SMTP-Server liefert ein Zertifikat, dem Node/Docker nicht vertraut. Interne Root-/Intermediate-CA in den SMTP-Einstellungen eintragen oder die Zertifikatspruefung nur testweise deaktivieren.";
   } else if (lower.includes("auth") || lower.includes("login") || lower.includes("credential")) {
     hint = "SMTP-Benutzer oder Kennwort pruefen.";
   } else if (lower.includes("enotfound") || lower.includes("econnrefused") || lower.includes("etimedout")) {

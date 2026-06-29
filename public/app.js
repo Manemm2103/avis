@@ -42,7 +42,9 @@ const elements = {
     orders: document.querySelector("#orders-view"),
     masterdata: document.querySelector("#masterdata-view")
   },
+  ordersTable: document.querySelector("#orders-table"),
   ordersBody: document.querySelector("#orders-body"),
+  notifiedAtHeader: document.querySelector("#notified-at-header"),
   driversBody: document.querySelector("#drivers-body"),
   usersBody: document.querySelector("#users-body"),
   searchInput: document.querySelector("#search-input"),
@@ -634,15 +636,24 @@ function renderStats(summary) {
 }
 
 function renderOrders(errorMessage = "") {
+  const showNotifiedAtColumn = shouldShowNotifiedAtColumn();
+
+  if (!showNotifiedAtColumn && state.sort.key === "notifiedAt") {
+    state.sort = { key: "", direction: "asc" };
+  }
+
+  elements.notifiedAtHeader.hidden = !showNotifiedAtColumn;
+  elements.ordersTable.classList.toggle("has-notified-at", showNotifiedAtColumn);
   updateSortHeaders();
+  const columnCount = showNotifiedAtColumn ? 11 : 10;
 
   if (errorMessage) {
-    elements.ordersBody.innerHTML = `<tr><td class="empty is-error" colspan="11">${escapeHtml(errorMessage)}</td></tr>`;
+    elements.ordersBody.innerHTML = `<tr><td class="empty is-error" colspan="${columnCount}">${escapeHtml(errorMessage)}</td></tr>`;
     return;
   }
 
   if (state.orders.length === 0) {
-    elements.ordersBody.innerHTML = `<tr><td class="empty" colspan="11">Keine Aufträge gefunden.</td></tr>`;
+    elements.ordersBody.innerHTML = `<tr><td class="empty" colspan="${columnCount}">Keine Aufträge gefunden.</td></tr>`;
     return;
   }
 
@@ -652,10 +663,10 @@ function renderOrders(errorMessage = "") {
     return `
       <tr class="${selected ? "is-selected" : ""}" data-order-number="${escapeHtml(order.orderNumber)}" aria-selected="${selected ? "true" : "false"}">
         <td>${statusBadge(order.avis.notified)}</td>
-        <td>
+        ${showNotifiedAtColumn ? `<td>
           <span class="main-text">${formatDateTime(order.avis.notifiedAt)}</span>
           ${order.avis.notifiedBy ? `<span class="sub-text">${escapeHtml(order.avis.notifiedBy)}</span>` : ""}
-        </td>
+        </td>` : ""}
         <td>${driverPhoneBadge(order.avis.driverPhoneId)}</td>
         <td><strong>${escapeHtml(order.orderNumber)}</strong></td>
         <td>
@@ -676,13 +687,17 @@ function renderOrders(errorMessage = "") {
         <td>
           <div class="row-actions">
             <button class="secondary small" data-edit-order="${escapeHtml(order.orderNumber)}" type="button">Bearbeiten</button>
-            ${order.avis.notified ? `<button class="secondary small" data-revoke-order="${escapeHtml(order.orderNumber)}" type="button">Avisierung zurücknehmen</button>` : ""}
+            ${order.avis.notified ? `<button class="secondary danger small" data-revoke-order="${escapeHtml(order.orderNumber)}" type="button">Avisierung zurücknehmen</button>` : ""}
             ${isAdmin() && order.canDelete ? `<button class="secondary danger small" data-delete-order="${escapeHtml(order.orderNumber)}" type="button">Löschen</button>` : ""}
           </div>
         </td>
       </tr>
     `;
   }).join("");
+}
+
+function shouldShowNotifiedAtColumn() {
+  return state.status !== "open";
 }
 
 function sortedOrders() {

@@ -1195,7 +1195,7 @@ function openDrawer(orderNumber) {
   elements.drawerFields.contact.textContent = [order.sourcePhone, order.sourceEmail].filter(Boolean).join(" / ") || "-";
   elements.drawerFields.tour.textContent = order.tour || "-";
   elements.drawerFields.shippingEh.textContent = order.shippingEh || "-";
-  elements.drawerFields.elementWeight.textContent = order.elementWeight || "-";
+  elements.drawerFields.elementWeight.textContent = formatElementWeight(order.elementWeight);
   elements.drawerFields.blrCount.textContent = order.blrCount || "-";
   elements.drawerFields.eprodStorageLocation.textContent = order.eprodStorageLocation || "-";
   const deliveryDate = order.displayDeliveryDate || order.deliveryDate || "";
@@ -2012,6 +2012,25 @@ function formatDate(value) {
   }
 
   return new Intl.DateTimeFormat("de-DE").format(new Date(`${value}T00:00:00`));
+}
+
+function formatElementWeight(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "-";
+  }
+
+  const normalized = raw
+    .replace(/[^\d,.-]/g, "")
+    .replace(/\.(?=.*[,])/g, "")
+    .replace(",", ".");
+  const number = Number(normalized);
+
+  if (!Number.isFinite(number)) {
+    return raw;
+  }
+
+  return `${Math.round(number).toLocaleString("de-DE")} Kg`;
 }
 
 function formatWeek(value) {

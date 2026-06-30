@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AVIS</title>
-    <link rel="stylesheet" href="/style.css?v=20260630-bulk-revoke">
+    <link rel="stylesheet" href="/style.css?v=20260630-masterdata-tabs">
   </head>
   <body>
     <section class="login-view" id="login-view">
@@ -145,242 +145,254 @@
         </section>
 
         <section id="masterdata-view" class="view" hidden>
-          <div class="masterdata-section">
-            <h2>Fahrertelefone</h2>
-            <div class="masterdata-layout">
-              <form id="driver-form" class="panel">
-                <input id="driver-id" name="id" type="hidden">
-                <label>
-                  <span>Bezeichnung</span>
-                  <input id="driver-label" name="label" required placeholder="z. B. Tour 1 / Fahrer Max">
-                </label>
-                <label>
-                  <span>Telefon</span>
-                  <input id="driver-phone" name="phone" required placeholder="+49 ...">
-                </label>
-                <div class="form-actions">
-                  <button class="primary" id="driver-submit" type="submit">Fahrertelefon anlegen</button>
-                  <button class="secondary" id="driver-cancel" type="button" hidden>Abbrechen</button>
+          <div class="masterdata-shell">
+            <aside class="masterdata-menu" aria-label="Stammdaten">
+              <button class="masterdata-nav-button is-active" data-masterdata-tab="drivers" type="button">Fahrertelefon</button>
+              <button class="masterdata-nav-button" data-masterdata-tab="mail" type="button">E-Mail</button>
+              <button class="masterdata-nav-button" data-masterdata-tab="auth" type="button">Authentifizierung</button>
+              <button class="masterdata-nav-button" data-masterdata-tab="sql" type="button">SQL-Abfragen</button>
+              <button class="masterdata-nav-button" data-masterdata-tab="users" type="button">Benutzer</button>
+            </aside>
+
+            <div class="masterdata-content">
+              <div class="masterdata-section masterdata-panel" id="driver-settings-section" data-masterdata-panel="drivers">
+                <h2>Fahrertelefone</h2>
+                <div class="masterdata-layout">
+                  <form id="driver-form" class="panel">
+                    <input id="driver-id" name="id" type="hidden">
+                    <label>
+                      <span>Bezeichnung</span>
+                      <input id="driver-label" name="label" required placeholder="z. B. Tour 1 / Fahrer Max">
+                    </label>
+                    <label>
+                      <span>Telefon</span>
+                      <input id="driver-phone" name="phone" required placeholder="+49 ...">
+                    </label>
+                    <div class="form-actions">
+                      <button class="primary" id="driver-submit" type="submit">Fahrertelefon anlegen</button>
+                      <button class="secondary" id="driver-cancel" type="button" hidden>Abbrechen</button>
+                    </div>
+                  </form>
+
+                  <div class="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Bezeichnung</th>
+                          <th>Telefon</th>
+                          <th>Aktiv</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody id="drivers-body"></tbody>
+                    </table>
+                  </div>
                 </div>
-              </form>
-
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Bezeichnung</th>
-                      <th>Telefon</th>
-                      <th>Aktiv</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody id="drivers-body"></tbody>
-                </table>
               </div>
-            </div>
-          </div>
 
-          <div class="masterdata-section" id="mail-settings-section">
-            <h2>E-Mail Avis</h2>
-            <form id="mail-settings-form" class="panel compact-grid">
-              <label class="wide-field">
-                <span>Betreff</span>
-                <input id="mail-subject" name="subject" required>
-              </label>
-              <label class="wide-field">
-                <span>Mailtext</span>
-                <textarea id="mail-body" name="body" rows="12" required></textarea>
-              </label>
-              <div class="textmark-panel wide-field">
-                <strong>Textmarken</strong>
-                <div class="textmark-list" id="mail-textmarks"></div>
+              <div class="masterdata-section masterdata-panel" id="mail-settings-section" data-masterdata-panel="mail" hidden>
+                <h2>E-Mail Avis</h2>
+                <form id="mail-settings-form" class="panel compact-grid">
+                  <label class="wide-field">
+                    <span>Betreff</span>
+                    <input id="mail-subject" name="subject" required>
+                  </label>
+                  <label class="wide-field">
+                    <span>Mailtext</span>
+                    <textarea id="mail-body" name="body" rows="12" required></textarea>
+                  </label>
+                  <div class="textmark-panel wide-field">
+                    <strong>Textmarken</strong>
+                    <div class="textmark-list" id="mail-textmarks"></div>
+                  </div>
+                  <label class="mail-admin-only">
+                    <span>SMTP Host</span>
+                    <input id="mail-smtp-host" name="smtpHost" placeholder="smtp.example.local">
+                  </label>
+                  <label class="mail-admin-only">
+                    <span>SMTP Port</span>
+                    <input id="mail-smtp-port" name="smtpPort" type="number" min="1" max="65535" value="587">
+                  </label>
+                  <label class="checkbox mail-admin-only wide-field">
+                    <input id="mail-smtp-secure" name="smtpSecure" type="checkbox">
+                    <span>SMTP SSL/TLS aktiv</span>
+                  </label>
+                  <p class="help-text mail-admin-only wide-field">Hinweis: Fuer Port 587 normalerweise deaktiviert lassen (STARTTLS). Fuer Port 465 normalerweise aktivieren.</p>
+                  <label class="mail-admin-only wide-field">
+                    <span>SMTP-Zertifikat prüfen</span>
+                    <select id="mail-smtp-verify-certificate" name="smtpVerifyCertificate">
+                      <option value="no" selected>Nein</option>
+                      <option value="yes">Ja</option>
+                    </select>
+                  </label>
+                  <p class="help-text mail-admin-only wide-field">Standard: Nein. Auf Ja stellen, wenn der SMTP-Server ein Zertifikat liefert, dem der Docker-Container vertraut.</p>
+                  <label class="mail-admin-only">
+                    <span>SMTP Benutzer</span>
+                    <input id="mail-smtp-user" name="smtpUser" autocomplete="off">
+                  </label>
+                  <label class="mail-admin-only">
+                    <span>SMTP Kennwort</span>
+                    <input id="mail-smtp-password" name="smtpPassword" type="password" autocomplete="new-password">
+                  </label>
+                  <label class="mail-admin-only">
+                    <span>Absender Name</span>
+                    <input id="mail-from-name" name="fromName">
+                  </label>
+                  <label class="mail-admin-only">
+                    <span>Absender E-Mail</span>
+                    <input id="mail-from-email" name="fromEmail" type="email">
+                  </label>
+                  <label class="mail-admin-only wide-field">
+                    <span>Antwort an</span>
+                    <input id="mail-reply-to" name="replyTo" type="email">
+                  </label>
+                  <label class="checkbox mail-admin-only wide-field">
+                    <input id="mail-demo-mode" name="demoMode" type="checkbox" checked>
+                    <span>E-Mail Avis DEMOBETRIEB</span>
+                  </label>
+                  <label class="mail-admin-only wide-field" id="mail-demo-recipients-row">
+                    <span>Demo-Empfänger</span>
+                    <input id="mail-demo-recipients" name="demoRecipients" placeholder="test1@example.de; test2@example.de">
+                  </label>
+                  <div class="form-actions wide-field">
+                    <button class="primary" type="submit">E-Mail Avis speichern</button>
+                  </div>
+                </form>
               </div>
-              <label class="mail-admin-only">
-                <span>SMTP Host</span>
-                <input id="mail-smtp-host" name="smtpHost" placeholder="smtp.example.local">
-              </label>
-              <label class="mail-admin-only">
-                <span>SMTP Port</span>
-                <input id="mail-smtp-port" name="smtpPort" type="number" min="1" max="65535" value="587">
-              </label>
-              <label class="checkbox mail-admin-only wide-field">
-                <input id="mail-smtp-secure" name="smtpSecure" type="checkbox">
-                <span>SMTP SSL/TLS aktiv</span>
-              </label>
-              <p class="help-text mail-admin-only wide-field">Hinweis: Fuer Port 587 normalerweise deaktiviert lassen (STARTTLS). Fuer Port 465 normalerweise aktivieren.</p>
-              <label class="mail-admin-only wide-field">
-                <span>SMTP-Zertifikat prüfen</span>
-                <select id="mail-smtp-verify-certificate" name="smtpVerifyCertificate">
-                  <option value="no" selected>Nein</option>
-                  <option value="yes">Ja</option>
-                </select>
-              </label>
-              <p class="help-text mail-admin-only wide-field">Standard: Nein. Auf Ja stellen, wenn der SMTP-Server ein Zertifikat liefert, dem der Docker-Container vertraut.</p>
-              <label class="mail-admin-only">
-                <span>SMTP Benutzer</span>
-                <input id="mail-smtp-user" name="smtpUser" autocomplete="off">
-              </label>
-              <label class="mail-admin-only">
-                <span>SMTP Kennwort</span>
-                <input id="mail-smtp-password" name="smtpPassword" type="password" autocomplete="new-password">
-              </label>
-              <label class="mail-admin-only">
-                <span>Absender Name</span>
-                <input id="mail-from-name" name="fromName">
-              </label>
-              <label class="mail-admin-only">
-                <span>Absender E-Mail</span>
-                <input id="mail-from-email" name="fromEmail" type="email">
-              </label>
-              <label class="mail-admin-only wide-field">
-                <span>Antwort an</span>
-                <input id="mail-reply-to" name="replyTo" type="email">
-              </label>
-              <label class="checkbox mail-admin-only wide-field">
-                <input id="mail-demo-mode" name="demoMode" type="checkbox" checked>
-                <span>E-Mail Avis DEMOBETRIEB</span>
-              </label>
-              <label class="mail-admin-only wide-field" id="mail-demo-recipients-row">
-                <span>Demo-Empfänger</span>
-                <input id="mail-demo-recipients" name="demoRecipients" placeholder="test1@example.de; test2@example.de">
-              </label>
-              <div class="form-actions wide-field">
-                <button class="primary" type="submit">E-Mail Avis speichern</button>
+
+              <div class="masterdata-section masterdata-panel" id="ldap-settings-section" data-masterdata-panel="auth" hidden>
+                <h2>Authentifizierung</h2>
+                <form id="ldap-settings-form" class="panel compact-grid">
+                  <label class="checkbox wide-field">
+                    <input id="ldap-enabled" name="enabled" type="checkbox">
+                    <span>LDAPS-Anmeldung aktiv</span>
+                  </label>
+                  <label>
+                    <span>Name</span>
+                    <input id="ldap-name" name="name" placeholder="DC - Bayerwald">
+                  </label>
+                  <label>
+                    <span>Host</span>
+                    <input id="ldap-host" name="host" placeholder="ldap.example.local">
+                  </label>
+                  <label>
+                    <span>Port</span>
+                    <input id="ldap-port" name="port" type="number" min="1" max="65535" value="636">
+                  </label>
+                  <label>
+                    <span>Benutzername-Attribut</span>
+                    <input id="ldap-login-attribute" name="loginAttribute" value="sAMAccountName">
+                  </label>
+                  <label class="checkbox wide-field">
+                    <input id="ldap-verify-certificate" name="verifyCertificate" type="checkbox" checked>
+                    <span>SSL-Zertifikat überprüfen</span>
+                  </label>
+                  <label class="wide-field">
+                    <span>LDAP-Server SSL-Zertifikat</span>
+                    <textarea id="ldap-certificate" class="code-textarea" name="certificate" rows="8" spellcheck="false" placeholder="-----BEGIN CERTIFICATE-----"></textarea>
+                  </label>
+                  <label class="wide-field">
+                    <span>Systemkonto DN</span>
+                    <input id="ldap-bind-dn" name="bindDn" placeholder="CN=avis,OU=System,DC=bayerwald,DC=local">
+                  </label>
+                  <label class="wide-field">
+                    <span>Systemkonto Kennwort</span>
+                    <input id="ldap-bind-password" name="bindPassword" type="password" autocomplete="new-password">
+                  </label>
+                  <label class="wide-field">
+                    <span>Basis-DN</span>
+                    <input id="ldap-base-dn" name="baseDn" placeholder="DC=bayerwald,DC=local">
+                  </label>
+                  <label class="wide-field">
+                    <span>Zusatzfilter</span>
+                    <input id="ldap-user-filter" name="userFilter" placeholder="(objectClass=*)">
+                  </label>
+                  <label class="wide-field">
+                    <span>Admin-Gruppe DN</span>
+                    <input id="ldap-admin-group-dn" name="adminGroupDn" placeholder="CN=AVIS_Admin,OU=Apps,OU=Gruppen,DC=bayerwald,DC=local">
+                  </label>
+                  <label class="wide-field">
+                    <span>Abteilungsleiter-Gruppe DN</span>
+                    <input id="ldap-department-lead-group-dn" name="departmentLeadGroupDn" placeholder="CN=AVIS_Abteilungsleiter,OU=Apps,OU=Gruppen,DC=bayerwald,DC=local">
+                  </label>
+                  <div class="form-actions wide-field">
+                    <button class="primary" type="submit">Authentifizierung speichern</button>
+                  </div>
+                </form>
               </div>
-            </form>
-          </div>
 
-          <div class="masterdata-section" id="sql-settings-section">
-            <h2>SQL-Abfragen</h2>
-            <form id="sql-settings-form" class="panel">
-              <label>
-                <span>Auftragsabfrage</span>
-                <textarea id="sql-orders-query" class="code-textarea" name="ordersQuery" rows="10" spellcheck="false"></textarea>
-              </label>
-              <label>
-                <span>Tourenabfrage</span>
-                <textarea id="sql-tours-query" class="code-textarea" name="toursQuery" rows="4" spellcheck="false"></textarea>
-              </label>
-              <button class="primary" type="submit">SQL-Abfragen speichern</button>
-            </form>
-          </div>
-
-          <div class="masterdata-section" id="ldap-settings-section">
-            <h2>LDAPS-Anmeldung</h2>
-            <form id="ldap-settings-form" class="panel compact-grid">
-              <label class="checkbox wide-field">
-                <input id="ldap-enabled" name="enabled" type="checkbox">
-                <span>LDAPS-Anmeldung aktiv</span>
-              </label>
-              <label>
-                <span>Name</span>
-                <input id="ldap-name" name="name" placeholder="DC - Bayerwald">
-              </label>
-              <label>
-                <span>Host</span>
-                <input id="ldap-host" name="host" placeholder="ldap.example.local">
-              </label>
-              <label>
-                <span>Port</span>
-                <input id="ldap-port" name="port" type="number" min="1" max="65535" value="636">
-              </label>
-              <label>
-                <span>Benutzername-Attribut</span>
-                <input id="ldap-login-attribute" name="loginAttribute" value="sAMAccountName">
-              </label>
-              <label class="checkbox wide-field">
-                <input id="ldap-verify-certificate" name="verifyCertificate" type="checkbox" checked>
-                <span>SSL-Zertifikat überprüfen</span>
-              </label>
-              <label class="wide-field">
-                <span>LDAP-Server SSL-Zertifikat</span>
-                <textarea id="ldap-certificate" class="code-textarea" name="certificate" rows="8" spellcheck="false" placeholder="-----BEGIN CERTIFICATE-----"></textarea>
-              </label>
-              <label class="wide-field">
-                <span>Systemkonto DN</span>
-                <input id="ldap-bind-dn" name="bindDn" placeholder="CN=avis,OU=System,DC=bayerwald,DC=local">
-              </label>
-              <label class="wide-field">
-                <span>Systemkonto Kennwort</span>
-                <input id="ldap-bind-password" name="bindPassword" type="password" autocomplete="new-password">
-              </label>
-              <label class="wide-field">
-                <span>Basis-DN</span>
-                <input id="ldap-base-dn" name="baseDn" placeholder="DC=bayerwald,DC=local">
-              </label>
-              <label class="wide-field">
-                <span>Zusatzfilter</span>
-                <input id="ldap-user-filter" name="userFilter" placeholder="(objectClass=*)">
-              </label>
-              <label class="wide-field">
-                <span>Admin-Gruppe DN</span>
-                <input id="ldap-admin-group-dn" name="adminGroupDn" placeholder="CN=AVIS_Admin,OU=Apps,OU=Gruppen,DC=bayerwald,DC=local">
-              </label>
-              <label class="wide-field">
-                <span>Abteilungsleiter-Gruppe DN</span>
-                <input id="ldap-department-lead-group-dn" name="departmentLeadGroupDn" placeholder="CN=AVIS_Abteilungsleiter,OU=Apps,OU=Gruppen,DC=bayerwald,DC=local">
-              </label>
-              <div class="form-actions wide-field">
-                <button class="primary" type="submit">LDAPS speichern</button>
+              <div class="masterdata-section masterdata-panel" id="sql-settings-section" data-masterdata-panel="sql" hidden>
+                <h2>SQL-Abfragen</h2>
+                <form id="sql-settings-form" class="panel">
+                  <label>
+                    <span>Auftragsabfrage</span>
+                    <textarea id="sql-orders-query" class="code-textarea" name="ordersQuery" rows="10" spellcheck="false"></textarea>
+                  </label>
+                  <label>
+                    <span>Tourenabfrage</span>
+                    <textarea id="sql-tours-query" class="code-textarea" name="toursQuery" rows="4" spellcheck="false"></textarea>
+                  </label>
+                  <button class="primary" type="submit">SQL-Abfragen speichern</button>
+                </form>
               </div>
-            </form>
-          </div>
 
-          <div class="masterdata-section">
-            <h2>Benutzerverwaltung</h2>
-            <div class="masterdata-layout">
-              <form id="user-form" class="panel">
-                <input id="user-id" name="id" type="hidden">
-                <label>
-                  <span>Benutzername</span>
-                  <input id="user-username" name="username" required autocomplete="off">
-                </label>
-                <label>
-                  <span>Name</span>
-                  <input id="user-display-name" name="displayName" required autocomplete="off">
-                </label>
-                <label>
-                  <span>Passwort</span>
-                  <input id="user-password" name="password" type="password" autocomplete="new-password">
-                </label>
-                <label>
-                  <span>Recht</span>
-                  <select id="user-role" name="role">
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
-                    <option value="superuser">Abteilungsleiter</option>
-                  </select>
-                </label>
-                <label class="checkbox">
-                  <input id="user-active" name="active" type="checkbox" checked>
-                  <span>Benutzer ist aktiv</span>
-                </label>
-                <div class="form-actions">
-                  <button class="primary" id="user-submit" type="submit">Benutzer anlegen</button>
-                  <button class="secondary" id="user-cancel" type="button" hidden>Abbrechen</button>
+              <div class="masterdata-section masterdata-panel" id="user-settings-section" data-masterdata-panel="users" hidden>
+                <h2>Benutzerverwaltung</h2>
+                <div class="masterdata-layout">
+                  <form id="user-form" class="panel">
+                    <input id="user-id" name="id" type="hidden">
+                    <label>
+                      <span>Benutzername</span>
+                      <input id="user-username" name="username" required autocomplete="off">
+                    </label>
+                    <label>
+                      <span>Name</span>
+                      <input id="user-display-name" name="displayName" required autocomplete="off">
+                    </label>
+                    <label>
+                      <span>Passwort</span>
+                      <input id="user-password" name="password" type="password" autocomplete="new-password">
+                    </label>
+                    <label>
+                      <span>Recht</span>
+                      <select id="user-role" name="role">
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                        <option value="superuser">Abteilungsleiter</option>
+                      </select>
+                    </label>
+                    <label class="checkbox">
+                      <input id="user-active" name="active" type="checkbox" checked>
+                      <span>Benutzer ist aktiv</span>
+                    </label>
+                    <div class="form-actions">
+                      <button class="primary" id="user-submit" type="submit">Benutzer anlegen</button>
+                      <button class="secondary" id="user-cancel" type="button" hidden>Abbrechen</button>
+                    </div>
+                  </form>
+
+                  <div class="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Benutzername</th>
+                          <th>Name</th>
+                          <th>Rolle</th>
+                          <th>Aktiv</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody id="users-body"></tbody>
+                    </table>
+                  </div>
                 </div>
-              </form>
-
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Benutzername</th>
-                      <th>Name</th>
-                      <th>Rolle</th>
-                      <th>Aktiv</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody id="users-body"></tbody>
-                </table>
               </div>
             </div>
           </div>
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.06.30.1</footer>
+      <footer class="app-footer">Version 2026.06.30.2</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -543,6 +555,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260630-bulk-revoke" type="module"></script>
+    <script src="/app.js?v=20260630-masterdata-tabs" type="module"></script>
   </body>
 </html>

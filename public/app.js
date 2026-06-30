@@ -19,6 +19,7 @@ const state = {
     key: "",
     direction: "asc"
   },
+  masterdataPage: "drivers",
   bulkSelectedOrderNumbers: new Set(),
   bulkLastSelectedOrderNumber: "",
   selectedOrder: null,
@@ -42,6 +43,8 @@ const elements = {
     orders: document.querySelector("#orders-view"),
     masterdata: document.querySelector("#masterdata-view")
   },
+  masterdataTabs: document.querySelectorAll("[data-masterdata-tab]"),
+  masterdataPanels: document.querySelectorAll("[data-masterdata-panel]"),
   ordersTable: document.querySelector("#orders-table"),
   ordersBody: document.querySelector("#orders-body"),
   notifiedAtHeader: document.querySelector("#notified-at-header"),
@@ -230,6 +233,9 @@ function bindEvents() {
   elements.bulkClearSelection.addEventListener("click", clearBulkSelection);
   elements.bulkDriver.addEventListener("change", renderBulkState);
   elements.bulkTwoDayTour.addEventListener("change", renderBulkState);
+  elements.masterdataTabs.forEach((button) => {
+    button.addEventListener("click", () => showMasterdataPage(button.dataset.masterdataTab));
+  });
   elements.drawerClose.addEventListener("click", closeDrawer);
   elements.manualOrderClose.addEventListener("click", closeManualOrderModal);
   elements.manualOrderCancel.addEventListener("click", closeManualOrderModal);
@@ -455,14 +461,16 @@ function showView(view) {
   elements.views.masterdata.hidden = isOrders;
   elements.tabs.orders.classList.toggle("is-active", isOrders);
   elements.tabs.masterdata.classList.toggle("is-active", !isOrders);
+
+  if (!isOrders) {
+    showMasterdataPage(state.masterdataPage);
+  }
 }
 
 function configureRoleUi() {
   const admin = isAdmin();
   elements.tabs.masterdata.hidden = !admin;
-  elements.sqlSection.hidden = !isFullAdmin();
-  elements.ldapSection.hidden = !isFullAdmin();
-  elements.mailSection.hidden = !admin;
+  configureMasterdataTabs();
   elements.mailAdminOnly.forEach((item) => {
     item.hidden = !isFullAdmin();
   });
@@ -472,6 +480,50 @@ function configureRoleUi() {
   if (!admin) {
     showView("orders");
   }
+}
+
+function configureMasterdataTabs() {
+  elements.masterdataTabs.forEach((button) => {
+    button.hidden = !canSeeMasterdataPage(button.dataset.masterdataTab);
+  });
+
+  if (!canSeeMasterdataPage(state.masterdataPage)) {
+    state.masterdataPage = firstVisibleMasterdataPage();
+  }
+
+  elements.masterdataPanels.forEach((panel) => {
+    const active = panel.dataset.masterdataPanel === state.masterdataPage;
+    panel.hidden = !active || !canSeeMasterdataPage(panel.dataset.masterdataPanel);
+  });
+
+  elements.masterdataTabs.forEach((button) => {
+    const active = button.dataset.masterdataTab === state.masterdataPage && !button.hidden;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-current", active ? "page" : "false");
+  });
+}
+
+function showMasterdataPage(page) {
+  if (canSeeMasterdataPage(page)) {
+    state.masterdataPage = page;
+  } else {
+    state.masterdataPage = firstVisibleMasterdataPage();
+  }
+
+  configureMasterdataTabs();
+}
+
+function firstVisibleMasterdataPage() {
+  const first = [...elements.masterdataTabs].find((button) => canSeeMasterdataPage(button.dataset.masterdataTab));
+  return first?.dataset.masterdataTab || "drivers";
+}
+
+function canSeeMasterdataPage(page) {
+  if (!isAdmin()) {
+    return false;
+  }
+
+  return ["auth", "sql"].includes(page) ? isFullAdmin() : ["drivers", "mail", "users"].includes(page);
 }
 
 function isAdmin() {

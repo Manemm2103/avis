@@ -660,7 +660,8 @@ function readOrderFilters(query) {
     search: String(query.search || "").trim().toLowerCase(),
     deliveryDate: String(query.deliveryDate || "").trim(),
     deliveryWeek: String(query.deliveryWeek || "").trim(),
-    tour: String(query.tour || "").trim()
+    tour: String(query.tour || "").trim(),
+    driverPhoneId: String(query.driverPhoneId || "").trim()
   };
 }
 
@@ -691,7 +692,23 @@ function applyOrderFilters(orders, filters, options = {}) {
     result = result.filter((order) => order.tour === filters.tour);
   }
 
+  if (filters.driverPhoneId) {
+    result = result.filter((order) => orderMatchesDriverPhoneFilter(order, filters.driverPhoneId));
+  }
+
   return result;
+}
+
+function orderMatchesDriverPhoneFilter(order, driverPhoneId) {
+  if (driverPhoneId === "__assigned") {
+    return Boolean(order.avis.driverPhoneId);
+  }
+
+  if (driverPhoneId === "__missing") {
+    return !order.avis.driverPhoneId;
+  }
+
+  return order.avis.driverPhoneId === driverPhoneId;
 }
 
 function uniqueTours(orders) {

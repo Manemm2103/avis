@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AVIS</title>
-    <link rel="stylesheet" href="/style.css?v=20260630-ldap-user-group">
+    <link rel="stylesheet" href="/style.css?v=20260630-driver-filter">
   </head>
   <body>
     <section class="login-view" id="login-view">
@@ -74,6 +74,12 @@
               <span>Tour</span>
               <select id="filter-tour">
                 <option value="">Alle Touren</option>
+              </select>
+            </label>
+            <label class="filter-control wide">
+              <span>Fahrertelefon</span>
+              <select id="filter-driver">
+                <option value="">Alle Fahrertelefone</option>
               </select>
             </label>
             <label class="search">
@@ -396,7 +402,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.06.30.3</footer>
+      <footer class="app-footer">Version 2026.06.30.4</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -559,6 +565,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260630-ldap-user-group" type="module"></script>
+    <script src="/app.js?v=20260630-driver-filter" type="module"></script>
   </body>
 </html>

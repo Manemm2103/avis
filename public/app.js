@@ -6,6 +6,7 @@ const state = {
   deliveryDate: "",
   deliveryWeek: "",
   tour: "",
+  driverPhoneId: "",
   orders: [],
   drivers: [],
   tours: [],
@@ -56,6 +57,7 @@ const elements = {
   filterWeekPopover: document.querySelector("#filter-week-popover"),
   filterWeekList: document.querySelector("#filter-week-list"),
   filterTour: document.querySelector("#filter-tour"),
+  filterDriver: document.querySelector("#filter-driver"),
   clearFiltersButton: document.querySelector("#clear-filters-button"),
   refreshButton: document.querySelector("#refresh-button"),
   newOrderButton: document.querySelector("#new-order-button"),
@@ -224,6 +226,10 @@ function bindEvents() {
   });
   elements.filterTour.addEventListener("change", () => {
     state.tour = elements.filterTour.value;
+    loadOrders();
+  });
+  elements.filterDriver.addEventListener("change", () => {
+    state.driverPhoneId = elements.filterDriver.value;
     loadOrders();
   });
   elements.clearFiltersButton.addEventListener("click", clearFilters);
@@ -438,10 +444,12 @@ function clearFilters() {
   state.deliveryDate = "";
   state.deliveryWeek = "";
   state.tour = "";
+  state.driverPhoneId = "";
   elements.searchInput.value = "";
   elements.filterDate.value = "";
   renderWeekPicker();
   elements.filterTour.value = "";
+  elements.filterDriver.value = "";
   loadOrders();
 }
 
@@ -541,7 +549,8 @@ async function loadOrders() {
     search: state.search,
     deliveryDate: state.deliveryDate,
     deliveryWeek: state.deliveryWeek,
-    tour: state.tour
+    tour: state.tour,
+    driverPhoneId: state.driverPhoneId
   });
 
   try {
@@ -578,6 +587,7 @@ async function loadDrivers() {
   state.drivers = await api("/api/driver-phones");
   renderDrivers();
   resetDriverForm();
+  renderDriverFilterOptions();
   renderDriverOptions(elements.drawerFields.driver);
   renderDriverOptions(elements.bulkDriver);
   renderDriverOptions(elements.manualDriver);
@@ -1070,6 +1080,26 @@ function roleLabel(role) {
   }
 
   return role === "admin" ? "Admin" : "User";
+}
+
+function renderDriverFilterOptions() {
+  const specialValues = new Set(["", "__assigned", "__missing"]);
+
+  if (state.driverPhoneId && !specialValues.has(state.driverPhoneId) && !state.drivers.some((driver) => driver.id === state.driverPhoneId)) {
+    state.driverPhoneId = "";
+  }
+
+  elements.filterDriver.innerHTML = [
+    `<option value="">Alle Fahrertelefone</option>`,
+    `<option value="__assigned">Fahrertelefon hinterlegt</option>`,
+    `<option value="__missing">Fahrertelefon fehlt</option>`,
+    ...state.drivers.map((driver) => `
+      <option value="${escapeHtml(driver.id)}">
+        ${escapeHtml(driver.label)} - ${escapeHtml(driver.phone)}
+      </option>
+    `)
+  ].join("");
+  elements.filterDriver.value = state.driverPhoneId;
 }
 
 function renderDriverOptions(target, selectedId = "") {

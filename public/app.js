@@ -38,10 +38,12 @@ const elements = {
   logoutButton: document.querySelector("#logout-button"),
   tabs: {
     orders: document.querySelector("#tab-orders"),
+    import: document.querySelector("#tab-import"),
     masterdata: document.querySelector("#tab-masterdata")
   },
   views: {
     orders: document.querySelector("#orders-view"),
+    import: document.querySelector("#import-view"),
     masterdata: document.querySelector("#masterdata-view")
   },
   masterdataTabs: document.querySelectorAll("[data-masterdata-tab]"),
@@ -153,10 +155,16 @@ const elements = {
     address: document.querySelector("#drawer-address"),
     contact: document.querySelector("#drawer-contact"),
     tour: document.querySelector("#drawer-tour"),
+    shippingEh: document.querySelector("#drawer-shipping-eh"),
+    elementWeight: document.querySelector("#drawer-element-weight"),
+    blrCount: document.querySelector("#drawer-blr-count"),
+    eprodStorageLocation: document.querySelector("#drawer-eprod-storage-location"),
     deliveryDate: document.querySelector("#edit-delivery-date-display"),
     deliveryDateReadonly: document.querySelector("#edit-delivery-date-readonly"),
     deliveryDateEdit: document.querySelector("#edit-delivery-date-edit"),
     deliveryDateInput: document.querySelector("#edit-delivery-date-input"),
+    deliveryAddressEdit: document.querySelector("#edit-delivery-address-edit"),
+    deliveryAddressInput: document.querySelector("#edit-delivery-address-input"),
     twoDayTour: document.querySelector("#edit-two-day-tour"),
     driver: document.querySelector("#edit-driver"),
     note: document.querySelector("#edit-note"),
@@ -195,6 +203,7 @@ function bindEvents() {
   elements.loginForm.addEventListener("submit", login);
   elements.logoutButton.addEventListener("click", logout);
   elements.tabs.orders.addEventListener("click", () => showView("orders"));
+  elements.tabs.import.addEventListener("click", () => showView("import"));
   elements.tabs.masterdata.addEventListener("click", () => showView("masterdata"));
   elements.refreshButton.addEventListener("click", loadOrders);
   elements.filterDate.addEventListener("change", () => {
@@ -466,12 +475,16 @@ function showView(view) {
   }
 
   const isOrders = view === "orders";
+  const isImport = view === "import";
+  const isMasterdata = view === "masterdata";
   elements.views.orders.hidden = !isOrders;
-  elements.views.masterdata.hidden = isOrders;
+  elements.views.import.hidden = !isImport;
+  elements.views.masterdata.hidden = !isMasterdata;
   elements.tabs.orders.classList.toggle("is-active", isOrders);
-  elements.tabs.masterdata.classList.toggle("is-active", !isOrders);
+  elements.tabs.import.classList.toggle("is-active", isImport);
+  elements.tabs.masterdata.classList.toggle("is-active", isMasterdata);
 
-  if (!isOrders) {
+  if (isMasterdata) {
     showMasterdataPage(state.masterdataPage);
   }
 }
@@ -1181,12 +1194,18 @@ function openDrawer(orderNumber) {
   elements.drawerFields.address.textContent = order.deliveryAddress || order.customerAddress || "-";
   elements.drawerFields.contact.textContent = [order.sourcePhone, order.sourceEmail].filter(Boolean).join(" / ") || "-";
   elements.drawerFields.tour.textContent = order.tour || "-";
+  elements.drawerFields.shippingEh.textContent = order.shippingEh || "-";
+  elements.drawerFields.elementWeight.textContent = order.elementWeight || "-";
+  elements.drawerFields.blrCount.textContent = order.blrCount || "-";
+  elements.drawerFields.eprodStorageLocation.textContent = order.eprodStorageLocation || "-";
   const deliveryDate = order.displayDeliveryDate || order.deliveryDate || "";
-  const canEditDeliveryDate = Boolean(order.canDelete);
+  const canEditLocalFields = Boolean(order.canDelete);
   elements.drawerFields.deliveryDate.textContent = formatDate(deliveryDate);
   elements.drawerFields.deliveryDateInput.value = deliveryDate;
-  elements.drawerFields.deliveryDateReadonly.hidden = canEditDeliveryDate;
-  elements.drawerFields.deliveryDateEdit.hidden = !canEditDeliveryDate;
+  elements.drawerFields.deliveryDateReadonly.hidden = canEditLocalFields;
+  elements.drawerFields.deliveryDateEdit.hidden = !canEditLocalFields;
+  elements.drawerFields.deliveryAddressInput.value = order.deliveryAddress || "";
+  elements.drawerFields.deliveryAddressEdit.hidden = !canEditLocalFields;
   elements.drawerFields.twoDayTour.checked = Boolean(order.avis.twoDayTour);
   elements.drawerFields.note.value = order.avis.note || "";
   elements.drawerFields.customerInfo.value = order.avis.customerInfo || "";
@@ -1298,6 +1317,7 @@ async function saveSelectedOrder(event) {
 
   if (state.selectedOrder.canDelete) {
     payload.deliveryDate = elements.drawerFields.deliveryDateInput.value;
+    payload.deliveryAddress = elements.drawerFields.deliveryAddressInput.value;
   }
 
   try {
@@ -1833,7 +1853,11 @@ function mapCsvOrder(row) {
     deliveryDate: readCsvValue(row, "liefertermin", "lieferdatum", "deliverydate"),
     sourcePhone: readCsvValue(row, "kapatelefon", "telefon", "phone", "sourcephone"),
     sourceEmail: readCsvValue(row, "kapaemail", "email", "e-mail", "sourceemail"),
-    tour: readCsvValue(row, "kapatour", "tour")
+    tour: readCsvValue(row, "kapatour", "tour"),
+    shippingEh: readCsvValue(row, "versandeh", "versand_eh", "shippingeh"),
+    elementWeight: readCsvValue(row, "gewichtelemente", "gewicht_elemente", "elementweight"),
+    blrCount: readCsvValue(row, "anzblr", "anz_blr", "blrcount"),
+    eprodStorageLocation: readCsvValue(row, "eprodlagerplatz", "eprod_lagerplatz", "eprodstoragelocation")
   };
 }
 

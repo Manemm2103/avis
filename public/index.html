@@ -9,6 +9,7 @@
   <body>
     <section class="login-view" id="login-view">
       <form class="login-card" id="login-form">
+        <img class="login-logo" src="/assets/logo-bayerwald-fenster-und-tueren.png" alt="Bayerwald Fenster und Türen">
         <p class="eyebrow">AVIS Anmeldung</p>
         <h1>Einloggen</h1>
         <label>
@@ -48,6 +49,7 @@
 
       <nav class="tabs" aria-label="Bereiche">
         <button class="tab is-active" id="tab-orders" type="button">Aufträge</button>
+        <button class="tab" id="tab-import" type="button">Import</button>
         <button class="tab" id="tab-masterdata" type="button">Stammdaten</button>
       </nav>
 
@@ -91,8 +93,10 @@
             <button class="primary" id="refresh-button" type="button">Aktualisieren</button>
           </div>
 
-          <div class="bulk-panel">
-            <h2 class="bulk-title">Massendatenbearbeitung</h2>
+          <details class="bulk-panel" id="bulk-panel">
+            <summary class="bulk-panel-summary">
+              <span class="bulk-title">Massendatenbearbeitung</span>
+            </summary>
             <div class="bulk-bar">
               <div class="bulk-summary">
                 <strong id="bulk-count">0 Aufträge</strong>
@@ -112,16 +116,7 @@
               <button class="secondary danger" id="bulk-revoke" type="button" hidden>Avisierung zurücknehmen</button>
               <span class="bulk-hint" id="bulk-hint"></span>
             </div>
-          </div>
-
-          <form id="csv-import-form" class="import-panel">
-            <label>
-              <span>CSV importieren</span>
-              <input id="csv-file" name="csvFile" type="file" accept=".csv,text/csv">
-            </label>
-            <p class="help-text">Unterstützt Spalten wie ABNUMMER, KDNR, KUNDE, KOMMISSION, LIEFERTERMIN, KAPA_TOUR, KAPA_TELEFON und KAPA_EMAIL.</p>
-            <button class="secondary" type="submit">CSV importieren</button>
-          </form>
+          </details>
 
           <p class="notice" id="demo-notice" hidden>
             Demo-Daten aktiv. MS-SQL wird genutzt, sobald Verbindung und Abfrage in Portainer gesetzt sind.
@@ -148,6 +143,20 @@
               <tbody id="orders-body"></tbody>
             </table>
           </div>
+        </section>
+
+        <section id="import-view" class="view" hidden>
+          <div class="page-heading">
+            <h2>Import</h2>
+          </div>
+          <form id="csv-import-form" class="import-panel">
+            <label>
+              <span>CSV importieren</span>
+              <input id="csv-file" name="csvFile" type="file" accept=".csv,text/csv">
+            </label>
+            <p class="help-text">Unterstützt Spalten wie ABNUMMER, KDNR, KUNDE, KOMMISSION, LIEFERTERMIN, KAPA_TOUR, KAPA_TELEFON, KAPA_EMAIL, VERSAND_EH, GEWICHT_ELEMENTE, ANZ_BLR und EPROD_LAGERPLATZ.</p>
+            <button class="secondary" type="submit">CSV importieren</button>
+          </form>
         </section>
 
         <section id="masterdata-view" class="view" hidden>
@@ -402,7 +411,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.06.30.4</footer>
+      <footer class="app-footer">Version 2026.06.30.5</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -436,6 +445,22 @@
             <span class="label">Tour</span>
             <strong id="drawer-tour">-</strong>
           </div>
+          <div>
+            <span class="label">Versand EH</span>
+            <strong id="drawer-shipping-eh">-</strong>
+          </div>
+          <div>
+            <span class="label">Gewicht Elemente</span>
+            <strong id="drawer-element-weight">-</strong>
+          </div>
+          <div>
+            <span class="label">Anz. BLR</span>
+            <strong id="drawer-blr-count">-</strong>
+          </div>
+          <div>
+            <span class="label">E-Prod Lagerplatz</span>
+            <strong id="drawer-eprod-storage-location">-</strong>
+          </div>
         </div>
 
         <div class="readonly-field" id="edit-delivery-date-readonly">
@@ -446,6 +471,11 @@
         <label id="edit-delivery-date-edit" hidden>
           <span>Liefertermin</span>
           <input id="edit-delivery-date-input" name="deliveryDate" type="date">
+        </label>
+
+        <label id="edit-delivery-address-edit" hidden>
+          <span>Lieferanschrift</span>
+          <textarea id="edit-delivery-address-input" name="deliveryAddress" rows="3"></textarea>
         </label>
 
         <label class="checkbox">
@@ -565,6 +595,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260630-driver-filter" type="module"></script>
+    <script src="/app.js?v=20260630-import-fields" type="module"></script>
   </body>
 </html>

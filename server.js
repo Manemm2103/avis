@@ -298,8 +298,8 @@ app.patch("/api/orders/:orderNumber", async (request, response) => {
       throw new Error("Avisiert kann nur ueber die Aktion Avisieren gesetzt werden.");
     }
 
-    if (Object.hasOwn(update, "deliveryDate") && !store.hasLocalOrder(orderNumber)) {
-      throw new Error("Liefertermin kann nur bei selbst angelegten oder importierten Auftraegen geaendert werden.");
+    if ((Object.hasOwn(update, "deliveryDate") || Object.hasOwn(update, "deliveryAddress")) && !store.hasLocalOrder(orderNumber)) {
+      throw new Error("Liefertermin und Lieferanschrift koennen nur bei selbst angelegten oder importierten Auftraegen geaendert werden.");
     }
 
     const saved = await store.updateAvis(orderNumber, update, request.user);
@@ -528,6 +528,10 @@ function normalizeOrder(row, origin = "mssql", canDelete = false) {
     sourcePhone: text(row.sourcePhone ?? row.KAPA_TELEFON ?? row.kapa_telefon),
     sourceEmail: text(row.sourceEmail ?? row.KAPA_EMAIL ?? row.kapa_email),
     tour: text(row.tour ?? row.KAPA_TOUR ?? row.kapa_tour ?? row.TOUR ?? row.tour),
+    shippingEh: text(row.shippingEh ?? row.VERSAND_EH ?? row.versand_eh),
+    elementWeight: text(row.elementWeight ?? row.GEWICHT_ELEMENTE ?? row.gewicht_elemente),
+    blrCount: text(row.blrCount ?? row.ANZ_BLR ?? row.anz_blr),
+    eprodStorageLocation: text(row.eprodStorageLocation ?? row.EPROD_LAGERPLATZ ?? row.eprod_lagerplatz),
     origin,
     canDelete
   };
@@ -536,14 +540,18 @@ function normalizeOrder(row, origin = "mssql", canDelete = false) {
 function mergeOrder(order, avis, driverMap) {
   const driver = avis?.driverPhoneId ? driverMap.get(avis.driverPhoneId) : null;
   const displayDeliveryDate = avis?.deliveryDate || order.deliveryDate;
+  const displayDeliveryAddress = avis?.deliveryAddress || order.deliveryAddress;
 
   return {
     ...order,
+    deliveryAddress: displayDeliveryAddress,
+    sourceDeliveryAddress: order.deliveryAddress,
     displayDeliveryDate,
     displayDeliveryWeek: isoWeekText(displayDeliveryDate),
     displayTour: order.tour,
     avis: {
       deliveryDate: avis?.deliveryDate || "",
+      deliveryAddress: avis?.deliveryAddress || "",
       driverPhoneId: avis?.driverPhoneId || "",
       driverPhoneLabel: driver ? `${driver.label} (${driver.phone})` : "",
       driverPhoneName: driver?.label || "",
@@ -736,6 +744,10 @@ function orderMatchesSearch(order, search) {
     order.tour,
     order.sourcePhone,
     order.sourceEmail,
+    order.shippingEh,
+    order.elementWeight,
+    order.blrCount,
+    order.eprodStorageLocation,
     order.avis.twoDayTour ? "2-Tagestour" : ""
   ].some((value) => String(value || "").toLowerCase().includes(search));
 }
@@ -745,6 +757,10 @@ function sanitizeAvisUpdate(input) {
 
   if (Object.hasOwn(input, "deliveryDate")) {
     update.deliveryDate = dateText(input.deliveryDate);
+  }
+
+  if (Object.hasOwn(input, "deliveryAddress")) {
+    update.deliveryAddress = text(input.deliveryAddress);
   }
 
   if (Object.hasOwn(input, "driverPhoneId")) {
@@ -973,6 +989,10 @@ function sanitizeLocalOrder(input, origin) {
     sourcePhone: text(input.sourcePhone ?? input.KAPA_TELEFON),
     sourceEmail: text(input.sourceEmail ?? input.KAPA_EMAIL),
     tour: text(input.tour ?? input.KAPA_TOUR ?? input.TOUR),
+    shippingEh: text(input.shippingEh ?? input.VERSAND_EH),
+    elementWeight: text(input.elementWeight ?? input.GEWICHT_ELEMENTE),
+    blrCount: text(input.blrCount ?? input.ANZ_BLR),
+    eprodStorageLocation: text(input.eprodStorageLocation ?? input.EPROD_LAGERPLATZ),
     origin
   };
 }

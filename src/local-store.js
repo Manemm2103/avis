@@ -27,6 +27,7 @@ const EMPTY_STATE = {
     baseDn: "",
     userFilter: "(objectClass=*)",
     loginAttribute: "sAMAccountName",
+    userGroupDn: "",
     adminGroupDn: "",
     departmentLeadGroupDn: "",
     updatedAt: "",

@@ -1,5 +1,6 @@
 import { Client, InvalidCredentialsError } from "ldapts";
 
+const ROLE_USER = "user";
 const ROLE_ADMIN = "admin";
 const ROLE_DEPARTMENT_LEAD = "superuser";
 
@@ -63,6 +64,7 @@ function normalizeLdapSettings(settings = {}) {
     baseDn: text(settings.baseDn),
     userFilter: text(settings.userFilter) || "(objectClass=*)",
     loginAttribute: text(settings.loginAttribute) || "sAMAccountName",
+    userGroupDn: text(settings.userGroupDn),
     adminGroupDn: text(settings.adminGroupDn),
     departmentLeadGroupDn: text(settings.departmentLeadGroupDn)
   };
@@ -77,6 +79,7 @@ function validateLdapConfig(config) {
   if (!config.bindPassword) missing.push("Systemkonto-Kennwort");
   if (!config.baseDn) missing.push("Basis-DN");
   if (!config.loginAttribute) missing.push("Benutzername-Attribut");
+  if (!config.userGroupDn) missing.push("User-Gruppe");
   if (!config.adminGroupDn) missing.push("Admin-Gruppe");
   if (!config.departmentLeadGroupDn) missing.push("Abteilungsleiter-Gruppe");
 
@@ -136,6 +139,10 @@ function resolveRole(entry, config) {
 
   if (groups.includes(normalizeDn(config.departmentLeadGroupDn))) {
     return ROLE_DEPARTMENT_LEAD;
+  }
+
+  if (groups.includes(normalizeDn(config.userGroupDn))) {
+    return ROLE_USER;
   }
 
   throw new Error("Benutzer ist keiner freigegebenen AVIS-LDAP-Gruppe zugeordnet.");

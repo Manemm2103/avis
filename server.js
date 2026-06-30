@@ -846,6 +846,7 @@ function sanitizeLdapSettings(input) {
     "baseDn",
     "userFilter",
     "loginAttribute",
+    "userGroupDn",
     "adminGroupDn",
     "departmentLeadGroupDn",
     "certificate"

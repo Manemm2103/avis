@@ -126,6 +126,7 @@ const elements = {
   ldapBaseDn: document.querySelector("#ldap-base-dn"),
   ldapUserFilter: document.querySelector("#ldap-user-filter"),
   ldapLoginAttribute: document.querySelector("#ldap-login-attribute"),
+  ldapUserGroupDn: document.querySelector("#ldap-user-group-dn"),
   ldapAdminGroupDn: document.querySelector("#ldap-admin-group-dn"),
   ldapDepartmentLeadGroupDn: document.querySelector("#ldap-department-lead-group-dn"),
   userForm: document.querySelector("#user-form"),
@@ -619,6 +620,7 @@ async function loadLdapSettings() {
   elements.ldapBaseDn.value = state.ldapSettings.baseDn || "";
   elements.ldapUserFilter.value = state.ldapSettings.userFilter || "(objectClass=*)";
   elements.ldapLoginAttribute.value = state.ldapSettings.loginAttribute || "sAMAccountName";
+  elements.ldapUserGroupDn.value = state.ldapSettings.userGroupDn || "";
   elements.ldapAdminGroupDn.value = state.ldapSettings.adminGroupDn || "";
   elements.ldapDepartmentLeadGroupDn.value = state.ldapSettings.departmentLeadGroupDn || "";
 }
@@ -1670,6 +1672,7 @@ async function saveLdapSettings(event) {
         baseDn: elements.ldapBaseDn.value,
         userFilter: elements.ldapUserFilter.value,
         loginAttribute: elements.ldapLoginAttribute.value,
+        userGroupDn: elements.ldapUserGroupDn.value,
         adminGroupDn: elements.ldapAdminGroupDn.value,
         departmentLeadGroupDn: elements.ldapDepartmentLeadGroupDn.value
       })

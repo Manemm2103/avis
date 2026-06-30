@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AVIS</title>
-    <link rel="stylesheet" href="/style.css?v=20260630-masterdata-tabs">
+    <link rel="stylesheet" href="/style.css?v=20260630-ldap-user-group">
   </head>
   <body>
     <section class="login-view" id="login-view">
@@ -308,6 +308,10 @@
                     <input id="ldap-user-filter" name="userFilter" placeholder="(objectClass=*)">
                   </label>
                   <label class="wide-field">
+                    <span>User-Gruppe DN</span>
+                    <input id="ldap-user-group-dn" name="userGroupDn" placeholder="CN=AVIS_User,OU=Apps,OU=Gruppen,DC=bayerwald,DC=local">
+                  </label>
+                  <label class="wide-field">
                     <span>Admin-Gruppe DN</span>
                     <input id="ldap-admin-group-dn" name="adminGroupDn" placeholder="CN=AVIS_Admin,OU=Apps,OU=Gruppen,DC=bayerwald,DC=local">
                   </label>
@@ -392,7 +396,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.06.30.2</footer>
+      <footer class="app-footer">Version 2026.06.30.3</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -555,6 +559,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260630-masterdata-tabs" type="module"></script>
+    <script src="/app.js?v=20260630-ldap-user-group" type="module"></script>
   </body>
 </html>

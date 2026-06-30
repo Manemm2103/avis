@@ -151,6 +151,40 @@ export class LocalStore {
     return publicUser(user);
   }
 
+  async resetDefaultAdminPassword(username, password) {
+    const normalizedUsername = username.trim().toLowerCase();
+    const now = new Date().toISOString();
+    const existing = this.state.users.find((user) => user.username.toLowerCase() === normalizedUsername);
+
+    if (existing) {
+      existing.role = ROLE_ADMIN;
+      existing.active = true;
+      existing.passwordHash = hashPassword(password);
+      existing.authProvider = "local";
+      existing.updatedAt = now;
+      existing.updatedBy = "ENV";
+      await this.save();
+      return publicUser(existing);
+    }
+
+    const user = {
+      id: crypto.randomUUID(),
+      username: normalizedUsername,
+      displayName: username,
+      role: ROLE_ADMIN,
+      active: true,
+      authProvider: "local",
+      passwordHash: hashPassword(password),
+      createdAt: now,
+      updatedAt: now,
+      updatedBy: "ENV"
+    };
+
+    this.state.users.push(user);
+    await this.save();
+    return publicUser(user);
+  }
+
   async listUsers() {
     return this.state.users.map(publicUser).sort((a, b) => a.username.localeCompare(b.username, "de"));
   }

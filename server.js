@@ -17,6 +17,11 @@ const store = new LocalStore(config.dataFile);
 await store.init();
 await store.ensureDefaultUser(config.auth.defaultAdminUser, config.auth.defaultAdminPassword);
 
+if (config.auth.resetAdminPassword) {
+  await store.resetDefaultAdminPassword(config.auth.defaultAdminUser, config.auth.defaultAdminPassword);
+  console.log(`AVIS admin password reset for user "${config.auth.defaultAdminUser}". Remove AVIS_RESET_ADMIN_PASSWORD after login.`);
+}
+
 const app = express();
 
 app.use(express.json({ limit: "5mb" }));

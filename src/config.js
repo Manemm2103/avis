@@ -34,7 +34,8 @@ export function loadConfig() {
     dataFile: text(process.env.AVIS_DATA_FILE) || path.join(process.cwd(), "data", "avis.json"),
     auth: {
       defaultAdminUser: text(process.env.AVIS_DEFAULT_ADMIN_USER) || "admin",
-      defaultAdminPassword: text(process.env.AVIS_DEFAULT_ADMIN_PASSWORD) || "admin"
+      defaultAdminPassword: text(process.env.AVIS_DEFAULT_ADMIN_PASSWORD) || "admin",
+      resetAdminPassword: bool(process.env.AVIS_RESET_ADMIN_PASSWORD, false)
     },
     mssql: {
       host: text(process.env.MSSQL_HOST),

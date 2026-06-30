@@ -1056,7 +1056,7 @@ function renderBulkState() {
   const revokeReady = isAdmin() && revokeTargetCount > 0;
   elements.bulkSave.disabled = !saveReady;
   elements.bulkNotify.disabled = !notifyReady;
-  elements.bulkRevoke.hidden = !isAdmin();
+  elements.bulkRevoke.hidden = !revokeReady;
   elements.bulkRevoke.disabled = !revokeReady;
 
   if (missing.length > 0) {

@@ -61,7 +61,6 @@ const elements = {
   filterTour: document.querySelector("#filter-tour"),
   filterDriver: document.querySelector("#filter-driver"),
   clearFiltersButton: document.querySelector("#clear-filters-button"),
-  refreshButton: document.querySelector("#refresh-button"),
   newOrderButton: document.querySelector("#new-order-button"),
   bulkCount: document.querySelector("#bulk-count"),
   bulkSubline: document.querySelector("#bulk-subline"),
@@ -205,7 +204,6 @@ function bindEvents() {
   elements.tabs.orders.addEventListener("click", () => showView("orders"));
   elements.tabs.import.addEventListener("click", () => showView("import"));
   elements.tabs.masterdata.addEventListener("click", () => showView("masterdata"));
-  elements.refreshButton.addEventListener("click", loadOrders);
   elements.filterDate.addEventListener("change", () => {
     state.deliveryDate = elements.filterDate.value;
     state.deliveryWeek = "";

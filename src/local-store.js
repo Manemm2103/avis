@@ -205,6 +205,7 @@ export class LocalStore {
       displayName: input.displayName.trim() || username,
       role: input.role || ROLE_USER,
       active: input.active !== false,
+      theme: normalizeTheme(input.theme),
       passwordHash: hashPassword(input.password),
       createdAt: new Date().toISOString(),
       createdBy: actor?.displayName || "",
@@ -252,6 +253,10 @@ export class LocalStore {
 
     if (Object.hasOwn(input, "active")) {
       next.active = Boolean(input.active);
+    }
+
+    if (Object.hasOwn(input, "theme")) {
+      next.theme = normalizeTheme(input.theme);
     }
 
     if (input.password) {
@@ -312,6 +317,7 @@ export class LocalStore {
         role: input.role || ROLE_USER,
         active: true,
         authProvider: "ldap",
+        theme: normalizeTheme(input.theme),
         passwordHash: "",
         createdAt: now,
         updatedAt: now,
@@ -335,6 +341,25 @@ export class LocalStore {
     };
 
     this.ensureAdminWouldRemain(next, this.state.users[index].id);
+    this.state.users[index] = next;
+    await this.save();
+    return publicUser(next);
+  }
+
+  async updateUserPreferences(id, input, actor) {
+    const index = this.state.users.findIndex((user) => user.id === id);
+
+    if (index === -1) {
+      throw new Error("Benutzer nicht gefunden.");
+    }
+
+    const next = {
+      ...this.state.users[index],
+      theme: normalizeTheme(input.theme),
+      updatedAt: new Date().toISOString(),
+      updatedBy: actor?.displayName || actor?.username || ""
+    };
+
     this.state.users[index] = next;
     await this.save();
     return publicUser(next);
@@ -679,9 +704,14 @@ function publicUser(user) {
     role: user.role || ROLE_USER,
     active: user.active !== false,
     authProvider: user.authProvider || "local",
+    theme: normalizeTheme(user.theme),
     createdAt: user.createdAt || "",
     updatedAt: user.updatedAt || ""
   };
+}
+
+function normalizeTheme(value) {
+  return ["light", "dark", "system"].includes(value) ? value : "light";
 }
 
 function canManageMasterdata(role) {

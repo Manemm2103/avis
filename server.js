@@ -58,6 +58,17 @@ app.get("/api/auth/me", (request, response) => {
   response.json(request.user);
 });
 
+app.patch("/api/auth/me", async (request, response) => {
+  try {
+    response.json(await store.updateUserPreferences(request.user.id, sanitizeUserPreferences(request.body), request.user));
+  } catch (error) {
+    response.status(400).json({
+      error: "PROFILE_UPDATE_FAILED",
+      message: error.message
+    });
+  }
+});
+
 app.post("/api/auth/logout", async (request, response) => {
   await store.logout(request.token);
   response.json({ ok: true });
@@ -1043,6 +1054,16 @@ function sanitizeUser(input, partial = false) {
   }
 
   return user;
+}
+
+function sanitizeUserPreferences(input) {
+  const theme = text(input.theme);
+
+  if (!["light", "dark", "system"].includes(theme)) {
+    throw new Error("Ungueltiges Design.");
+  }
+
+  return { theme };
 }
 
 function requireAuth(request, response, next) {

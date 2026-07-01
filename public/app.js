@@ -1,6 +1,8 @@
 const state = {
   token: "",
   currentUser: null,
+  theme: "light",
+  loginThemeTouched: false,
   status: "open",
   search: "",
   deliveryDate: "",
@@ -33,7 +35,9 @@ const elements = {
   loginView: document.querySelector("#login-view"),
   loginForm: document.querySelector("#login-form"),
   loginError: document.querySelector("#login-error"),
+  loginTheme: document.querySelector("#login-theme"),
   appShell: document.querySelector("#app-shell"),
+  brandHomeButton: document.querySelector("#brand-home-button"),
   currentUser: document.querySelector("#current-user"),
   logoutButton: document.querySelector("#logout-button"),
   tabs: {
@@ -183,6 +187,8 @@ const elements = {
 document.addEventListener("DOMContentLoaded", init);
 
 async function init() {
+  applyTheme(readStoredTheme());
+  syncThemeControl();
   bindEvents();
   state.token = localStorage.getItem("avisToken") || "";
 
@@ -193,6 +199,8 @@ async function init() {
 
   try {
     state.currentUser = await api("/api/auth/me");
+    applyTheme(state.currentUser.theme || "light");
+    syncThemeControl();
     await enterApp();
   } catch (error) {
     showLogin("Bitte neu anmelden.");
@@ -201,7 +209,12 @@ async function init() {
 
 function bindEvents() {
   elements.loginForm.addEventListener("submit", login);
+  elements.loginTheme.addEventListener("change", () => {
+    state.loginThemeTouched = true;
+    updateTheme(elements.loginTheme.value);
+  });
   elements.logoutButton.addEventListener("click", logout);
+  elements.brandHomeButton.addEventListener("click", goHomeAndRefresh);
   elements.tabs.orders.addEventListener("click", () => showView("orders"));
   elements.tabs.import.addEventListener("click", () => showView("import"));
   elements.tabs.masterdata.addEventListener("click", () => showView("masterdata"));
@@ -376,6 +389,7 @@ function bindEvents() {
 async function login(event) {
   event.preventDefault();
   const form = new FormData(elements.loginForm);
+  const selectedTheme = normalizeTheme(form.get("theme"));
 
   try {
     const result = await api("/api/auth/login", {
@@ -389,6 +403,13 @@ async function login(event) {
     state.token = result.token;
     state.currentUser = result.user;
     localStorage.setItem("avisToken", state.token);
+    if (state.loginThemeTouched) {
+      await updateTheme(selectedTheme, { persistProfile: true, silent: true });
+    } else {
+      applyTheme(state.currentUser.theme || "light");
+      syncThemeControl();
+    }
+    state.loginThemeTouched = false;
     await enterApp();
   } catch (error) {
     showLogin(error.message);
@@ -405,6 +426,7 @@ async function logout() {
   localStorage.removeItem("avisToken");
   state.token = "";
   state.currentUser = null;
+  syncThemeControl();
   showLogin();
 }
 
@@ -465,8 +487,71 @@ function clearFilters() {
 function showLogin(message = "") {
   elements.appShell.hidden = true;
   elements.loginView.hidden = false;
+  syncThemeControl();
   elements.loginError.textContent = message;
   elements.loginError.hidden = !message;
+}
+
+async function updateTheme(theme, options = {}) {
+  const nextTheme = normalizeTheme(theme);
+  applyTheme(nextTheme);
+
+  if (!options.persistProfile || !state.token) {
+    return;
+  }
+
+  try {
+    state.currentUser = await api("/api/auth/me", {
+      method: "PATCH",
+      body: JSON.stringify({ theme: nextTheme })
+    });
+    syncThemeControl();
+  } catch (error) {
+    if (!options.silent) {
+      showToast(`Design konnte nicht gespeichert werden: ${error.message}`);
+    }
+  }
+}
+
+function applyTheme(theme) {
+  const nextTheme = normalizeTheme(theme);
+  state.theme = nextTheme;
+  document.documentElement.dataset.theme = nextTheme;
+  localStorage.setItem("avisTheme", nextTheme);
+}
+
+function syncThemeControl() {
+  if (elements.loginTheme) {
+    elements.loginTheme.value = state.currentUser?.theme || state.theme || "light";
+  }
+}
+
+function readStoredTheme() {
+  return normalizeTheme(localStorage.getItem("avisTheme"));
+}
+
+function normalizeTheme(theme) {
+  return ["light", "dark", "system"].includes(String(theme || "")) ? String(theme) : "light";
+}
+
+async function goHomeAndRefresh() {
+  closeDrawer();
+  closeManualOrderModal();
+  closeWeekPicker();
+  clearBulkSelection();
+  setStatusFilter("open");
+  state.search = "";
+  state.deliveryDate = "";
+  state.deliveryWeek = "";
+  state.tour = "";
+  state.driverPhoneId = "";
+  elements.searchInput.value = "";
+  elements.filterDate.value = "";
+  renderWeekPicker();
+  elements.filterTour.value = "";
+  elements.filterDriver.value = "";
+  showView("orders");
+  await loadOrders();
 }
 
 function showView(view) {

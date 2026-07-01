@@ -11,6 +11,7 @@
   --warning: #b45309;
   --success: #15803d;
   --danger: #b91c1c;
+  --row-hover-bg: #f9fbfb;
   --selected-bg: #e6f3f1;
   --selected-text: #115e59;
   --selected-line: rgba(16, 118, 111, 0.16);
@@ -31,6 +32,7 @@ html[data-theme="dark"] {
   --warning: #f59e0b;
   --success: #4ade80;
   --danger: #f87171;
+  --row-hover-bg: #263242;
   --selected-bg: #164e63;
   --selected-text: #e0f2fe;
   --selected-line: rgba(45, 212, 191, 0.32);
@@ -51,6 +53,7 @@ html[data-theme="dark"] {
     --warning: #f59e0b;
     --success: #4ade80;
     --danger: #f87171;
+    --row-hover-bg: #263242;
     --selected-bg: #164e63;
     --selected-text: #e0f2fe;
     --selected-line: rgba(45, 212, 191, 0.32);
@@ -662,7 +665,7 @@ th {
 }
 
 tbody tr:hover {
-  background: #f9fbfb;
+  background: var(--row-hover-bg);
 }
 
 tbody tr[data-order-number] {

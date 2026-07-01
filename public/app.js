@@ -94,6 +94,7 @@ const elements = {
   manualDriver: document.querySelector("#manual-driver"),
   csvImportForm: document.querySelector("#csv-import-form"),
   csvFile: document.querySelector("#csv-file"),
+  sampleCsvButton: document.querySelector("#sample-csv-button"),
   sqlSection: document.querySelector("#sql-settings-section"),
   sqlSettingsForm: document.querySelector("#sql-settings-form"),
   sqlOrdersQuery: document.querySelector("#sql-orders-query"),
@@ -260,6 +261,7 @@ function bindEvents() {
   elements.driverCancel.addEventListener("click", resetDriverForm);
   elements.manualOrderForm.addEventListener("submit", createLocalOrder);
   elements.csvImportForm.addEventListener("submit", importCsvOrders);
+  elements.sampleCsvButton.addEventListener("click", downloadSampleCsv);
   elements.mailSettingsForm.addEventListener("submit", saveMailSettings);
   elements.mailDemoMode.addEventListener("change", renderMailDemoState);
   elements.mailTextmarks.addEventListener("click", (event) => {
@@ -1598,6 +1600,55 @@ async function importCsvOrders(event) {
   showToast(`${result.created} Aufträge importiert, ${result.skipped} übersprungen.`);
 }
 
+function downloadSampleCsv() {
+  const rows = [
+    [
+      "ABNUMMER",
+      "KDNR",
+      "KUNDE",
+      "KUNDE_ANSCHRIFT",
+      "KOMMISSION",
+      "KAPA_LIEFERANSCHRIFT",
+      "LIEFERTERMIN",
+      "KAPA_TELEFON",
+      "KAPA_EMAIL",
+      "KAPA_TOUR",
+      "VERSAND_EH",
+      "GEWICHT_ELEMENTE",
+      "ANZ_BLR",
+      "EPROD_LAGERPLATZ"
+    ],
+    [
+      "E2699999",
+      "1002000",
+      "Musterkunde GmbH",
+      "DE-94154 Musterort, Musterstrasse 1",
+      "Beispielauftrag Fenster und Tueren",
+      "94154 Musterstrasse 1 Musterort",
+      "2026-07-15",
+      "+49 851 123456",
+      "kunde@example.invalid",
+      "T14-Hausgebiet (Passau)",
+      "12",
+      "1248",
+      "3",
+      "A-01-02"
+    ]
+  ];
+  const csv = rows.map((row) => row.map(escapeCsvCell).join(";")).join("\r\n");
+  const blob = new Blob([`\uFEFF${csv}\r\n`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = "avis-import-beispiel.csv";
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  showToast("Beispiel-Export heruntergeladen.");
+}
+
 async function deleteLocalOrder(orderNumber) {
   const confirmed = await requestConfirm(`Soll der selbst angelegte oder importierte Auftrag "${orderNumber}" wirklich gelöscht werden?`);
 
@@ -1869,6 +1920,16 @@ function readCsvValue(row, ...keys) {
   }
 
   return "";
+}
+
+function escapeCsvCell(value) {
+  const text = String(value ?? "");
+
+  if (/[;\r\n"]/.test(text)) {
+    return `"${text.replaceAll('"', '""')}"`;
+  }
+
+  return text;
 }
 
 function parseCsv(content) {

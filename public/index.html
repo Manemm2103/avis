@@ -154,7 +154,10 @@
               <input id="csv-file" name="csvFile" type="file" accept=".csv,text/csv">
             </label>
             <p class="help-text">Unterstützt Spalten wie ABNUMMER, KDNR, KUNDE, KOMMISSION, LIEFERTERMIN, KAPA_TOUR, KAPA_TELEFON, KAPA_EMAIL, VERSAND_EH, GEWICHT_ELEMENTE, ANZ_BLR und EPROD_LAGERPLATZ.</p>
-            <button class="secondary" type="submit">CSV importieren</button>
+            <div class="import-actions">
+              <button class="secondary" id="sample-csv-button" type="button">Beispiel-Export herunterladen</button>
+              <button class="primary" type="submit">CSV importieren</button>
+            </div>
           </form>
         </section>
 
@@ -410,7 +413,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.01.2</footer>
+      <footer class="app-footer">Version 2026.07.01.3</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -594,6 +597,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260701-remove-refresh" type="module"></script>
+    <script src="/app.js?v=20260701-sample-import" type="module"></script>
   </body>
 </html>

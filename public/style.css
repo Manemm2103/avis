@@ -456,6 +456,17 @@ select:disabled {
   border-radius: 8px;
 }
 
+.import-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.import-actions button {
+  white-space: nowrap;
+}
+
 .page-heading {
   margin-bottom: 12px;
 }

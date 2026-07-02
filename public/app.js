@@ -157,6 +157,10 @@ const elements = {
     customer: document.querySelector("#drawer-customer"),
     commission: document.querySelector("#drawer-commission"),
     address: document.querySelector("#drawer-address"),
+    deliveryCountry: document.querySelector("#drawer-delivery-country"),
+    deliveryPostalCode: document.querySelector("#drawer-delivery-postal-code"),
+    deliveryCity: document.querySelector("#drawer-delivery-city"),
+    deliveryStreet: document.querySelector("#drawer-delivery-street"),
     contact: document.querySelector("#drawer-contact"),
     tour: document.querySelector("#drawer-tour"),
     shippingEh: document.querySelector("#drawer-shipping-eh"),
@@ -1277,6 +1281,10 @@ function openDrawer(orderNumber) {
   elements.drawerFields.customer.textContent = order.customerName || "-";
   elements.drawerFields.commission.textContent = order.commission || "-";
   elements.drawerFields.address.textContent = order.deliveryAddress || order.customerAddress || "-";
+  elements.drawerFields.deliveryCountry.textContent = order.deliveryCountry || "-";
+  elements.drawerFields.deliveryPostalCode.textContent = order.deliveryPostalCode || "-";
+  elements.drawerFields.deliveryCity.textContent = order.deliveryCity || "-";
+  elements.drawerFields.deliveryStreet.textContent = order.deliveryStreet || "-";
   elements.drawerFields.contact.textContent = [order.sourcePhone, order.sourceEmail].filter(Boolean).join(" / ") || "-";
   elements.drawerFields.tour.textContent = order.tour || "-";
   elements.drawerFields.shippingEh.textContent = order.shippingEh || "-";
@@ -1694,6 +1702,10 @@ function downloadSampleCsv() {
       "KUNDE_ANSCHRIFT",
       "KOMMISSION",
       "KAPA_LIEFERANSCHRIFT",
+      "KAPA_LIEFER_LAND",
+      "KAPA_LIEFER_PLZ",
+      "KAPA_LIEFER_STRASSE",
+      "KAPA_LIEFER_ORT",
       "LIEFERTERMIN",
       "KAPA_TELEFON",
       "KAPA_EMAIL",
@@ -1710,6 +1722,10 @@ function downloadSampleCsv() {
       "DE-94154 Musterort, Musterstrasse 1",
       "Beispielauftrag Fenster und Tueren",
       "94154 Musterstrasse 1 Musterort",
+      "DE",
+      "94154",
+      "Musterstrasse 1",
+      "Musterort",
       "2026-07-15",
       "+49 851 123456",
       "kunde@example.invalid",
@@ -1984,6 +2000,10 @@ function mapCsvOrder(row) {
     customerAddress: readCsvValue(row, "kundeanschrift", "kundenanschrift", "customeraddress"),
     commission: readCsvValue(row, "kommission", "commission"),
     deliveryAddress: readCsvValue(row, "kapalieferanschrift", "lieferanschrift", "deliveryaddress"),
+    deliveryCountry: readCsvValue(row, "kapalieferland", "lieferland", "deliverycountry", "land"),
+    deliveryPostalCode: readCsvValue(row, "kapalieferplz", "lieferplz", "deliverypostalcode", "plz"),
+    deliveryStreet: readCsvValue(row, "kapalieferstrasse", "lieferstrasse", "deliverystreet", "strasse"),
+    deliveryCity: readCsvValue(row, "kapalieferort", "lieferort", "deliverycity", "ort"),
     deliveryDate: readCsvValue(row, "liefertermin", "lieferdatum", "deliverydate"),
     sourcePhone: readCsvValue(row, "kapatelefon", "telefon", "phone", "sourcephone"),
     sourceEmail: readCsvValue(row, "kapaemail", "email", "e-mail", "sourceemail"),

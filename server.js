@@ -528,13 +528,26 @@ function effectiveMssqlConfig() {
 }
 
 function normalizeOrder(row, origin = "mssql", canDelete = false) {
+  const customerAddress = text(row.customerAddress ?? row.KUNDE_ANSCHRIFT ?? row.kunde_anschrift);
+  const deliveryAddress = text(row.deliveryAddress ?? row.KAPA_LIEFERANSCHRIFT ?? row.kapa_lieferanschrift);
+  const deliveryParts = splitDeliveryAddress(deliveryAddress, {
+    country: row.deliveryCountry ?? row.KAPA_LIEFER_LAND ?? row.kapa_liefer_land ?? countryFromAddressPrefix(customerAddress),
+    postalCode: row.deliveryPostalCode ?? row.KAPA_LIEFER_PLZ ?? row.kapa_liefer_plz,
+    street: row.deliveryStreet ?? row.KAPA_LIEFER_STRASSE ?? row.kapa_liefer_strasse,
+    city: row.deliveryCity ?? row.KAPA_LIEFER_ORT ?? row.kapa_liefer_ort
+  });
+
   return {
     orderNumber: text(row.orderNumber ?? row.ABNUMMER ?? row.abnummer),
     customerNumber: text(row.customerNumber ?? row.KDNR ?? row.kdnr),
     customerName: text(row.customerName ?? row.KUNDE ?? row.kunde),
-    customerAddress: text(row.customerAddress ?? row.KUNDE_ANSCHRIFT ?? row.kunde_anschrift),
+    customerAddress,
     commission: text(row.commission ?? row.KOMMISSION ?? row.kommission),
-    deliveryAddress: text(row.deliveryAddress ?? row.KAPA_LIEFERANSCHRIFT ?? row.kapa_lieferanschrift),
+    deliveryAddress,
+    deliveryCountry: deliveryParts.country,
+    deliveryPostalCode: deliveryParts.postalCode,
+    deliveryStreet: deliveryParts.street,
+    deliveryCity: deliveryParts.city,
     deliveryDate: dateText(row.deliveryDate ?? row.LIEFERTERMIN ?? row.liefertermin),
     sourcePhone: text(row.sourcePhone ?? row.KAPA_TELEFON ?? row.kapa_telefon),
     sourceEmail: text(row.sourceEmail ?? row.KAPA_EMAIL ?? row.kapa_email),
@@ -552,10 +565,22 @@ function mergeOrder(order, avis, driverMap) {
   const driver = avis?.driverPhoneId ? driverMap.get(avis.driverPhoneId) : null;
   const displayDeliveryDate = avis?.deliveryDate || order.deliveryDate;
   const displayDeliveryAddress = avis?.deliveryAddress || order.deliveryAddress;
+  const displayDeliveryParts = avis?.deliveryAddress
+    ? splitDeliveryAddress(displayDeliveryAddress)
+    : splitDeliveryAddress(displayDeliveryAddress, {
+      country: order.deliveryCountry,
+      postalCode: order.deliveryPostalCode,
+      street: order.deliveryStreet,
+      city: order.deliveryCity
+    });
 
   return {
     ...order,
     deliveryAddress: displayDeliveryAddress,
+    deliveryCountry: displayDeliveryParts.country,
+    deliveryPostalCode: displayDeliveryParts.postalCode,
+    deliveryStreet: displayDeliveryParts.street,
+    deliveryCity: displayDeliveryParts.city,
     sourceDeliveryAddress: order.deliveryAddress,
     displayDeliveryDate,
     displayDeliveryWeek: isoWeekText(displayDeliveryDate),
@@ -752,6 +777,10 @@ function orderMatchesSearch(order, search) {
     order.customerAddress,
     order.commission,
     order.deliveryAddress,
+    order.deliveryCountry,
+    order.deliveryPostalCode,
+    order.deliveryStreet,
+    order.deliveryCity,
     order.tour,
     order.sourcePhone,
     order.sourceEmail,
@@ -989,13 +1018,26 @@ function publicMailSettings(settings, fullAdmin) {
 }
 
 function sanitizeLocalOrder(input, origin) {
+  const customerAddress = text(input.customerAddress ?? input.KUNDE_ANSCHRIFT);
+  const deliveryAddress = text(input.deliveryAddress ?? input.KAPA_LIEFERANSCHRIFT);
+  const deliveryParts = splitDeliveryAddress(deliveryAddress, {
+    country: input.deliveryCountry ?? input.KAPA_LIEFER_LAND ?? countryFromAddressPrefix(customerAddress),
+    postalCode: input.deliveryPostalCode ?? input.KAPA_LIEFER_PLZ,
+    street: input.deliveryStreet ?? input.KAPA_LIEFER_STRASSE,
+    city: input.deliveryCity ?? input.KAPA_LIEFER_ORT
+  });
+
   return {
     orderNumber: normalizeRequiredText(input.orderNumber ?? input.ABNUMMER, "Auftragsnummer"),
     customerNumber: text(input.customerNumber ?? input.KDNR),
     customerName: text(input.customerName ?? input.KUNDE),
-    customerAddress: text(input.customerAddress ?? input.KUNDE_ANSCHRIFT),
+    customerAddress,
     commission: text(input.commission ?? input.KOMMISSION),
-    deliveryAddress: text(input.deliveryAddress ?? input.KAPA_LIEFERANSCHRIFT),
+    deliveryAddress,
+    deliveryCountry: deliveryParts.country,
+    deliveryPostalCode: deliveryParts.postalCode,
+    deliveryStreet: deliveryParts.street,
+    deliveryCity: deliveryParts.city,
     deliveryDate: dateText(input.deliveryDate ?? input.LIEFERTERMIN),
     sourcePhone: text(input.sourcePhone ?? input.KAPA_TELEFON),
     sourceEmail: text(input.sourceEmail ?? input.KAPA_EMAIL),
@@ -1138,6 +1180,83 @@ function normalizeRequiredText(value, label) {
 
 function text(value) {
   return value === null || value === undefined ? "" : String(value).trim();
+}
+
+function splitDeliveryAddress(address, parts = {}) {
+  const provided = {
+    country: text(parts.country),
+    postalCode: text(parts.postalCode),
+    street: text(parts.street),
+    city: text(parts.city)
+  };
+
+  if (provided.postalCode || provided.street || provided.city) {
+    return {
+      country: provided.country || inferCountryFromPostalCode(provided.postalCode),
+      postalCode: provided.postalCode,
+      street: provided.street,
+      city: provided.city
+    };
+  }
+
+  const value = text(address).replace(/\s+/g, " ");
+  const match = value.match(/^(?:(?<country>[A-Z]{2})[-\s]+)?(?<postalCode>\d{4,6})\s+(?<rest>.+)$/i);
+
+  if (!match?.groups) {
+    return {
+      country: provided.country || "",
+      postalCode: "",
+      street: value,
+      city: ""
+    };
+  }
+
+  const postalCode = match.groups.postalCode;
+  const rest = text(match.groups.rest);
+  const commaParts = rest.split(",").map((part) => text(part)).filter(Boolean);
+  let street = "";
+  let city = "";
+
+  if (commaParts.length >= 2) {
+    street = commaParts.at(-1);
+    city = commaParts.slice(0, -1).join(", ");
+  } else {
+    const houseNumberMatch = [...rest.matchAll(/\b\d+[a-zA-Z]?(?:[-/]\d+[a-zA-Z]?)?\b/g)].at(-1);
+
+    if (houseNumberMatch) {
+      const splitIndex = houseNumberMatch.index + houseNumberMatch[0].length;
+      street = text(rest.slice(0, splitIndex));
+      city = text(rest.slice(splitIndex));
+    } else {
+      street = rest;
+    }
+  }
+
+  return {
+    country: text(match.groups.country).toUpperCase() || provided.country || inferCountryFromPostalCode(postalCode),
+    postalCode,
+    street,
+    city
+  };
+}
+
+function inferCountryFromPostalCode(postalCode) {
+  const value = text(postalCode);
+
+  if (/^\d{4}$/.test(value)) {
+    return "AT";
+  }
+
+  if (/^\d{5}$/.test(value)) {
+    return "DE";
+  }
+
+  return "";
+}
+
+function countryFromAddressPrefix(address) {
+  const match = text(address).match(/^([A-Z]{2})[-\s]/i);
+  return match ? match[1].toUpperCase() : "";
 }
 
 function number(value, fallback) {

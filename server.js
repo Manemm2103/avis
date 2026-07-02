@@ -228,6 +228,17 @@ app.patch("/api/orders/bulk", async (request, response) => {
   }
 });
 
+app.patch("/api/orders/sequence", async (request, response) => {
+  try {
+    response.json(await store.updateRouteSequence(sanitizeOrderNumbers(request.body.orderNumbers), request.user));
+  } catch (error) {
+    response.status(400).json({
+      error: "ORDER_SEQUENCE_SAVE_FAILED",
+      message: error.message
+    });
+  }
+});
+
 app.post("/api/local-orders", async (request, response) => {
   try {
     const order = sanitizeLocalOrder(request.body, "manual");
@@ -600,6 +611,9 @@ function mergeOrder(order, avis, driverMap) {
       customerInfo: avis?.customerInfo || "",
       updatedAt: avis?.updatedAt || "",
       updatedBy: avis?.updatedBy || "",
+      routeSequence: Number(avis?.routeSequence) || 0,
+      routeSequenceUpdatedAt: avis?.routeSequenceUpdatedAt || "",
+      routeSequenceUpdatedBy: avis?.routeSequenceUpdatedBy || "",
       log: avis?.log || [],
       mailLog: avis?.mailLog || []
     }
@@ -864,6 +878,20 @@ function sanitizeBulkAvisUpdate(input) {
     orderNumbers: [...new Set(orderNumbers)],
     values
   };
+}
+
+function sanitizeOrderNumbers(input) {
+  if (!Array.isArray(input)) {
+    throw new Error("Keine Auftraege uebergeben.");
+  }
+
+  const orderNumbers = [...new Set(input.map((orderNumber) => text(orderNumber)).filter(Boolean))];
+
+  if (orderNumbers.length === 0) {
+    throw new Error("Keine Auftraege fuer die Reihenfolge gefunden.");
+  }
+
+  return orderNumbers;
 }
 
 function sanitizeDriverPhone(input, partial = false) {

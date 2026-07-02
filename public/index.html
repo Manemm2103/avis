@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AVIS</title>
-    <link rel="stylesheet" href="/style.css?v=20260701-dark-hover">
+    <link rel="stylesheet" href="/style.css?v=20260702-ptv-route">
   </head>
   <body>
     <section class="login-view" id="login-view">
@@ -57,6 +57,7 @@
 
       <nav class="tabs" aria-label="Bereiche">
         <button class="tab is-active" id="tab-orders" type="button">Aufträge</button>
+        <button class="tab" id="tab-ptv" type="button">PTV</button>
         <button class="tab" id="tab-import" type="button">Import</button>
         <button class="tab" id="tab-masterdata" type="button">Stammdaten</button>
       </nav>
@@ -148,6 +149,66 @@
                 </tr>
               </thead>
               <tbody id="orders-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="ptv-view" class="view" hidden>
+          <div class="page-heading">
+            <h2>PTV Map&Guide</h2>
+          </div>
+          <div class="toolbar">
+            <div class="segmented" role="group" aria-label="PTV Avis Status">
+              <button class="segment is-active" data-ptv-status="open" type="button">Nicht avisiert</button>
+              <button class="segment" data-ptv-status="all" type="button">Alle</button>
+              <button class="segment" data-ptv-status="notified" type="button">Avisiert</button>
+            </div>
+            <label class="filter-control">
+              <span>Liefertag</span>
+              <input id="ptv-filter-date" type="date">
+            </label>
+            <label class="filter-control wide">
+              <span>Tour</span>
+              <select id="ptv-filter-tour">
+                <option value="">Alle Touren</option>
+              </select>
+            </label>
+            <label class="search">
+              <span>Suchen</span>
+              <input id="ptv-search-input" type="search" autocomplete="off" placeholder="Auftrag, Kunde, Ort">
+            </label>
+            <button class="secondary" id="ptv-clear-filters" type="button">Filter löschen</button>
+          </div>
+
+          <div class="bulk-panel">
+            <div class="ptv-actions">
+              <div>
+                <strong id="ptv-count">0 Aufträge</strong>
+                <span class="bulk-subline" id="ptv-subline">im aktuellen Filter</span>
+              </div>
+              <button class="secondary" id="ptv-clear-selection" type="button" hidden>Auswahl aufheben</button>
+              <button class="primary" id="ptv-export" type="button">PTV CSV exportieren</button>
+              <label class="secondary file-button">
+                <span>PTV Reihenfolge importieren</span>
+                <input id="ptv-import-file" type="file" accept=".csv,.txt,text/csv,text/plain">
+              </label>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="orders-table ptv-table">
+              <thead>
+                <tr>
+                  <th>Reihenfolge</th>
+                  <th>Auftrag</th>
+                  <th>Kunde</th>
+                  <th>Liefertermin</th>
+                  <th>Tour</th>
+                  <th>Adresse</th>
+                  <th>Gewicht</th>
+                </tr>
+              </thead>
+              <tbody id="ptv-body"></tbody>
             </table>
           </div>
         </section>
@@ -421,7 +482,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.02.2</footer>
+      <footer class="app-footer">Version 2026.07.02.4</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -621,6 +682,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260702-address-parts" type="module"></script>
+    <script src="/app.js?v=20260702-ptv-route" type="module"></script>
   </body>
 </html>

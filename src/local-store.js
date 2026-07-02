@@ -434,6 +434,42 @@ export class LocalStore {
     return next;
   }
 
+  async updateRouteSequence(orderNumbers, actor) {
+    const now = new Date().toISOString();
+    const actorName = actor?.displayName || actor?.username || "Unbekannt";
+    const uniqueOrderNumbers = [...new Set(orderNumbers.map((orderNumber) => String(orderNumber || "").trim()).filter(Boolean))];
+
+    for (const [index, orderNumber] of uniqueOrderNumbers.entries()) {
+      const current = this.state.avisByOrder[orderNumber] || {};
+      const next = {
+        ...current,
+        routeSequence: index + 1,
+        routeSequenceUpdatedAt: now,
+        routeSequenceUpdatedBy: actorName,
+        routeSequenceUpdatedByUserId: actor?.id || "",
+        updatedAt: now,
+        updatedBy: actorName,
+        updatedByUserId: actor?.id || "",
+        log: [...(current.log || [])]
+      };
+
+      next.log.push({
+        id: crypto.randomUUID(),
+        type: "ptv_reihenfolge",
+        at: now,
+        by: actorName,
+        byUserId: actor?.id || ""
+      });
+
+      this.state.avisByOrder[orderNumber] = next;
+    }
+
+    await this.save();
+    return {
+      updated: uniqueOrderNumbers.length
+    };
+  }
+
   async appendAvisMail(orderNumber, mail, actor) {
     const current = this.state.avisByOrder[orderNumber] || {};
     const actorName = actor?.displayName || actor?.username || "Unbekannt";

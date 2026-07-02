@@ -25,6 +25,13 @@ const state = {
   masterdataPage: "drivers",
   bulkSelectedOrderNumbers: new Set(),
   bulkLastSelectedOrderNumber: "",
+  ptvStatus: "open",
+  ptvSearch: "",
+  ptvDeliveryDate: "",
+  ptvTour: "",
+  ptvSelectedOrderNumbers: new Set(),
+  ptvLastSelectedOrderNumber: "",
+  ptvDraggedOrderNumber: "",
   selectedOrder: null,
   notifySelectedOrder: false,
   confirmResolve: null,
@@ -42,11 +49,13 @@ const elements = {
   logoutButton: document.querySelector("#logout-button"),
   tabs: {
     orders: document.querySelector("#tab-orders"),
+    ptv: document.querySelector("#tab-ptv"),
     import: document.querySelector("#tab-import"),
     masterdata: document.querySelector("#tab-masterdata")
   },
   views: {
     orders: document.querySelector("#orders-view"),
+    ptv: document.querySelector("#ptv-view"),
     import: document.querySelector("#import-view"),
     masterdata: document.querySelector("#masterdata-view")
   },
@@ -75,6 +84,16 @@ const elements = {
   bulkNotify: document.querySelector("#bulk-notify"),
   bulkRevoke: document.querySelector("#bulk-revoke"),
   bulkHint: document.querySelector("#bulk-hint"),
+  ptvFilterDate: document.querySelector("#ptv-filter-date"),
+  ptvFilterTour: document.querySelector("#ptv-filter-tour"),
+  ptvSearchInput: document.querySelector("#ptv-search-input"),
+  ptvClearFilters: document.querySelector("#ptv-clear-filters"),
+  ptvCount: document.querySelector("#ptv-count"),
+  ptvSubline: document.querySelector("#ptv-subline"),
+  ptvClearSelection: document.querySelector("#ptv-clear-selection"),
+  ptvExport: document.querySelector("#ptv-export"),
+  ptvImportFile: document.querySelector("#ptv-import-file"),
+  ptvBody: document.querySelector("#ptv-body"),
   demoNotice: document.querySelector("#demo-notice"),
   sourceErrorNotice: document.querySelector("#source-error-notice"),
   drawer: document.querySelector("#order-drawer"),
@@ -220,6 +239,7 @@ function bindEvents() {
   elements.logoutButton.addEventListener("click", logout);
   elements.brandHomeButton.addEventListener("click", goHomeAndRefresh);
   elements.tabs.orders.addEventListener("click", () => showView("orders"));
+  elements.tabs.ptv.addEventListener("click", () => showView("ptv"));
   elements.tabs.import.addEventListener("click", () => showView("import"));
   elements.tabs.masterdata.addEventListener("click", () => showView("masterdata"));
   elements.filterDate.addEventListener("change", () => {
@@ -265,6 +285,27 @@ function bindEvents() {
   elements.bulkClearSelection.addEventListener("click", clearBulkSelection);
   elements.bulkDriver.addEventListener("change", renderBulkState);
   elements.bulkTwoDayTour.addEventListener("change", renderBulkState);
+  elements.ptvFilterDate.addEventListener("change", () => {
+    state.ptvDeliveryDate = elements.ptvFilterDate.value;
+    state.ptvTour = "";
+    elements.ptvFilterTour.value = "";
+    reconcilePtvSelection();
+    renderPtv();
+  });
+  elements.ptvFilterTour.addEventListener("change", () => {
+    state.ptvTour = elements.ptvFilterTour.value;
+    reconcilePtvSelection();
+    renderPtv();
+  });
+  elements.ptvSearchInput.addEventListener("input", debounce(() => {
+    state.ptvSearch = elements.ptvSearchInput.value;
+    reconcilePtvSelection();
+    renderPtv();
+  }, 150));
+  elements.ptvClearFilters.addEventListener("click", clearPtvFilters);
+  elements.ptvClearSelection.addEventListener("click", clearPtvSelection);
+  elements.ptvExport.addEventListener("click", exportPtvCsv);
+  elements.ptvImportFile.addEventListener("change", importPtvSequence);
   elements.masterdataTabs.forEach((button) => {
     button.addEventListener("click", () => showMasterdataPage(button.dataset.masterdataTab));
   });
@@ -304,6 +345,17 @@ function bindEvents() {
     button.addEventListener("click", () => {
       setStatusFilter(button.dataset.status);
       loadOrders();
+    });
+  });
+
+  document.querySelectorAll("[data-ptv-status]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.ptvStatus = button.dataset.ptvStatus || "open";
+      document.querySelectorAll("[data-ptv-status]").forEach((item) => {
+        item.classList.toggle("is-active", item.dataset.ptvStatus === state.ptvStatus);
+      });
+      reconcilePtvSelection();
+      renderPtv();
     });
   });
 
@@ -348,6 +400,56 @@ function bindEvents() {
     }
 
     handleBulkRowSelection(event, row.dataset.orderNumber);
+  });
+
+  elements.ptvBody.addEventListener("click", (event) => {
+    const row = event.target.closest("[data-ptv-order-number]");
+
+    if (!row) {
+      return;
+    }
+
+    handlePtvRowSelection(event, row.dataset.ptvOrderNumber);
+  });
+
+  elements.ptvBody.addEventListener("dragstart", (event) => {
+    const row = event.target.closest("[data-ptv-order-number]");
+
+    if (!row) {
+      return;
+    }
+
+    state.ptvDraggedOrderNumber = row.dataset.ptvOrderNumber;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", state.ptvDraggedOrderNumber);
+  });
+
+  elements.ptvBody.addEventListener("dragover", (event) => {
+    const row = event.target.closest("[data-ptv-order-number]");
+
+    if (!row || row.dataset.ptvOrderNumber === state.ptvDraggedOrderNumber) {
+      return;
+    }
+
+    event.preventDefault();
+    row.classList.add("is-drag-over");
+  });
+
+  elements.ptvBody.addEventListener("dragleave", (event) => {
+    event.target.closest("[data-ptv-order-number]")?.classList.remove("is-drag-over");
+  });
+
+  elements.ptvBody.addEventListener("drop", async (event) => {
+    const row = event.target.closest("[data-ptv-order-number]");
+
+    if (!row) {
+      return;
+    }
+
+    event.preventDefault();
+    row.classList.remove("is-drag-over");
+    await movePtvOrder(state.ptvDraggedOrderNumber, row.dataset.ptvOrderNumber);
+    state.ptvDraggedOrderNumber = "";
   });
 
   elements.driversBody.addEventListener("click", async (event) => {
@@ -564,17 +666,25 @@ function showView(view) {
   }
 
   const isOrders = view === "orders";
+  const isPtv = view === "ptv";
   const isImport = view === "import";
   const isMasterdata = view === "masterdata";
   elements.views.orders.hidden = !isOrders;
+  elements.views.ptv.hidden = !isPtv;
   elements.views.import.hidden = !isImport;
   elements.views.masterdata.hidden = !isMasterdata;
   elements.tabs.orders.classList.toggle("is-active", isOrders);
+  elements.tabs.ptv.classList.toggle("is-active", isPtv);
   elements.tabs.import.classList.toggle("is-active", isImport);
   elements.tabs.masterdata.classList.toggle("is-active", isMasterdata);
 
   if (isMasterdata) {
     showMasterdataPage(state.masterdataPage);
+  }
+
+  if (isPtv) {
+    reconcilePtvSelection();
+    renderPtv();
   }
 }
 
@@ -672,6 +782,8 @@ async function loadOrders() {
     renderStats(data.summary);
     renderOrders();
     renderBulkState();
+    reconcilePtvSelection();
+    renderPtv();
   } catch (error) {
     state.orders = [];
     reconcileBulkSelection();
@@ -682,6 +794,8 @@ async function loadOrders() {
     renderStats({ total: 0, open: 0, notified: 0 });
     renderOrders(sourceErrorMessage(error));
     renderBulkState();
+    reconcilePtvSelection();
+    renderPtv(sourceErrorMessage(error));
   }
 }
 
@@ -866,6 +980,59 @@ function shouldShowNotifiedAtColumn() {
   return state.status !== "open";
 }
 
+function renderPtv(errorMessage = "") {
+  renderPtvTours();
+
+  const orders = ptvFilteredOrders();
+  const selectedCount = selectedPtvOrderNumbers().length;
+  const targetCount = selectedCount || orders.length;
+  const countLabel = targetCount === 1 ? "1 Auftrag" : `${targetCount} AuftrÃ¤ge`;
+
+  elements.ptvCount.textContent = countLabel;
+  elements.ptvSubline.textContent = selectedCount > 0
+    ? `${selectedCount} markiert fuer PTV`
+    : `im aktuellen PTV-Filter`;
+  elements.ptvClearSelection.hidden = selectedCount === 0;
+  elements.ptvExport.disabled = targetCount === 0;
+
+  if (errorMessage) {
+    elements.ptvBody.innerHTML = `<tr><td class="empty is-error" colspan="7">${escapeHtml(errorMessage)}</td></tr>`;
+    return;
+  }
+
+  if (orders.length === 0) {
+    elements.ptvBody.innerHTML = `<tr><td class="empty" colspan="7">Keine AuftrÃ¤ge fÃ¼r PTV gefunden.</td></tr>`;
+    return;
+  }
+
+  elements.ptvBody.innerHTML = orders.map((order, index) => {
+    const selected = state.ptvSelectedOrderNumbers.has(order.orderNumber);
+
+    return `
+      <tr class="${selected ? "is-selected" : ""}" data-ptv-order-number="${escapeHtml(order.orderNumber)}" draggable="true" aria-selected="${selected ? "true" : "false"}">
+        <td>
+          <span class="sequence-pill">${escapeHtml(order.avis.routeSequence || index + 1)}</span>
+        </td>
+        <td><strong>${escapeHtml(order.orderNumber)}</strong></td>
+        <td>
+          <span class="main-text">${escapeHtml(order.customerName || "-")}</span>
+          <span class="sub-text">${escapeHtml(order.customerNumber || "")}</span>
+        </td>
+        <td>
+          <span class="main-text">${formatDate(order.displayDeliveryDate)}</span>
+          ${order.avis.twoDayTour ? `<span class="sub-text two-day-text">2-Tagestour</span>` : ""}
+        </td>
+        <td>${escapeHtml(order.displayTour || order.tour || "-")}</td>
+        <td>
+          <span class="main-text">${escapeHtml(ptvAddressLine(order) || "-")}</span>
+          <span class="sub-text">${escapeHtml(order.deliveryStreet || "")}</span>
+        </td>
+        <td>${formatElementWeight(order.elementWeight)}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
 function sortedOrders() {
   if (!state.sort.key) {
     return state.orders;
@@ -1012,6 +1179,129 @@ function clearBulkSelection() {
   renderBulkState();
 }
 
+function ptvFilteredOrders() {
+  const query = state.ptvSearch.trim().toLowerCase();
+
+  return state.orders
+    .filter((order) => {
+      if (state.ptvStatus === "open" && order.avis.notified) {
+        return false;
+      }
+
+      if (state.ptvStatus === "notified" && !order.avis.notified) {
+        return false;
+      }
+
+      if (state.ptvDeliveryDate && (order.displayDeliveryDate || order.deliveryDate) !== state.ptvDeliveryDate) {
+        return false;
+      }
+
+      if (state.ptvTour && (order.displayTour || order.tour) !== state.ptvTour) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      return [
+        order.orderNumber,
+        order.customerNumber,
+        order.customerName,
+        order.tour,
+        order.deliveryAddress,
+        order.deliveryPostalCode,
+        order.deliveryCity,
+        order.deliveryStreet
+      ].join(" ").toLowerCase().includes(query);
+    })
+    .map((order, index) => ({ order, index }))
+    .sort((left, right) => {
+      const leftSequence = Number(left.order.avis.routeSequence) || 0;
+      const rightSequence = Number(right.order.avis.routeSequence) || 0;
+
+      if (leftSequence && rightSequence && leftSequence !== rightSequence) {
+        return leftSequence - rightSequence;
+      }
+
+      if (leftSequence && !rightSequence) {
+        return -1;
+      }
+
+      if (!leftSequence && rightSequence) {
+        return 1;
+      }
+
+      return compareSortValues(left.order.displayDeliveryDate || left.order.deliveryDate || left.index, right.order.displayDeliveryDate || right.order.deliveryDate || right.index)
+        || compareSortValues(left.order.orderNumber, right.order.orderNumber);
+    })
+    .map((entry) => entry.order);
+}
+
+function selectedPtvOrderNumbers() {
+  const visible = new Set(ptvFilteredOrders().map((order) => order.orderNumber));
+  return [...state.ptvSelectedOrderNumbers].filter((orderNumber) => visible.has(orderNumber));
+}
+
+function ptvTargetOrders() {
+  const selected = new Set(selectedPtvOrderNumbers());
+  const filtered = ptvFilteredOrders();
+
+  return selected.size > 0
+    ? filtered.filter((order) => selected.has(order.orderNumber))
+    : filtered;
+}
+
+function reconcilePtvSelection() {
+  const visible = new Set(ptvFilteredOrders().map((order) => order.orderNumber));
+  state.ptvSelectedOrderNumbers = new Set([...state.ptvSelectedOrderNumbers].filter((orderNumber) => visible.has(orderNumber)));
+
+  if (state.ptvLastSelectedOrderNumber && !visible.has(state.ptvLastSelectedOrderNumber)) {
+    state.ptvLastSelectedOrderNumber = "";
+  }
+}
+
+function handlePtvRowSelection(event, orderNumber) {
+  const visible = ptvFilteredOrders().map((order) => order.orderNumber);
+
+  if (!visible.includes(orderNumber)) {
+    return;
+  }
+
+  if (event.shiftKey && state.ptvLastSelectedOrderNumber && visible.includes(state.ptvLastSelectedOrderNumber)) {
+    const start = visible.indexOf(state.ptvLastSelectedOrderNumber);
+    const end = visible.indexOf(orderNumber);
+    const range = visible.slice(Math.min(start, end), Math.max(start, end) + 1);
+
+    if (!event.ctrlKey && !event.metaKey) {
+      state.ptvSelectedOrderNumbers = new Set();
+    }
+
+    for (const item of range) {
+      state.ptvSelectedOrderNumbers.add(item);
+    }
+  } else if (event.ctrlKey || event.metaKey) {
+    if (state.ptvSelectedOrderNumbers.has(orderNumber)) {
+      state.ptvSelectedOrderNumbers.delete(orderNumber);
+    } else {
+      state.ptvSelectedOrderNumbers.add(orderNumber);
+    }
+
+    state.ptvLastSelectedOrderNumber = orderNumber;
+  } else {
+    state.ptvSelectedOrderNumbers = new Set([orderNumber]);
+    state.ptvLastSelectedOrderNumber = orderNumber;
+  }
+
+  renderPtv();
+}
+
+function clearPtvSelection() {
+  state.ptvSelectedOrderNumbers.clear();
+  state.ptvLastSelectedOrderNumber = "";
+  renderPtv();
+}
+
 function updateSortHeaders() {
   document.querySelectorAll("[data-sort]").forEach((button) => {
     const active = button.dataset.sort === state.sort.key;
@@ -1052,6 +1342,27 @@ function renderTours() {
     `<option value="">Bitte auswählen</option>`,
     ...state.tours.map((tour) => `
       <option value="${escapeHtml(tour)}">${escapeHtml(tour)}</option>
+    `)
+  ].join("");
+
+  renderPtvTours();
+}
+
+function renderPtvTours() {
+  const tours = [...new Set(state.orders
+    .filter((order) => !state.ptvDeliveryDate || (order.displayDeliveryDate || order.deliveryDate) === state.ptvDeliveryDate)
+    .map((order) => order.displayTour || order.tour)
+    .filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "de"));
+
+  if (state.ptvTour && !tours.includes(state.ptvTour)) {
+    state.ptvTour = "";
+  }
+
+  elements.ptvFilterTour.innerHTML = [
+    `<option value="">Alle Touren</option>`,
+    ...tours.map((tour) => `
+      <option value="${escapeHtml(tour)}" ${tour === state.ptvTour ? "selected" : ""}>${escapeHtml(tour)}</option>
     `)
   ].join("");
 }
@@ -1693,6 +2004,107 @@ async function importCsvOrders(event) {
   showToast(`${result.created} Aufträge importiert, ${result.skipped} übersprungen.`);
 }
 
+function clearPtvFilters() {
+  state.ptvStatus = "open";
+  state.ptvSearch = "";
+  state.ptvDeliveryDate = "";
+  state.ptvTour = "";
+  elements.ptvSearchInput.value = "";
+  elements.ptvFilterDate.value = "";
+  document.querySelectorAll("[data-ptv-status]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.ptvStatus === state.ptvStatus);
+  });
+  clearPtvSelection();
+}
+
+function exportPtvCsv() {
+  const orders = ptvTargetOrders();
+
+  if (orders.length === 0) {
+    showToast("Keine Auftraege fuer den PTV-Export gefunden.");
+    return;
+  }
+
+  const rows = [
+    ptvPlantRow(orders.length),
+    ...orders.map(ptvOrderRow)
+  ];
+
+  downloadCsv(rows, `ptv-avis-${todayIso()}.csv`);
+  showToast(`${orders.length} Auftraege fuer PTV exportiert.`);
+}
+
+async function importPtvSequence(event) {
+  const [file] = event.target.files || [];
+
+  if (!file) {
+    return;
+  }
+
+  try {
+    const content = await file.text();
+    const orderNumbers = extractPtvOrderNumbers(content);
+
+    if (orderNumbers.length === 0) {
+      showToast("Keine AVIS-Auftragsnummern in der PTV-Datei gefunden.");
+      return;
+    }
+
+    const confirmed = await requestConfirm(`Soll die PTV-Reihenfolge fuer ${orderNumbers.length} Auftraege gespeichert werden?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    await savePtvSequence(orderNumbers);
+    showToast("PTV-Reihenfolge importiert.");
+  } finally {
+    elements.ptvImportFile.value = "";
+  }
+}
+
+async function movePtvOrder(draggedOrderNumber, targetOrderNumber) {
+  if (!draggedOrderNumber || !targetOrderNumber || draggedOrderNumber === targetOrderNumber) {
+    return;
+  }
+
+  const orderNumbers = ptvFilteredOrders().map((order) => order.orderNumber);
+  const from = orderNumbers.indexOf(draggedOrderNumber);
+  const to = orderNumbers.indexOf(targetOrderNumber);
+
+  if (from === -1 || to === -1) {
+    return;
+  }
+
+  const [moved] = orderNumbers.splice(from, 1);
+  orderNumbers.splice(to, 0, moved);
+  await savePtvSequence(orderNumbers);
+  showToast("PTV-Reihenfolge gespeichert.");
+}
+
+async function savePtvSequence(orderNumbers) {
+  await api("/api/orders/sequence", {
+    method: "PATCH",
+    body: JSON.stringify({ orderNumbers })
+  });
+
+  await loadOrders();
+}
+
+function downloadCsv(rows, filename) {
+  const csv = rows.map((row) => row.map(escapeCsvCell).join(";")).join("\r\n");
+  const blob = new Blob([`\uFEFF${csv}\r\n`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 function downloadSampleCsv() {
   const rows = [
     [
@@ -2027,6 +2439,126 @@ function readCsvValue(row, ...keys) {
   return "";
 }
 
+function ptvAddressLine(order) {
+  return [
+    order.deliveryCountry,
+    order.deliveryPostalCode,
+    order.deliveryCity
+  ].filter(Boolean).join(" ");
+}
+
+function ptvComment(order) {
+  return [
+    `Auftrag ${order.orderNumber}`,
+    order.tour || order.displayTour || "",
+    ptvWeightKg(order) ? `${ptvWeightKg(order)} kg` : "",
+    order.avis.twoDayTour ? "2-Tagestour" : ""
+  ].filter(Boolean).join(" | ");
+}
+
+function ptvPlantRow(orderCount) {
+  return ptvStationRow({
+    country: "DE",
+    postalCode: "94154",
+    city: "Neukirchen v. W.",
+    street: "Gewerbepark 7",
+    duration: "20",
+    comment: "Werksstandort",
+    loading: String(orderCount),
+    unloading: "0",
+    id: "WERK",
+    orderReference: "WERK",
+    customer: "Bayerwald",
+    description: `${orderCount} Auftraege beladen`
+  });
+}
+
+function ptvOrderRow(order) {
+  return ptvStationRow({
+    country: order.deliveryCountry || "",
+    postalCode: order.deliveryPostalCode || "",
+    city: order.deliveryCity || "",
+    street: order.deliveryStreet || order.deliveryAddress || "",
+    duration: "20",
+    comment: ptvComment(order),
+    loading: "0",
+    unloading: "1",
+    id: order.orderNumber,
+    orderReference: order.orderNumber,
+    customer: order.customerName || "",
+    description: order.avis.customerInfo || order.customerInfo || "",
+    phone: order.sourcePhone || ""
+  });
+}
+
+function ptvStationRow(station) {
+  return [
+    station.country || "",
+    station.postalCode || "",
+    station.city || "",
+    station.street || "",
+    station.duration || "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    station.comment || "",
+    "",
+    "",
+    station.loading || "",
+    station.unloading || "",
+    "",
+    "AVIS",
+    station.id || "",
+    station.orderReference || "",
+    station.customer || "",
+    station.description || "",
+    station.phone || "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    ""
+  ];
+}
+
+function ptvWeightKg(order) {
+  const number = parseWeightNumber(order.elementWeight);
+  return Number.isFinite(number) ? String(Math.round(number)) : "";
+}
+
+function extractPtvOrderNumbers(content) {
+  const rows = parseCsvRows(content);
+  const known = new Set(state.orders.map((order) => order.orderNumber));
+  const result = [];
+  const seen = new Set();
+
+  for (const row of rows) {
+    const joined = row.join(" ").toLowerCase();
+
+    if (joined.includes("auftragskennung") || joined.includes("auftragsnummer")) {
+      continue;
+    }
+
+    const candidates = [
+      row[19],
+      row[18],
+      ...row
+    ].map((value) => String(value || "").trim()).filter(Boolean);
+    const orderNumber = candidates.find((value) => known.has(value));
+
+    if (orderNumber && !seen.has(orderNumber)) {
+      seen.add(orderNumber);
+      result.push(orderNumber);
+    }
+  }
+
+  return result;
+}
+
 function escapeCsvCell(value) {
   const text = String(value ?? "");
 
@@ -2038,6 +2570,17 @@ function escapeCsvCell(value) {
 }
 
 function parseCsv(content) {
+  const [headerRow, ...dataRows] = parseCsvRows(content);
+
+  if (!headerRow) {
+    return [];
+  }
+
+  const headers = headerRow.map(normalizeCsvKey);
+  return dataRows.map((dataRow) => Object.fromEntries(headers.map((header, index) => [header, dataRow[index] || ""])));
+}
+
+function parseCsvRows(content) {
   const delimiter = detectCsvDelimiter(content);
   const rows = [];
   let row = [];
@@ -2083,14 +2626,7 @@ function parseCsv(content) {
   row.push(field.trim());
   rows.push(row);
 
-  const [headerRow, ...dataRows] = rows.filter((item) => item.some(Boolean));
-
-  if (!headerRow) {
-    return [];
-  }
-
-  const headers = headerRow.map(normalizeCsvKey);
-  return dataRows.map((dataRow) => Object.fromEntries(headers.map((header, index) => [header, dataRow[index] || ""])));
+  return rows.filter((item) => item.some(Boolean));
 }
 
 function detectCsvDelimiter(content) {
@@ -2179,22 +2715,42 @@ function formatDate(value) {
 }
 
 function formatElementWeight(value) {
+  const number = parseWeightNumber(value);
+
+  if (!Number.isFinite(number)) {
+    const raw = String(value || "").trim();
+    if (!raw) {
+      return "-";
+    }
+
+    return raw;
+  }
+
+  return `${Math.round(number).toLocaleString("de-DE")} Kg`;
+}
+
+function parseWeightNumber(value) {
   const raw = String(value || "").trim();
+
   if (!raw) {
-    return "-";
+    return Number.NaN;
   }
 
   const normalized = raw
     .replace(/[^\d,.-]/g, "")
     .replace(/\.(?=.*[,])/g, "")
     .replace(",", ".");
-  const number = Number(normalized);
 
-  if (!Number.isFinite(number)) {
-    return raw;
-  }
+  return Number(normalized);
+}
 
-  return `${Math.round(number).toLocaleString("de-DE")} Kg`;
+function todayIso() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function formatWeek(value) {

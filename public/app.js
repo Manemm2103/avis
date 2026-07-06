@@ -2082,8 +2082,9 @@ function exportPtvCsv() {
     return;
   }
 
+  const totalWeightTons = orders.reduce((sum, order) => sum + ptvWeightTonsNumber(order), 0);
   const rows = [
-    ptvPlantRow(orders.length),
+    ptvPlantRow(orders.length, totalWeightTons),
     ...orders.map(ptvOrderRow)
   ];
 
@@ -2517,7 +2518,7 @@ function ptvComment(order) {
   ].filter(Boolean).join(" | ");
 }
 
-function ptvPlantRow(orderCount) {
+function ptvPlantRow(orderCount, totalWeightTons) {
   return ptvStationRow({
     country: "DE",
     postalCode: "94154",
@@ -2525,7 +2526,7 @@ function ptvPlantRow(orderCount) {
     street: "Gewerbepark 7",
     duration: "20",
     comment: "Werksstandort",
-    loading: String(orderCount),
+    loading: formatPtvTons(totalWeightTons),
     unloading: "0",
     id: "WERK",
     orderReference: "WERK",
@@ -2543,7 +2544,7 @@ function ptvOrderRow(order) {
     duration: "20",
     comment: ptvComment(order),
     loading: "0",
-    unloading: "1",
+    unloading: formatPtvTons(ptvWeightTonsNumber(order)),
     id: order.orderNumber,
     orderReference: order.orderNumber,
     customer: order.customerName || "",
@@ -2589,6 +2590,21 @@ function ptvStationRow(station) {
 function ptvWeightKg(order) {
   const number = parseWeightNumber(order.elementWeight);
   return Number.isFinite(number) ? String(Math.round(number)) : "";
+}
+
+function ptvWeightTonsNumber(order) {
+  const number = parseWeightNumber(order.elementWeight);
+  return Number.isFinite(number) ? number / 1000 : 0;
+}
+
+function formatPtvTons(value) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number) || number <= 0) {
+    return "0";
+  }
+
+  return number.toFixed(3).replace(".", ",");
 }
 
 function extractPtvOrderNumbers(content) {

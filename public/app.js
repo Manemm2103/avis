@@ -29,6 +29,7 @@ const state = {
   ptvSearch: "",
   ptvDeliveryDate: "",
   ptvTour: "",
+  ptvListOrderNumbers: [],
   ptvSelectedOrderNumbers: new Set(),
   ptvLastSelectedOrderNumber: "",
   ptvDraggedOrderNumber: "",
@@ -94,6 +95,7 @@ const elements = {
   ptvExport: document.querySelector("#ptv-export"),
   ptvImportFile: document.querySelector("#ptv-import-file"),
   ptvBody: document.querySelector("#ptv-body"),
+  ptvListBody: document.querySelector("#ptv-list-body"),
   demoNotice: document.querySelector("#demo-notice"),
   sourceErrorNotice: document.querySelector("#source-error-notice"),
   drawer: document.querySelector("#order-drawer"),
@@ -412,7 +414,17 @@ function bindEvents() {
     handlePtvRowSelection(event, row.dataset.ptvOrderNumber);
   });
 
-  elements.ptvBody.addEventListener("dragstart", (event) => {
+  elements.ptvListBody.addEventListener("click", (event) => {
+    const removeButton = event.target.closest("[data-ptv-remove]");
+
+    if (!removeButton) {
+      return;
+    }
+
+    removePtvListOrder(removeButton.dataset.ptvRemove);
+  });
+
+  elements.ptvListBody.addEventListener("dragstart", (event) => {
     const row = event.target.closest("[data-ptv-order-number]");
 
     if (!row) {
@@ -424,7 +436,7 @@ function bindEvents() {
     event.dataTransfer.setData("text/plain", state.ptvDraggedOrderNumber);
   });
 
-  elements.ptvBody.addEventListener("dragover", (event) => {
+  elements.ptvListBody.addEventListener("dragover", (event) => {
     const row = event.target.closest("[data-ptv-order-number]");
 
     if (!row || row.dataset.ptvOrderNumber === state.ptvDraggedOrderNumber) {
@@ -435,11 +447,11 @@ function bindEvents() {
     row.classList.add("is-drag-over");
   });
 
-  elements.ptvBody.addEventListener("dragleave", (event) => {
+  elements.ptvListBody.addEventListener("dragleave", (event) => {
     event.target.closest("[data-ptv-order-number]")?.classList.remove("is-drag-over");
   });
 
-  elements.ptvBody.addEventListener("drop", async (event) => {
+  elements.ptvListBody.addEventListener("drop", async (event) => {
     const row = event.target.closest("[data-ptv-order-number]");
 
     if (!row) {
@@ -985,52 +997,81 @@ function renderPtv(errorMessage = "") {
 
   const orders = ptvFilteredOrders();
   const selectedCount = selectedPtvOrderNumbers().length;
-  const targetCount = selectedCount || orders.length;
-  const countLabel = targetCount === 1 ? "1 Auftrag" : `${targetCount} AuftrÃ¤ge`;
+  const countLabel = selectedCount === 1 ? "1 Auftrag" : `${selectedCount} Auftraege`;
 
   elements.ptvCount.textContent = countLabel;
   elements.ptvSubline.textContent = selectedCount > 0
-    ? `${selectedCount} markiert fuer PTV`
-    : `im aktuellen PTV-Filter`;
+    ? "in der PTV-Auswahlliste"
+    : "noch keine PTV-Auswahlliste erstellt";
   elements.ptvClearSelection.hidden = selectedCount === 0;
-  elements.ptvExport.disabled = targetCount === 0;
+  elements.ptvExport.disabled = selectedCount === 0;
 
   if (errorMessage) {
     elements.ptvBody.innerHTML = `<tr><td class="empty is-error" colspan="7">${escapeHtml(errorMessage)}</td></tr>`;
+    elements.ptvListBody.innerHTML = `<tr><td class="empty is-error" colspan="7">${escapeHtml(errorMessage)}</td></tr>`;
     return;
   }
 
   if (orders.length === 0) {
-    elements.ptvBody.innerHTML = `<tr><td class="empty" colspan="7">Keine AuftrÃ¤ge fÃ¼r PTV gefunden.</td></tr>`;
+    elements.ptvBody.innerHTML = `<tr><td class="empty" colspan="7">Keine Auftraege fuer PTV gefunden.</td></tr>`;
+  } else {
+    elements.ptvBody.innerHTML = orders.map((order) => {
+      const selected = state.ptvSelectedOrderNumbers.has(order.orderNumber);
+
+      return `
+        <tr class="${selected ? "is-selected" : ""}" data-ptv-order-number="${escapeHtml(order.orderNumber)}" aria-selected="${selected ? "true" : "false"}">
+          <td>
+            <span class="sequence-pill">${selected ? "OK" : "+"}</span>
+          </td>
+          <td><strong>${escapeHtml(order.orderNumber)}</strong></td>
+          <td>
+            <span class="main-text">${escapeHtml(order.customerName || "-")}</span>
+            <span class="sub-text">${escapeHtml(order.customerNumber || "")}</span>
+          </td>
+          <td>
+            <span class="main-text">${formatDate(order.displayDeliveryDate)}</span>
+            ${order.avis.twoDayTour ? `<span class="sub-text two-day-text">2-Tagestour</span>` : ""}
+          </td>
+          <td>${escapeHtml(order.displayTour || order.tour || "-")}</td>
+          <td>
+            <span class="main-text">${escapeHtml(ptvAddressLine(order) || "-")}</span>
+            <span class="sub-text">${escapeHtml(order.deliveryStreet || "")}</span>
+          </td>
+          <td>${formatElementWeight(order.elementWeight)}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  const listOrders = ptvTargetOrders();
+
+  if (listOrders.length === 0) {
+    elements.ptvListBody.innerHTML = `<tr><td class="empty" colspan="7">Noch keine Auftraege ausgewaehlt.</td></tr>`;
     return;
   }
 
-  elements.ptvBody.innerHTML = orders.map((order, index) => {
-    const selected = state.ptvSelectedOrderNumbers.has(order.orderNumber);
-
-    return `
-      <tr class="${selected ? "is-selected" : ""}" data-ptv-order-number="${escapeHtml(order.orderNumber)}" draggable="true" aria-selected="${selected ? "true" : "false"}">
-        <td>
-          <span class="sequence-pill">${escapeHtml(order.avis.routeSequence || index + 1)}</span>
-        </td>
-        <td><strong>${escapeHtml(order.orderNumber)}</strong></td>
-        <td>
-          <span class="main-text">${escapeHtml(order.customerName || "-")}</span>
-          <span class="sub-text">${escapeHtml(order.customerNumber || "")}</span>
-        </td>
-        <td>
-          <span class="main-text">${formatDate(order.displayDeliveryDate)}</span>
-          ${order.avis.twoDayTour ? `<span class="sub-text two-day-text">2-Tagestour</span>` : ""}
-        </td>
-        <td>${escapeHtml(order.displayTour || order.tour || "-")}</td>
-        <td>
-          <span class="main-text">${escapeHtml(ptvAddressLine(order) || "-")}</span>
-          <span class="sub-text">${escapeHtml(order.deliveryStreet || "")}</span>
-        </td>
-        <td>${formatElementWeight(order.elementWeight)}</td>
-      </tr>
-    `;
-  }).join("");
+  elements.ptvListBody.innerHTML = listOrders.map((order, index) => `
+    <tr class="is-selected" data-ptv-order-number="${escapeHtml(order.orderNumber)}" draggable="true" aria-selected="true">
+      <td>
+        <span class="sequence-pill">${index + 1}</span>
+      </td>
+      <td><strong>${escapeHtml(order.orderNumber)}</strong></td>
+      <td>
+        <span class="main-text">${escapeHtml(order.customerName || "-")}</span>
+        <span class="sub-text">${escapeHtml(order.customerNumber || "")}</span>
+      </td>
+      <td>
+        <span class="main-text">${formatDate(order.displayDeliveryDate)}</span>
+        ${order.avis.twoDayTour ? `<span class="sub-text two-day-text">2-Tagestour</span>` : ""}
+      </td>
+      <td>${escapeHtml(order.displayTour || order.tour || "-")}</td>
+      <td>
+        <span class="main-text">${escapeHtml(ptvAddressLine(order) || "-")}</span>
+        <span class="sub-text">${escapeHtml(order.deliveryStreet || "")}</span>
+      </td>
+      <td><button class="secondary danger small" data-ptv-remove="${escapeHtml(order.orderNumber)}" type="button">Entfernen</button></td>
+    </tr>
+  `).join("");
 }
 
 function sortedOrders() {
@@ -1239,24 +1280,23 @@ function ptvFilteredOrders() {
 }
 
 function selectedPtvOrderNumbers() {
-  const visible = new Set(ptvFilteredOrders().map((order) => order.orderNumber));
-  return [...state.ptvSelectedOrderNumbers].filter((orderNumber) => visible.has(orderNumber));
+  const known = new Set(state.orders.map((order) => order.orderNumber));
+  return state.ptvListOrderNumbers.filter((orderNumber) => known.has(orderNumber));
 }
 
 function ptvTargetOrders() {
-  const selected = new Set(selectedPtvOrderNumbers());
-  const filtered = ptvFilteredOrders();
-
-  return selected.size > 0
-    ? filtered.filter((order) => selected.has(order.orderNumber))
-    : filtered;
+  const orderMap = new Map(state.orders.map((order) => [order.orderNumber, order]));
+  return selectedPtvOrderNumbers()
+    .map((orderNumber) => orderMap.get(orderNumber))
+    .filter(Boolean);
 }
 
 function reconcilePtvSelection() {
-  const visible = new Set(ptvFilteredOrders().map((order) => order.orderNumber));
-  state.ptvSelectedOrderNumbers = new Set([...state.ptvSelectedOrderNumbers].filter((orderNumber) => visible.has(orderNumber)));
+  const known = new Set(state.orders.map((order) => order.orderNumber));
+  state.ptvListOrderNumbers = state.ptvListOrderNumbers.filter((orderNumber) => known.has(orderNumber));
+  state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
 
-  if (state.ptvLastSelectedOrderNumber && !visible.has(state.ptvLastSelectedOrderNumber)) {
+  if (state.ptvLastSelectedOrderNumber && !known.has(state.ptvLastSelectedOrderNumber)) {
     state.ptvLastSelectedOrderNumber = "";
   }
 }
@@ -1274,31 +1314,47 @@ function handlePtvRowSelection(event, orderNumber) {
     const range = visible.slice(Math.min(start, end), Math.max(start, end) + 1);
 
     if (!event.ctrlKey && !event.metaKey) {
+      state.ptvListOrderNumbers = [];
       state.ptvSelectedOrderNumbers = new Set();
     }
 
     for (const item of range) {
-      state.ptvSelectedOrderNumbers.add(item);
+      addPtvListOrder(item);
     }
-  } else if (event.ctrlKey || event.metaKey) {
-    if (state.ptvSelectedOrderNumbers.has(orderNumber)) {
-      state.ptvSelectedOrderNumbers.delete(orderNumber);
-    } else {
-      state.ptvSelectedOrderNumbers.add(orderNumber);
-    }
-
-    state.ptvLastSelectedOrderNumber = orderNumber;
   } else {
-    state.ptvSelectedOrderNumbers = new Set([orderNumber]);
+    togglePtvListOrder(orderNumber);
     state.ptvLastSelectedOrderNumber = orderNumber;
   }
 
+  state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
   renderPtv();
 }
 
 function clearPtvSelection() {
+  state.ptvListOrderNumbers = [];
   state.ptvSelectedOrderNumbers.clear();
   state.ptvLastSelectedOrderNumber = "";
+  renderPtv();
+}
+
+function addPtvListOrder(orderNumber) {
+  if (!state.ptvListOrderNumbers.includes(orderNumber)) {
+    state.ptvListOrderNumbers.push(orderNumber);
+  }
+}
+
+function togglePtvListOrder(orderNumber) {
+  if (state.ptvListOrderNumbers.includes(orderNumber)) {
+    state.ptvListOrderNumbers = state.ptvListOrderNumbers.filter((item) => item !== orderNumber);
+    return;
+  }
+
+  state.ptvListOrderNumbers.push(orderNumber);
+}
+
+function removePtvListOrder(orderNumber) {
+  state.ptvListOrderNumbers = state.ptvListOrderNumbers.filter((item) => item !== orderNumber);
+  state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
   renderPtv();
 }
 
@@ -2014,7 +2070,8 @@ function clearPtvFilters() {
   document.querySelectorAll("[data-ptv-status]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.ptvStatus === state.ptvStatus);
   });
-  clearPtvSelection();
+  reconcilePtvSelection();
+  renderPtv();
 }
 
 function exportPtvCsv() {
@@ -2056,6 +2113,8 @@ async function importPtvSequence(event) {
       return;
     }
 
+    state.ptvListOrderNumbers = orderNumbers;
+    state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
     await savePtvSequence(orderNumbers);
     showToast("PTV-Reihenfolge importiert.");
   } finally {
@@ -2068,7 +2127,7 @@ async function movePtvOrder(draggedOrderNumber, targetOrderNumber) {
     return;
   }
 
-  const orderNumbers = ptvFilteredOrders().map((order) => order.orderNumber);
+  const orderNumbers = [...state.ptvListOrderNumbers];
   const from = orderNumbers.indexOf(draggedOrderNumber);
   const to = orderNumbers.indexOf(targetOrderNumber);
 
@@ -2078,6 +2137,8 @@ async function movePtvOrder(draggedOrderNumber, targetOrderNumber) {
 
   const [moved] = orderNumbers.splice(from, 1);
   orderNumbers.splice(to, 0, moved);
+  state.ptvListOrderNumbers = orderNumbers;
+  state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
   await savePtvSequence(orderNumbers);
   showToast("PTV-Reihenfolge gespeichert.");
 }

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AVIS</title>
-    <link rel="stylesheet" href="/style.css?v=20260702-ptv-route">
+    <link rel="stylesheet" href="/style.css?v=20260706-ptv-list">
   </head>
   <body>
     <section class="login-view" id="login-view">
@@ -195,6 +195,10 @@
             </div>
           </div>
 
+          <div class="ptv-section-heading">
+            <h3>AuftrÃ¤ge auswÃ¤hlen</h3>
+            <p class="help-text">Klick auf einen Auftrag fÃ¼gt ihn zur PTV-Auswahlliste hinzu oder entfernt ihn wieder.</p>
+          </div>
           <div class="table-wrap">
             <table class="orders-table ptv-table">
               <thead>
@@ -209,6 +213,27 @@
                 </tr>
               </thead>
               <tbody id="ptv-body"></tbody>
+            </table>
+          </div>
+
+          <div class="ptv-section-heading">
+            <h3>PTV-Auswahlliste</h3>
+            <p class="help-text">Diese Liste wird exportiert. Nach dem PTV-Reimport entspricht sie der optimierten Reihenfolge und kann per Drag & Drop nachsortiert werden.</p>
+          </div>
+          <div class="table-wrap">
+            <table class="orders-table ptv-table">
+              <thead>
+                <tr>
+                  <th>Reihenfolge</th>
+                  <th>Auftrag</th>
+                  <th>Kunde</th>
+                  <th>Liefertermin</th>
+                  <th>Tour</th>
+                  <th>Adresse</th>
+                  <th>Aktion</th>
+                </tr>
+              </thead>
+              <tbody id="ptv-list-body"></tbody>
             </table>
           </div>
         </section>
@@ -482,7 +507,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.02.4</footer>
+      <footer class="app-footer">Version 2026.07.06.1</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -682,6 +707,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260702-ptv-route" type="module"></script>
+    <script src="/app.js?v=20260706-ptv-list" type="module"></script>
   </body>
 </html>

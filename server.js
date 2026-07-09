@@ -1190,10 +1190,6 @@ function buildPtvRemoteUrl(settings, orderNumbers, orders) {
     warnings.push("Der PTV-Link ist laenger als 32.768 Zeichen. Bitte weniger Auftraege auswaehlen oder CSV verwenden.");
   }
 
-  if (exportUrl && !exportUrl.startsWith("https://")) {
-    warnings.push("PTV erwartet fuer die Rueckgabe eine HTTPS exporturl.");
-  }
-
   return {
     url,
     length: url.length,

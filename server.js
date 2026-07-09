@@ -1,5 +1,9 @@
 import express from "express";
+import fs from "node:fs";
+import http from "node:http";
+import https from "node:https";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { loadConfig } from "./src/config.js";
@@ -446,9 +450,11 @@ app.get("*", (request, response) => {
   response.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-app.listen(config.port, () => {
+http.createServer(app).listen(config.port, () => {
   console.log(`AVIS listening on port ${config.port}`);
 });
+
+startHttpsServer();
 
 async function loginUser(username, password) {
   let ldapError = null;
@@ -1458,6 +1464,86 @@ function ptvCallbackUrl(value) {
   } catch {
     return input;
   }
+}
+
+function startHttpsServer() {
+  if (!config.https.enabled) {
+    return;
+  }
+
+  try {
+    const options = loadHttpsOptions();
+    https.createServer(options, app).listen(config.https.port, () => {
+      console.log(`AVIS HTTPS listening on port ${config.https.port}`);
+    });
+  } catch (error) {
+    console.error(`AVIS HTTPS not started: ${error.message}`);
+  }
+}
+
+function loadHttpsOptions() {
+  const cert = config.https.cert || readExistingFile(config.https.certFile);
+  const key = config.https.key || readExistingFile(config.https.keyFile);
+
+  if (cert && key) {
+    return {
+      cert,
+      key
+    };
+  }
+
+  if (!config.https.autoSelfSigned) {
+    throw new Error("AVIS_HTTPS_CERT_FILE und AVIS_HTTPS_KEY_FILE fehlen.");
+  }
+
+  return createOrReadSelfSignedCertificate();
+}
+
+function createOrReadSelfSignedCertificate() {
+  const certDir = path.join(path.dirname(config.dataFile), "certs");
+  const certFile = path.join(certDir, "avis-selfsigned.crt");
+  const keyFile = path.join(certDir, "avis-selfsigned.key");
+
+  fs.mkdirSync(certDir, { recursive: true });
+
+  if (!fs.existsSync(certFile) || !fs.existsSync(keyFile)) {
+    execFileSync("openssl", [
+      "req",
+      "-x509",
+      "-newkey",
+      "rsa:2048",
+      "-nodes",
+      "-keyout",
+      keyFile,
+      "-out",
+      certFile,
+      "-days",
+      "3650",
+      "-subj",
+      `/CN=${config.https.hostname}`,
+      "-addext",
+      `subjectAltName=DNS:${config.https.hostname},IP:127.0.0.1`
+    ], {
+      stdio: "ignore"
+    });
+
+    console.log(`AVIS HTTPS self-signed certificate created for ${config.https.hostname}.`);
+  }
+
+  return {
+    cert: fs.readFileSync(certFile, "utf8"),
+    key: fs.readFileSync(keyFile, "utf8")
+  };
+}
+
+function readExistingFile(filePath) {
+  const input = text(filePath);
+
+  if (!input || !fs.existsSync(input)) {
+    return "";
+  }
+
+  return fs.readFileSync(input, "utf8");
 }
 
 function splitStreetAndHouseNumber(value) {

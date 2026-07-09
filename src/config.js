@@ -108,6 +108,16 @@ export function loadConfig() {
   return {
     port: number(process.env.PORT, 3000),
     dataFile: text(process.env.AVIS_DATA_FILE) || path.join(process.cwd(), "data", "avis.json"),
+    https: {
+      enabled: bool(process.env.AVIS_HTTPS_ENABLED, false),
+      port: number(process.env.AVIS_HTTPS_PORT, 3443),
+      hostname: text(process.env.AVIS_HTTPS_HOSTNAME) || "localhost",
+      autoSelfSigned: bool(process.env.AVIS_HTTPS_AUTO_SELF_SIGNED, true),
+      certFile: text(process.env.AVIS_HTTPS_CERT_FILE),
+      keyFile: text(process.env.AVIS_HTTPS_KEY_FILE),
+      cert: text(process.env.AVIS_HTTPS_CERT),
+      key: text(process.env.AVIS_HTTPS_KEY)
+    },
     auth: {
       defaultAdminUser: text(process.env.AVIS_DEFAULT_ADMIN_USER) || "admin",
       defaultAdminPassword: text(process.env.AVIS_DEFAULT_ADMIN_PASSWORD) || "admin",

@@ -6,6 +6,8 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV AVIS_DATA_FILE=/data/avis.json
 
+RUN apk add --no-cache openssl
+
 COPY package.json pnpm-lock.yaml ./
 RUN corepack enable \
   && pnpm install --prod --frozen-lockfile
@@ -19,6 +21,6 @@ RUN addgroup -S avis \
 
 USER avis
 
-EXPOSE 3000
+EXPOSE 3000 3443
 
 CMD ["node", "server.js"]

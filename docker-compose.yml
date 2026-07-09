@@ -7,9 +7,16 @@ services:
     restart: unless-stopped
     ports:
       - "${AVIS_HTTP_PORT:-3000}:3000"
+      - "${AVIS_HTTPS_PORT:-3443}:3443"
     environment:
       NODE_ENV: production
       PORT: "3000"
+      AVIS_HTTPS_ENABLED: ${AVIS_HTTPS_ENABLED:-true}
+      AVIS_HTTPS_PORT: "3443"
+      AVIS_HTTPS_HOSTNAME: ${AVIS_HTTPS_HOSTNAME:-localhost}
+      AVIS_HTTPS_AUTO_SELF_SIGNED: ${AVIS_HTTPS_AUTO_SELF_SIGNED:-true}
+      AVIS_HTTPS_CERT_FILE: ${AVIS_HTTPS_CERT_FILE:-}
+      AVIS_HTTPS_KEY_FILE: ${AVIS_HTTPS_KEY_FILE:-}
       AVIS_DATA_FILE: /data/avis.json
       AVIS_DEFAULT_ADMIN_USER: ${AVIS_DEFAULT_ADMIN_USER:-admin}
       AVIS_DEFAULT_ADMIN_PASSWORD: ${AVIS_DEFAULT_ADMIN_PASSWORD:-admin}

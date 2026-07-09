@@ -74,7 +74,8 @@ Bayerwald Fenster und Tueren`,
     updatedAt: "",
     updatedBy: ""
   },
-  ptvCallbacks: []
+  ptvCallbacks: [],
+  ptvExports: []
 };
 
 const ROLE_USER = "user";
@@ -131,6 +132,7 @@ export class LocalStore {
       ...(this.state.ptvSettings || {})
     };
     this.state.ptvCallbacks ||= [];
+    this.state.ptvExports ||= [];
 
     for (const avis of Object.values(this.state.avisByOrder)) {
       avis.log ||= [];
@@ -703,6 +705,92 @@ export class LocalStore {
     return entry;
   }
 
+  listPtvExports() {
+    return [...(this.state.ptvExports || [])]
+      .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+  }
+
+  getPtvExport(id) {
+    return (this.state.ptvExports || []).find((item) => item.id === id) || null;
+  }
+
+  async createPtvExport(input, actor) {
+    const now = new Date().toISOString();
+    const orderNumbers = uniqueOrderNumbers(input.orderNumbers);
+    const entry = {
+      id: crypto.randomUUID(),
+      name: String(input.name || "").trim() || `PTV Export ${new Date().toLocaleString("de-DE")}`,
+      status: "exportiert",
+      orderNumbers,
+      optimizedOrderNumbers: [],
+      createdAt: now,
+      createdBy: actor?.displayName || actor?.username || "",
+      updatedAt: now,
+      updatedBy: actor?.displayName || actor?.username || ""
+    };
+
+    this.state.ptvExports.unshift(entry);
+    await this.applyPtvExportTags(entry, actor, false);
+    await this.save();
+    return entry;
+  }
+
+  async optimizePtvExport(id, orderNumbers, actor) {
+    const exportEntry = this.getPtvExport(id);
+
+    if (!exportEntry) {
+      return null;
+    }
+
+    exportEntry.status = "ptv_optimiert";
+    exportEntry.optimizedOrderNumbers = uniqueOrderNumbers(orderNumbers);
+    exportEntry.updatedAt = new Date().toISOString();
+    exportEntry.updatedBy = actor?.displayName || actor?.username || "PTV Rueckgabe";
+
+    await this.applyPtvExportTags(exportEntry, actor, true);
+    await this.save();
+    return exportEntry;
+  }
+
+  async applyPtvExportTags(exportEntry, actor, optimized) {
+    const now = new Date().toISOString();
+    const actorName = actor?.displayName || actor?.username || "PTV Rueckgabe";
+    const orderNumbers = uniqueOrderNumbers([
+      ...(exportEntry.orderNumbers || []),
+      ...(exportEntry.optimizedOrderNumbers || [])
+    ]);
+
+    for (const orderNumber of orderNumbers) {
+      const current = this.state.avisByOrder[orderNumber] || {};
+      const exportTags = Array.isArray(current.ptvExportTags) ? [...current.ptvExportTags] : [];
+      const tagIndex = exportTags.findIndex((tag) => tag.id === exportEntry.id);
+      const tag = {
+        id: exportEntry.id,
+        name: exportEntry.name,
+        status: optimized ? "PTV optimiert" : "Exportiert an PTV",
+        exportedAt: exportEntry.createdAt,
+        optimizedAt: optimized ? now : exportTags[tagIndex]?.optimizedAt || ""
+      };
+
+      if (tagIndex === -1) {
+        exportTags.push(tag);
+      } else {
+        exportTags[tagIndex] = {
+          ...exportTags[tagIndex],
+          ...tag
+        };
+      }
+
+      this.state.avisByOrder[orderNumber] = {
+        ...current,
+        ptvExportTags: exportTags,
+        updatedAt: now,
+        updatedBy: actorName,
+        updatedByUserId: actor?.id || current.updatedByUserId || ""
+      };
+    }
+  }
+
   async listLocalOrders() {
     return [...this.state.localOrders].sort((a, b) => a.orderNumber.localeCompare(b.orderNumber, "de"));
   }
@@ -810,6 +898,10 @@ function publicUser(user) {
 
 function normalizeTheme(value) {
   return ["light", "dark", "system"].includes(value) ? value : "light";
+}
+
+function uniqueOrderNumbers(values) {
+  return [...new Set((values || []).map((value) => String(value || "").trim()).filter(Boolean))];
 }
 
 function canManageMasterdata(role) {

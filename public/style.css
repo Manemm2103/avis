@@ -611,6 +611,53 @@ select:disabled {
   font-size: 16px;
 }
 
+.ptv-export-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.ptv-export-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.ptv-export-card > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.ptv-tag {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #e7f0ff;
+  color: #16417a;
+  font-size: 11px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.ptv-tag.is-optimized {
+  background: #dcfce7;
+  color: #166534;
+}
+
 .table-wrap {
   overflow-x: auto;
   background: var(--surface);

@@ -205,6 +205,25 @@ app.get("/api/ptv/callbacks", requireAdmin, (request, response) => {
   response.json(store.listPtvCallbacks());
 });
 
+app.get("/api/ptv/exports", (request, response) => {
+  response.json(store.listPtvExports());
+});
+
+app.post("/api/ptv/exports", async (request, response) => {
+  try {
+    const entry = await store.createPtvExport({
+      name: text(request.body.name),
+      orderNumbers: sanitizeOrderNumbers(request.body.orderNumbers)
+    }, request.user);
+    response.status(201).json(entry);
+  } catch (error) {
+    response.status(400).json({
+      error: "PTV_EXPORT_CREATE_FAILED",
+      message: error.message
+    });
+  }
+});
+
 app.get("/api/orders", async (request, response) => {
   try {
     const source = await loadSourceOrders();
@@ -247,10 +266,14 @@ app.get("/api/tours", async (request, response) => {
 app.post("/api/ptv/remote-url", async (request, response) => {
   try {
     const orderNumbers = sanitizeOrderNumbers(request.body.orderNumbers);
+    const exportEntry = await store.createPtvExport({
+      name: text(request.body.exportName),
+      orderNumbers
+    }, request.user);
     const settings = store.getPtvSettings();
     const source = await loadSourceOrders();
     const orders = await loadMergedOrders(source.orders);
-    response.json(buildPtvRemoteUrl(settings, orderNumbers, orders));
+    response.json(buildPtvRemoteUrl(settings, orderNumbers, orders, exportEntry));
   } catch (error) {
     response.status(400).json({
       error: "PTV_REMOTE_URL_FAILED",
@@ -301,6 +324,25 @@ app.patch("/api/orders/sequence", async (request, response) => {
   } catch (error) {
     response.status(400).json({
       error: "ORDER_SEQUENCE_SAVE_FAILED",
+      message: error.message
+    });
+  }
+});
+
+app.patch("/api/ptv/exports/:id/sequence", async (request, response) => {
+  try {
+    const orderNumbers = sanitizeOrderNumbers(request.body.orderNumbers);
+    const exportEntry = await store.optimizePtvExport(request.params.id, orderNumbers, request.user);
+
+    if (!exportEntry) {
+      throw new Error("PTV-Export nicht gefunden.");
+    }
+
+    await store.updateRouteSequence(orderNumbers, request.user);
+    response.json(exportEntry);
+  } catch (error) {
+    response.status(400).json({
+      error: "PTV_EXPORT_SEQUENCE_SAVE_FAILED",
       message: error.message
     });
   }
@@ -689,6 +731,7 @@ function mergeOrder(order, avis, driverMap) {
       routeSequence: Number(avis?.routeSequence) || 0,
       routeSequenceUpdatedAt: avis?.routeSequenceUpdatedAt || "",
       routeSequenceUpdatedBy: avis?.routeSequenceUpdatedBy || "",
+      ptvExportTags: Array.isArray(avis?.ptvExportTags) ? avis.ptvExportTags : [],
       log: avis?.log || [],
       mailLog: avis?.mailLog || []
     }
@@ -1150,7 +1193,7 @@ function publicPtvSettings(settings) {
   };
 }
 
-function buildPtvRemoteUrl(settings, orderNumbers, orders) {
+function buildPtvRemoteUrl(settings, orderNumbers, orders, exportEntry = null) {
   const login = text(settings.login);
   const password = text(settings.password);
 
@@ -1172,7 +1215,7 @@ function buildPtvRemoteUrl(settings, orderNumbers, orders) {
     remotetype: "routing",
     action: "in_stationlist",
     clearlist: "1",
-    ticketid: selectedOrders[0].orderNumber,
+    ticketid: exportEntry?.id || selectedOrders[0].orderNumber,
     num_stations: String(selectedOrders.length + 1)
   });
   const exportUrl = ptvCallbackUrl(settings.exportUrl);
@@ -1199,7 +1242,8 @@ function buildPtvRemoteUrl(settings, orderNumbers, orders) {
   return {
     url,
     length: url.length,
-    ticketid: selectedOrders[0].orderNumber,
+    ticketid: exportEntry?.id || selectedOrders[0].orderNumber,
+    export: exportEntry,
     warnings
   };
 }
@@ -1276,6 +1320,12 @@ async function importPtvCallback(input) {
 
   if (orderNumbers.length > 0) {
     await store.updateRouteSequence(orderNumbers, {
+      id: "",
+      username: "ptv-callback",
+      displayName: "PTV Rueckgabe"
+    });
+
+    await store.optimizePtvExport(ticketid, orderNumbers, {
       id: "",
       username: "ptv-callback",
       displayName: "PTV Rueckgabe"

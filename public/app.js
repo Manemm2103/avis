@@ -20,6 +20,7 @@ const state = {
   mailSettings: null,
   ptvSettings: null,
   ptvCallbacks: [],
+  ptvExports: [],
   sort: {
     key: "",
     direction: "asc"
@@ -31,6 +32,7 @@ const state = {
   ptvSearch: "",
   ptvDeliveryDate: "",
   ptvTour: "",
+  ptvExportId: "",
   ptvListOrderNumbers: [],
   ptvSelectedOrderNumbers: new Set(),
   ptvLastSelectedOrderNumber: "",
@@ -89,6 +91,7 @@ const elements = {
   bulkHint: document.querySelector("#bulk-hint"),
   ptvFilterDate: document.querySelector("#ptv-filter-date"),
   ptvFilterTour: document.querySelector("#ptv-filter-tour"),
+  ptvFilterExport: document.querySelector("#ptv-filter-export"),
   ptvSearchInput: document.querySelector("#ptv-search-input"),
   ptvClearFilters: document.querySelector("#ptv-clear-filters"),
   ptvCount: document.querySelector("#ptv-count"),
@@ -96,6 +99,8 @@ const elements = {
   ptvClearSelection: document.querySelector("#ptv-clear-selection"),
   ptvOpenRemote: document.querySelector("#ptv-open-remote"),
   ptvExport: document.querySelector("#ptv-export"),
+  ptvExportName: document.querySelector("#ptv-export-name"),
+  ptvExportList: document.querySelector("#ptv-export-list"),
   ptvImportFile: document.querySelector("#ptv-import-file"),
   ptvBody: document.querySelector("#ptv-body"),
   ptvListBody: document.querySelector("#ptv-list-body"),
@@ -315,6 +320,11 @@ function bindEvents() {
     reconcilePtvSelection();
     renderPtv();
   });
+  elements.ptvFilterExport.addEventListener("change", () => {
+    state.ptvExportId = elements.ptvFilterExport.value;
+    reconcilePtvSelection();
+    renderPtv();
+  });
   elements.ptvSearchInput.addEventListener("input", debounce(() => {
     state.ptvSearch = elements.ptvSearchInput.value;
     reconcilePtvSelection();
@@ -325,6 +335,13 @@ function bindEvents() {
   elements.ptvOpenRemote.addEventListener("click", openPtvRemoteControl);
   elements.ptvExport.addEventListener("click", exportPtvCsv);
   elements.ptvImportFile.addEventListener("change", importPtvSequence);
+  elements.ptvExportList.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-ptv-load-export]");
+
+    if (button) {
+      loadPtvExport(button.dataset.ptvLoadExport);
+    }
+  });
   elements.masterdataTabs.forEach((button) => {
     button.addEventListener("click", () => showMasterdataPage(button.dataset.masterdataTab));
   });
@@ -587,6 +604,7 @@ async function enterApp() {
     await loadSqlSettings();
     await loadLdapSettings();
   }
+  await loadPtvExports();
   await loadOrders();
 }
 
@@ -927,6 +945,12 @@ async function loadPtvCallbacks() {
   renderPtvCallbacks();
 }
 
+async function loadPtvExports() {
+  state.ptvExports = await api("/api/ptv/exports");
+  renderPtvExportControls();
+  renderPtvExports();
+}
+
 function renderPtvCallbacks() {
   if (!elements.ptvCallbacks) {
     return;
@@ -951,6 +975,49 @@ function renderPtvCallbacks() {
       <pre class="ptv-callback-raw">${escapeHtml(entry.dataPreview || "")}</pre>
     </details>
   `).join("");
+}
+
+function renderPtvExportControls() {
+  if (!elements.ptvFilterExport) {
+    return;
+  }
+
+  const options = state.ptvExports.map((item) => `
+    <option value="${escapeHtml(item.id)}" ${item.id === state.ptvExportId ? "selected" : ""}>${escapeHtml(item.name)}${item.status === "ptv_optimiert" ? " - PTV optimiert" : ""}</option>
+  `).join("");
+
+  elements.ptvFilterExport.innerHTML = `<option value="">Alle Exporte</option>${options}`;
+
+  if (state.ptvExportId && !state.ptvExports.some((item) => item.id === state.ptvExportId)) {
+    state.ptvExportId = "";
+    elements.ptvFilterExport.value = "";
+  }
+}
+
+function renderPtvExports() {
+  if (!elements.ptvExportList) {
+    return;
+  }
+
+  if (!state.ptvExports.length) {
+    elements.ptvExportList.innerHTML = `<p class="help-text">Noch keine PTV-Exporte vorhanden.</p>`;
+    return;
+  }
+
+  elements.ptvExportList.innerHTML = state.ptvExports.slice(0, 12).map((item) => {
+    const count = (item.optimizedOrderNumbers?.length || item.orderNumbers?.length || 0);
+    const status = item.status === "ptv_optimiert" ? "PTV optimiert" : "Exportiert an PTV";
+
+    return `
+      <div class="ptv-export-card">
+        <div>
+          <strong>${escapeHtml(item.name)}</strong>
+          <span class="sub-text">${escapeHtml(status)} · ${count} Auftraege · ${formatDateTime(item.updatedAt || item.createdAt)}</span>
+        </div>
+        <button class="secondary small" data-ptv-load-export="${escapeHtml(item.id)}" type="button">Oeffnen</button>
+      </div>
+    `;
+  }).join("");
 }
 
 function renderMailTextmarks(textMarks) {
@@ -1095,6 +1162,7 @@ function renderPtv(errorMessage = "") {
           <td>
             <span class="main-text">${escapeHtml(order.customerName || "-")}</span>
             <span class="sub-text">${escapeHtml(order.customerNumber || "")}</span>
+            ${ptvTagLine(order)}
           </td>
           <td>
             <span class="main-text">${formatDate(order.displayDeliveryDate)}</span>
@@ -1127,6 +1195,7 @@ function renderPtv(errorMessage = "") {
       <td>
         <span class="main-text">${escapeHtml(order.customerName || "-")}</span>
         <span class="sub-text">${escapeHtml(order.customerNumber || "")}</span>
+        ${ptvTagLine(order)}
       </td>
       <td>
         <span class="main-text">${formatDate(order.displayDeliveryDate)}</span>
@@ -1309,6 +1378,10 @@ function ptvFilteredOrders() {
         return false;
       }
 
+      if (state.ptvExportId && !(order.avis.ptvExportTags || []).some((tag) => tag.id === state.ptvExportId)) {
+        return false;
+      }
+
       if (!query) {
         return true;
       }
@@ -1403,6 +1476,24 @@ function clearPtvSelection() {
   state.ptvSelectedOrderNumbers.clear();
   state.ptvLastSelectedOrderNumber = "";
   renderPtv();
+}
+
+function loadPtvExport(id) {
+  const entry = state.ptvExports.find((item) => item.id === id);
+
+  if (!entry) {
+    showToast("PTV-Export nicht gefunden.");
+    return;
+  }
+
+  state.ptvExportId = entry.id;
+  elements.ptvFilterExport.value = entry.id;
+  elements.ptvExportName.value = entry.name || "";
+  state.ptvListOrderNumbers = [...(entry.optimizedOrderNumbers?.length ? entry.optimizedOrderNumbers : entry.orderNumbers || [])];
+  state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
+  state.ptvLastSelectedOrderNumber = "";
+  renderPtv();
+  showToast(`PTV-Export geoeffnet: ${entry.name}.`);
 }
 
 function addPtvListOrder(orderNumber) {
@@ -2137,8 +2228,10 @@ function clearPtvFilters() {
   state.ptvSearch = "";
   state.ptvDeliveryDate = "";
   state.ptvTour = "";
+  state.ptvExportId = "";
   elements.ptvSearchInput.value = "";
   elements.ptvFilterDate.value = "";
+  elements.ptvFilterExport.value = "";
   document.querySelectorAll("[data-ptv-status]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.ptvStatus === state.ptvStatus);
   });
@@ -2146,13 +2239,15 @@ function clearPtvFilters() {
   renderPtv();
 }
 
-function exportPtvCsv() {
+async function exportPtvCsv() {
   const orders = ptvTargetOrders();
 
   if (orders.length === 0) {
     showToast("Keine Auftraege fuer den PTV-Export gefunden.");
     return;
   }
+
+  const exportEntry = await createPtvExportRecord(orders.map((order) => order.orderNumber));
 
   const totalWeightTons = orders.reduce((sum, order) => sum + ptvWeightTonsNumber(order), 0);
   const rows = [
@@ -2161,7 +2256,10 @@ function exportPtvCsv() {
   ];
 
   downloadCsv(rows, `ptv-avis-${todayIso()}.csv`);
-  showToast(`${orders.length} Auftraege fuer PTV exportiert.`);
+  state.ptvExportId = exportEntry.id;
+  await loadPtvExports();
+  await loadOrders();
+  showToast(`${orders.length} Auftraege fuer PTV exportiert: ${exportEntry.name}.`);
 }
 
 async function openPtvRemoteControl() {
@@ -2186,15 +2284,25 @@ async function openPtvRemoteControl() {
   try {
     const result = await api("/api/ptv/remote-url", {
       method: "POST",
-      body: JSON.stringify({ orderNumbers })
+      body: JSON.stringify({
+        orderNumbers,
+        exportName: ptvExportName()
+      })
     });
 
     if (result.warnings?.length) {
       showToast(result.warnings[0]);
     }
 
+    if (result.export?.id) {
+      state.ptvExportId = result.export.id;
+      elements.ptvFilterExport.value = result.export.id;
+    }
+
     if (remoteWindow) {
       remoteWindow.location.href = result.url;
+      await loadPtvExports();
+      await loadOrders();
       return;
     }
 
@@ -2210,6 +2318,21 @@ async function openPtvRemoteControl() {
 
     showToast(error.message || "PTV konnte nicht geoeffnet werden.");
   }
+}
+
+async function createPtvExportRecord(orderNumbers) {
+  return api("/api/ptv/exports", {
+    method: "POST",
+    body: JSON.stringify({
+      name: ptvExportName(),
+      orderNumbers
+    })
+  });
+}
+
+function ptvExportName() {
+  return elements.ptvExportName.value.trim()
+    || [state.ptvTour || "PTV Export", state.ptvDeliveryDate || todayIso()].join(" ");
 }
 
 async function importPtvSequence(event) {
@@ -2265,10 +2388,18 @@ async function movePtvOrder(draggedOrderNumber, targetOrderNumber) {
 }
 
 async function savePtvSequence(orderNumbers) {
-  await api("/api/orders/sequence", {
-    method: "PATCH",
-    body: JSON.stringify({ orderNumbers })
-  });
+  if (state.ptvExportId) {
+    await api(`/api/ptv/exports/${encodeURIComponent(state.ptvExportId)}/sequence`, {
+      method: "PATCH",
+      body: JSON.stringify({ orderNumbers })
+    });
+    await loadPtvExports();
+  } else {
+    await api("/api/orders/sequence", {
+      method: "PATCH",
+      body: JSON.stringify({ orderNumbers })
+    });
+  }
 
   await loadOrders();
 }
@@ -2662,6 +2793,18 @@ function ptvComment(order) {
     ptvWeightKg(order) ? `${ptvWeightKg(order)} kg` : "",
     order.avis.twoDayTour ? "2-Tagestour" : ""
   ].filter(Boolean).join(" | ");
+}
+
+function ptvTagLine(order) {
+  const tags = order.avis?.ptvExportTags || [];
+
+  if (!tags.length) {
+    return "";
+  }
+
+  return `<span class="tag-list">${tags.slice(-2).map((tag) => `
+    <span class="ptv-tag ${tag.status === "PTV optimiert" ? "is-optimized" : ""}">${escapeHtml(tag.status)}: ${escapeHtml(tag.name)}</span>
+  `).join("")}</span>`;
 }
 
 function ptvPlantSettings() {

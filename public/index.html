@@ -177,6 +177,12 @@
               <span>Suchen</span>
               <input id="ptv-search-input" type="search" autocomplete="off" placeholder="Auftrag, Kunde, Ort">
             </label>
+            <label class="filter-control wide">
+              <span>PTV Export</span>
+              <select id="ptv-filter-export">
+                <option value="">Alle Exporte</option>
+              </select>
+            </label>
             <button class="secondary" id="ptv-clear-filters" type="button">Filter löschen</button>
           </div>
 
@@ -186,6 +192,10 @@
                 <strong id="ptv-count">0 Aufträge</strong>
                 <span class="bulk-subline" id="ptv-subline">im aktuellen Filter</span>
               </div>
+              <label class="filter-control wide">
+                <span>Exportname</span>
+                <input id="ptv-export-name" type="text" autocomplete="off" placeholder="z. B. Tour T09 09.07.2026">
+              </label>
               <button class="secondary" id="ptv-clear-selection" type="button" hidden>Auswahl aufheben</button>
               <button class="secondary" id="ptv-open-remote" type="button">In PTV öffnen</button>
               <button class="primary" id="ptv-export" type="button">PTV CSV exportieren</button>
@@ -195,6 +205,12 @@
               </label>
             </div>
           </div>
+
+          <div class="ptv-section-heading">
+            <h3>PTV-Exporte</h3>
+            <p class="help-text">Gespeicherte Exporte koennen wieder geoeffnet werden. Rueckimporte aus PTV werden als PTV optimiert markiert.</p>
+          </div>
+          <div class="ptv-export-list" id="ptv-export-list"></div>
 
           <div class="ptv-section-heading">
             <h3>AuftrÃ¤ge auswÃ¤hlen</h3>
@@ -556,7 +572,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.09.12</footer>
+      <footer class="app-footer">Version 2026.07.09.13</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -765,6 +781,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260709-https-container" type="module"></script>
+    <script src="/app.js?v=20260709-ptv-export-tags" type="module"></script>
   </body>
 </html>

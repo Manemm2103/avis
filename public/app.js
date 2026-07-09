@@ -148,6 +148,10 @@ const elements = {
   ptvLogin: document.querySelector("#ptv-login"),
   ptvPassword: document.querySelector("#ptv-password"),
   ptvExportUrl: document.querySelector("#ptv-export-url"),
+  ptvPlantCountry: document.querySelector("#ptv-plant-country"),
+  ptvPlantPostalCode: document.querySelector("#ptv-plant-postal-code"),
+  ptvPlantCity: document.querySelector("#ptv-plant-city"),
+  ptvPlantStreet: document.querySelector("#ptv-plant-street"),
   ldapSection: document.querySelector("#ldap-settings-section"),
   ldapSettingsForm: document.querySelector("#ldap-settings-form"),
   ldapEnabled: document.querySelector("#ldap-enabled"),
@@ -903,6 +907,10 @@ async function loadPtvSettings() {
   elements.ptvLogin.value = state.ptvSettings.login || "";
   elements.ptvPassword.value = state.ptvSettings.password || "";
   elements.ptvExportUrl.value = state.ptvSettings.exportUrl || "";
+  elements.ptvPlantCountry.value = state.ptvSettings.plantCountry || "DE";
+  elements.ptvPlantPostalCode.value = state.ptvSettings.plantPostalCode || "94154";
+  elements.ptvPlantCity.value = state.ptvSettings.plantCity || "Neukirchen v. W.";
+  elements.ptvPlantStreet.value = state.ptvSettings.plantStreet || "Gewerbepark 7";
 }
 
 function renderMailTextmarks(textMarks) {
@@ -2108,7 +2116,7 @@ function exportPtvCsv() {
 
   const totalWeightTons = orders.reduce((sum, order) => sum + ptvWeightTonsNumber(order), 0);
   const rows = [
-    ptvPlantRow(orders.length, totalWeightTons),
+    ptvPlantRow(orders.length, totalWeightTons, ptvPlantSettings()),
     ...orders.map(ptvOrderRow)
   ];
 
@@ -2380,7 +2388,11 @@ async function savePtvSettings(event) {
     body: JSON.stringify({
       login: elements.ptvLogin.value,
       password: elements.ptvPassword.value,
-      exportUrl: elements.ptvExportUrl.value
+      exportUrl: elements.ptvExportUrl.value,
+      plantCountry: elements.ptvPlantCountry.value,
+      plantPostalCode: elements.ptvPlantPostalCode.value,
+      plantCity: elements.ptvPlantCity.value,
+      plantStreet: elements.ptvPlantStreet.value
     })
   });
 
@@ -2584,12 +2596,21 @@ function ptvComment(order) {
   ].filter(Boolean).join(" | ");
 }
 
-function ptvPlantRow(orderCount, totalWeightTons) {
+function ptvPlantSettings() {
+  return {
+    country: state.ptvSettings?.plantCountry || "DE",
+    postalCode: state.ptvSettings?.plantPostalCode || "94154",
+    city: state.ptvSettings?.plantCity || "Neukirchen v. W.",
+    street: state.ptvSettings?.plantStreet || "Gewerbepark 7"
+  };
+}
+
+function ptvPlantRow(orderCount, totalWeightTons, plant) {
   return ptvStationRow({
-    country: "DE",
-    postalCode: "94154",
-    city: "Neukirchen v. W.",
-    street: "Gewerbepark 7",
+    country: plant.country,
+    postalCode: plant.postalCode,
+    city: plant.city,
+    street: plant.street,
     duration: "20",
     comment: "Werksstandort",
     loading: formatPtvTons(totalWeightTons),

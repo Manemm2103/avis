@@ -388,6 +388,22 @@
                     <span>exporturl inkl. Port</span>
                     <input id="ptv-export-url" name="exportUrl" placeholder="https://localhost:8888">
                   </label>
+                  <label>
+                    <span>Werk Land</span>
+                    <input id="ptv-plant-country" name="plantCountry" placeholder="DE">
+                  </label>
+                  <label>
+                    <span>Werk PLZ</span>
+                    <input id="ptv-plant-postal-code" name="plantPostalCode" placeholder="94154">
+                  </label>
+                  <label>
+                    <span>Werk Ort</span>
+                    <input id="ptv-plant-city" name="plantCity" placeholder="Neukirchen v. W.">
+                  </label>
+                  <label>
+                    <span>Werk Straße</span>
+                    <input id="ptv-plant-street" name="plantStreet" placeholder="Gewerbepark 7">
+                  </label>
                   <p class="help-text wide-field">Remote-Control-Test nutzt action=in_stationlist, clearlist=1 und als ticketid die erste Auftragsnummer der PTV-Auswahlliste.</p>
                   <div class="form-actions wide-field">
                     <button class="primary" type="submit">PTV speichern</button>
@@ -531,7 +547,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.09.3</footer>
+      <footer class="app-footer">Version 2026.07.09.4</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -740,6 +756,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260709-local-order-log" type="module"></script>
+    <script src="/app.js?v=20260709-ptv-plant-address" type="module"></script>
   </body>
 </html>

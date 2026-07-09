@@ -1061,7 +1061,11 @@ function sanitizePtvSettings(input) {
   return {
     login: text(input.login),
     password: text(input.password),
-    exportUrl: text(input.exportUrl)
+    exportUrl: text(input.exportUrl),
+    plantCountry: text(input.plantCountry) || "DE",
+    plantPostalCode: text(input.plantPostalCode) || "94154",
+    plantCity: text(input.plantCity) || "Neukirchen v. W.",
+    plantStreet: text(input.plantStreet) || "Gewerbepark 7"
   };
 }
 
@@ -1099,6 +1103,10 @@ function publicPtvSettings(settings) {
     login: settings.login || "",
     password: settings.password || "",
     exportUrl: settings.exportUrl || "",
+    plantCountry: settings.plantCountry || "DE",
+    plantPostalCode: settings.plantPostalCode || "94154",
+    plantCity: settings.plantCity || "Neukirchen v. W.",
+    plantStreet: settings.plantStreet || "Gewerbepark 7",
     updatedAt: settings.updatedAt || "",
     updatedBy: settings.updatedBy || ""
   };
@@ -1127,7 +1135,7 @@ function buildPtvRemoteUrl(settings, orderNumbers, orders) {
     action: "in_stationlist",
     clearlist: "1",
     ticketid: selectedOrders[0].orderNumber,
-    num_stations: String(selectedOrders.length)
+    num_stations: String(selectedOrders.length + 1)
   });
   const exportUrl = text(settings.exportUrl);
 
@@ -1137,8 +1145,10 @@ function buildPtvRemoteUrl(settings, orderNumbers, orders) {
     params.set("exportformat", "json");
   }
 
+  params.set("s1", ptvRemotePlantStation(settings));
+
   selectedOrders.forEach((order, index) => {
-    params.set(`s${index + 1}`, ptvRemoteStation(order));
+    params.set(`s${index + 2}`, ptvRemoteStation(order));
   });
 
   const url = `https://mginter.mapandguide.com/v7.10/remote/remote_control.html?${params.toString()}`;
@@ -1158,6 +1168,32 @@ function buildPtvRemoteUrl(settings, orderNumbers, orders) {
     ticketid: selectedOrders[0].orderNumber,
     warnings
   };
+}
+
+function ptvRemotePlantStation(settings) {
+  const street = splitStreetAndHouseNumber(settings.plantStreet || "Gewerbepark 7");
+  const fields = [
+    "places",
+    "town",
+    settings.plantCountry || "DE",
+    settings.plantPostalCode || "94154",
+    settings.plantCity || "Neukirchen v. W.",
+    "",
+    street.street,
+    street.houseNumber,
+    "WERK",
+    "Werksstandort",
+    "",
+    "",
+    "00:00",
+    "00:00",
+    "0",
+    "00:20",
+    "0",
+    "Bayerwald"
+  ];
+
+  return fields.map((field) => String(field || "").replaceAll("|", " ")).join("|");
 }
 
 function ptvRemoteStation(order) {

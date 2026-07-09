@@ -67,6 +67,10 @@ Bayerwald Fenster und Tueren`,
     login: "",
     password: "",
     exportUrl: "",
+    plantCountry: "DE",
+    plantPostalCode: "94154",
+    plantCity: "Neukirchen v. W.",
+    plantStreet: "Gewerbepark 7",
     updatedAt: "",
     updatedBy: ""
   }

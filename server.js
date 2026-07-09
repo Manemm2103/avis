@@ -26,6 +26,10 @@ const app = express();
 
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true, limit: "5mb" }));
+app.use(express.text({
+  limit: "10mb",
+  type: ["text/*", "application/xml", "application/octet-stream"]
+}));
 app.use((request, response, next) => {
   response.setHeader("Cache-Control", "no-store");
   next();
@@ -53,16 +57,17 @@ app.post("/api/auth/login", async (request, response) => {
   }
 });
 
-app.post("/api/ptv/callback", async (request, response) => {
+app.get("/api/ptv/callback", receivePtvCallback);
+app.post("/api/ptv/callback", receivePtvCallback);
+
+async function receivePtvCallback(request, response) {
   try {
-    const result = await importPtvCallback({
-      ticketid: text(request.body.ticketid),
-      data: typeof request.body.data === "string" ? request.body.data : JSON.stringify(request.body.data || "")
-    });
+    const result = await importPtvCallback(readPtvCallbackPayload(request));
 
     console.log([
       `at=${new Date().toISOString()}`,
       "event=ptv-callback",
+      `method=${request.method}`,
       `status=${result.status}`,
       `ticketid=${result.ticketid || ""}`,
       `orderCount=${result.orderNumbers.length}`
@@ -73,7 +78,7 @@ app.post("/api/ptv/callback", async (request, response) => {
     console.error(`event=ptv-callback status=failed message=${error.message}`);
     response.status(400).type("text/plain").send(`ERROR: ${error.message}`);
   }
-});
+}
 
 app.use("/api", requireAuth);
 
@@ -1290,6 +1295,68 @@ async function importPtvCallback(input) {
     message,
     orderNumbers
   };
+}
+
+function readPtvCallbackPayload(request) {
+  const queryTicketId = text(request.query?.ticketid || request.query?.ticketId);
+  const queryData = text(request.query?.data);
+
+  if (typeof request.body === "string") {
+    const parsed = parsePtvCallbackText(request.body);
+
+    return {
+      ticketid: queryTicketId || parsed.ticketid,
+      data: queryData || parsed.data || request.body
+    };
+  }
+
+  if (request.body && typeof request.body === "object") {
+    return {
+      ticketid: queryTicketId || text(request.body.ticketid || request.body.ticketId),
+      data: queryData || normalizePtvCallbackData(request.body.data ?? request.body.Data ?? request.body)
+    };
+  }
+
+  return {
+    ticketid: queryTicketId,
+    data: queryData
+  };
+}
+
+function parsePtvCallbackText(value) {
+  const input = text(value);
+
+  try {
+    const params = new URLSearchParams(input);
+    const data = text(params.get("data"));
+    const ticketid = text(params.get("ticketid") || params.get("ticketId"));
+
+    if (data || ticketid) {
+      return {
+        ticketid,
+        data
+      };
+    }
+  } catch {
+    // Plain JSON/XML/text is handled by returning the raw body below.
+  }
+
+  return {
+    ticketid: "",
+    data: input
+  };
+}
+
+function normalizePtvCallbackData(value) {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  return JSON.stringify(value);
 }
 
 function extractPtvOrderNumbers(data, knownOrderNumbers) {

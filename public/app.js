@@ -2141,7 +2141,22 @@ async function openPtvRemoteControl() {
     showToast(result.warnings[0]);
   }
 
-  window.open(result.url, "_blank", "noopener");
+  const remoteWindow = window.open(result.url, "avis-ptv-remote", "popup,width=460,height=320,left=80,top=80");
+
+  if (!remoteWindow) {
+    showToast("PTV-Fenster wurde vom Browser blockiert.");
+    return;
+  }
+
+  window.setTimeout(() => {
+    try {
+      if (!remoteWindow.closed) {
+        remoteWindow.close();
+      }
+    } catch (error) {
+      // Some browsers block scripted close after cross-origin navigation.
+    }
+  }, 5000);
 }
 
 async function importPtvSequence(event) {

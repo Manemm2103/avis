@@ -2195,16 +2195,6 @@ async function openPtvRemoteControl() {
 
     if (remoteWindow) {
       remoteWindow.location.href = result.url;
-
-      window.setTimeout(() => {
-        try {
-          if (!remoteWindow.closed) {
-            remoteWindow.close();
-          }
-        } catch (error) {
-          // Some browsers block scripted close after cross-origin navigation.
-        }
-      }, 5000);
       return;
     }
 

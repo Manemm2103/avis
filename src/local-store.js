@@ -62,6 +62,13 @@ Bayerwald Fenster und Tueren`,
     demoRecipients: "",
     updatedAt: "",
     updatedBy: ""
+  },
+  ptvSettings: {
+    login: "",
+    password: "",
+    exportUrl: "",
+    updatedAt: "",
+    updatedBy: ""
   }
 };
 
@@ -113,6 +120,10 @@ export class LocalStore {
     this.state.mailSettings = {
       ...structuredClone(EMPTY_STATE.mailSettings),
       ...(this.state.mailSettings || {})
+    };
+    this.state.ptvSettings = {
+      ...structuredClone(EMPTY_STATE.ptvSettings),
+      ...(this.state.ptvSettings || {})
     };
 
     for (const avis of Object.values(this.state.avisByOrder)) {
@@ -638,6 +649,25 @@ export class LocalStore {
 
     await this.save();
     return this.getMailSettings();
+  }
+
+  getPtvSettings() {
+    return {
+      ...structuredClone(EMPTY_STATE.ptvSettings),
+      ...(this.state.ptvSettings || {})
+    };
+  }
+
+  async updatePtvSettings(input, actor) {
+    this.state.ptvSettings = {
+      ...this.getPtvSettings(),
+      ...input,
+      updatedAt: new Date().toISOString(),
+      updatedBy: actor?.displayName || actor?.username || ""
+    };
+
+    await this.save();
+    return this.getPtvSettings();
   }
 
   async listLocalOrders() {

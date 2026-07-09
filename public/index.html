@@ -187,6 +187,7 @@
                 <span class="bulk-subline" id="ptv-subline">im aktuellen Filter</span>
               </div>
               <button class="secondary" id="ptv-clear-selection" type="button" hidden>Auswahl aufheben</button>
+              <button class="secondary" id="ptv-open-remote" type="button">In PTV öffnen</button>
               <button class="primary" id="ptv-export" type="button">PTV CSV exportieren</button>
               <label class="secondary file-button">
                 <span>PTV Reihenfolge importieren</span>
@@ -260,6 +261,7 @@
             <aside class="masterdata-menu" aria-label="Stammdaten">
               <button class="masterdata-nav-button is-active" data-masterdata-tab="drivers" type="button">Fahrertelefon</button>
               <button class="masterdata-nav-button" data-masterdata-tab="mail" type="button">E-Mail</button>
+              <button class="masterdata-nav-button" data-masterdata-tab="ptv" type="button">PTV</button>
               <button class="masterdata-nav-button" data-masterdata-tab="auth" type="button">Authentifizierung</button>
               <button class="masterdata-nav-button" data-masterdata-tab="sql" type="button">SQL-Abfragen</button>
               <button class="masterdata-nav-button" data-masterdata-tab="users" type="button">Benutzer</button>
@@ -367,6 +369,28 @@
                   </label>
                   <div class="form-actions wide-field">
                     <button class="primary" type="submit">E-Mail Avis speichern</button>
+                  </div>
+                </form>
+              </div>
+
+              <div class="masterdata-section masterdata-panel" id="ptv-settings-section" data-masterdata-panel="ptv" hidden>
+                <h2>PTV Map&Guide</h2>
+                <form id="ptv-settings-form" class="panel compact-grid">
+                  <label>
+                    <span>PTV Benutzername</span>
+                    <input id="ptv-login" name="login" autocomplete="off">
+                  </label>
+                  <label>
+                    <span>PTV Passwort</span>
+                    <input id="ptv-password" name="password" type="password" autocomplete="new-password">
+                  </label>
+                  <label class="wide-field">
+                    <span>exporturl inkl. Port</span>
+                    <input id="ptv-export-url" name="exportUrl" placeholder="https://localhost:8888">
+                  </label>
+                  <p class="help-text wide-field">Remote-Control-Test nutzt action=in_stationlist, clearlist=1 und als ticketid die erste Auftragsnummer der PTV-Auswahlliste.</p>
+                  <div class="form-actions wide-field">
+                    <button class="primary" type="submit">PTV speichern</button>
                   </div>
                 </form>
               </div>
@@ -507,7 +531,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.09.1</footer>
+      <footer class="app-footer">Version 2026.07.09.2</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -716,6 +740,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260709-local-storage-location" type="module"></script>
+    <script src="/app.js?v=20260709-ptv-remote" type="module"></script>
   </body>
 </html>

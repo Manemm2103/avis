@@ -153,6 +153,22 @@ app.patch("/api/mail-settings", requireAdmin, async (request, response) => {
   }
 });
 
+app.get("/api/ptv-settings", requireAdmin, (request, response) => {
+  response.json(publicPtvSettings(store.getPtvSettings()));
+});
+
+app.patch("/api/ptv-settings", requireAdmin, async (request, response) => {
+  try {
+    const settings = await store.updatePtvSettings(sanitizePtvSettings(request.body), request.user);
+    response.json(publicPtvSettings(settings));
+  } catch (error) {
+    response.status(400).json({
+      error: "PTV_SETTINGS_SAVE_FAILED",
+      message: error.message
+    });
+  }
+});
+
 app.get("/api/orders", async (request, response) => {
   try {
     const source = await loadSourceOrders();
@@ -187,6 +203,21 @@ app.get("/api/tours", async (request, response) => {
   } catch (error) {
     response.status(500).json({
       error: "TOURS_LOAD_FAILED",
+      message: error.message
+    });
+  }
+});
+
+app.post("/api/ptv/remote-url", async (request, response) => {
+  try {
+    const orderNumbers = sanitizeOrderNumbers(request.body.orderNumbers);
+    const settings = store.getPtvSettings();
+    const source = await loadSourceOrders();
+    const orders = await loadMergedOrders(source.orders);
+    response.json(buildPtvRemoteUrl(settings, orderNumbers, orders));
+  } catch (error) {
+    response.status(400).json({
+      error: "PTV_REMOTE_URL_FAILED",
       message: error.message
     });
   }
@@ -1026,6 +1057,14 @@ function sanitizeMailSettings(input, fullAdmin) {
   return settings;
 }
 
+function sanitizePtvSettings(input) {
+  return {
+    login: text(input.login),
+    password: text(input.password),
+    exportUrl: text(input.exportUrl)
+  };
+}
+
 function publicMailSettings(settings, fullAdmin) {
   const result = {
     subject: settings.subject || "",
@@ -1052,6 +1091,123 @@ function publicMailSettings(settings, fullAdmin) {
     replyTo: settings.replyTo || "",
     demoMode: settings.demoMode !== false,
     demoRecipients: settings.demoRecipients || ""
+  };
+}
+
+function publicPtvSettings(settings) {
+  return {
+    login: settings.login || "",
+    password: settings.password || "",
+    exportUrl: settings.exportUrl || "",
+    updatedAt: settings.updatedAt || "",
+    updatedBy: settings.updatedBy || ""
+  };
+}
+
+function buildPtvRemoteUrl(settings, orderNumbers, orders) {
+  const login = text(settings.login);
+  const password = text(settings.password);
+
+  if (!login || !password) {
+    throw new Error("PTV Login und Passwort fehlen in den Stammdaten.");
+  }
+
+  const orderMap = new Map(orders.map((order) => [order.orderNumber, order]));
+  const selectedOrders = orderNumbers.map((orderNumber) => orderMap.get(orderNumber)).filter(Boolean);
+
+  if (selectedOrders.length === 0) {
+    throw new Error("Keine passenden Auftraege fuer PTV gefunden.");
+  }
+
+  const params = new URLSearchParams({
+    login,
+    password,
+    language: "DE",
+    remotetype: "routing",
+    action: "in_stationlist",
+    clearlist: "1",
+    ticketid: selectedOrders[0].orderNumber,
+    num_stations: String(selectedOrders.length)
+  });
+  const exportUrl = text(settings.exportUrl);
+
+  if (exportUrl) {
+    params.set("exportmode", "0");
+    params.set("exporturl", exportUrl);
+    params.set("exportformat", "json");
+  }
+
+  selectedOrders.forEach((order, index) => {
+    params.set(`s${index + 1}`, ptvRemoteStation(order));
+  });
+
+  const url = `https://mginter.mapandguide.com/v7.10/remote/remote_control.html?${params.toString()}`;
+  const warnings = [];
+
+  if (url.length > 32768) {
+    warnings.push("Der PTV-Link ist laenger als 32.768 Zeichen. Bitte weniger Auftraege auswaehlen oder CSV verwenden.");
+  }
+
+  if (exportUrl && !exportUrl.startsWith("https://")) {
+    warnings.push("PTV erwartet fuer die Rueckgabe eine HTTPS exporturl.");
+  }
+
+  return {
+    url,
+    length: url.length,
+    ticketid: selectedOrders[0].orderNumber,
+    warnings
+  };
+}
+
+function ptvRemoteStation(order) {
+  const street = splitStreetAndHouseNumber(order.deliveryStreet || order.deliveryAddress);
+  const fields = [
+    "places",
+    "town",
+    order.deliveryCountry || "DE",
+    order.deliveryPostalCode || "",
+    order.deliveryCity || "",
+    "",
+    street.street,
+    street.houseNumber,
+    order.orderNumber,
+    ptvRemoteComment(order),
+    "",
+    "",
+    "00:00",
+    "00:00",
+    "0",
+    "00:20",
+    "0",
+    order.customerName || order.orderNumber
+  ];
+
+  return fields.map((field) => String(field || "").replaceAll("|", " ")).join("|");
+}
+
+function ptvRemoteComment(order) {
+  return [
+    `Auftrag ${order.orderNumber}`,
+    order.tour || "",
+    order.eprodStorageLocation ? `Stellplatz ${order.eprodStorageLocation}` : ""
+  ].filter(Boolean).join(" / ");
+}
+
+function splitStreetAndHouseNumber(value) {
+  const input = text(value);
+  const match = input.match(/^(.*?)(\s+\d+\s*[a-zA-Z]?(?:[-/]\d+\s*[a-zA-Z]?)?)$/);
+
+  if (!match) {
+    return {
+      street: input,
+      houseNumber: ""
+    };
+  }
+
+  return {
+    street: match[1].trim(),
+    houseNumber: match[2].trim()
   };
 }
 

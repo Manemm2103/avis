@@ -18,6 +18,7 @@ const state = {
   sqlSettings: null,
   ldapSettings: null,
   mailSettings: null,
+  ptvSettings: null,
   sort: {
     key: "",
     direction: "asc"
@@ -92,6 +93,7 @@ const elements = {
   ptvCount: document.querySelector("#ptv-count"),
   ptvSubline: document.querySelector("#ptv-subline"),
   ptvClearSelection: document.querySelector("#ptv-clear-selection"),
+  ptvOpenRemote: document.querySelector("#ptv-open-remote"),
   ptvExport: document.querySelector("#ptv-export"),
   ptvImportFile: document.querySelector("#ptv-import-file"),
   ptvBody: document.querySelector("#ptv-body"),
@@ -142,6 +144,10 @@ const elements = {
   mailDemoMode: document.querySelector("#mail-demo-mode"),
   mailDemoRecipients: document.querySelector("#mail-demo-recipients"),
   mailDemoRecipientsRow: document.querySelector("#mail-demo-recipients-row"),
+  ptvSettingsForm: document.querySelector("#ptv-settings-form"),
+  ptvLogin: document.querySelector("#ptv-login"),
+  ptvPassword: document.querySelector("#ptv-password"),
+  ptvExportUrl: document.querySelector("#ptv-export-url"),
   ldapSection: document.querySelector("#ldap-settings-section"),
   ldapSettingsForm: document.querySelector("#ldap-settings-form"),
   ldapEnabled: document.querySelector("#ldap-enabled"),
@@ -309,6 +315,7 @@ function bindEvents() {
   }, 150));
   elements.ptvClearFilters.addEventListener("click", clearPtvFilters);
   elements.ptvClearSelection.addEventListener("click", clearPtvSelection);
+  elements.ptvOpenRemote.addEventListener("click", openPtvRemoteControl);
   elements.ptvExport.addEventListener("click", exportPtvCsv);
   elements.ptvImportFile.addEventListener("change", importPtvSequence);
   elements.masterdataTabs.forEach((button) => {
@@ -326,6 +333,7 @@ function bindEvents() {
   elements.csvImportForm.addEventListener("submit", importCsvOrders);
   elements.sampleCsvButton.addEventListener("click", downloadSampleCsv);
   elements.mailSettingsForm.addEventListener("submit", saveMailSettings);
+  elements.ptvSettingsForm.addEventListener("submit", savePtvSettings);
   elements.mailDemoMode.addEventListener("change", renderMailDemoState);
   elements.mailTextmarks.addEventListener("click", (event) => {
     const button = event.target.closest("[data-mail-token]");
@@ -563,6 +571,7 @@ async function enterApp() {
   if (isAdmin()) {
     resetUserForm();
     await loadMailSettings();
+    await loadPtvSettings();
     await loadUsers();
   }
 
@@ -759,7 +768,7 @@ function canSeeMasterdataPage(page) {
     return false;
   }
 
-  return ["auth", "sql"].includes(page) ? isFullAdmin() : ["drivers", "mail", "users"].includes(page);
+  return ["auth", "sql"].includes(page) ? isFullAdmin() : ["drivers", "mail", "ptv", "users"].includes(page);
 }
 
 function isAdmin() {
@@ -889,6 +898,13 @@ async function loadMailSettings() {
   renderMailDemoState();
 }
 
+async function loadPtvSettings() {
+  state.ptvSettings = await api("/api/ptv-settings");
+  elements.ptvLogin.value = state.ptvSettings.login || "";
+  elements.ptvPassword.value = state.ptvSettings.password || "";
+  elements.ptvExportUrl.value = state.ptvSettings.exportUrl || "";
+}
+
 function renderMailTextmarks(textMarks) {
   if (textMarks.length === 0) {
     elements.mailTextmarks.innerHTML = `<span class="sub-text">Keine Textmarken geladen.</span>`;
@@ -1007,6 +1023,7 @@ function renderPtv(errorMessage = "") {
     ? "in der PTV-Auswahlliste"
     : "noch keine PTV-Auswahlliste erstellt";
   elements.ptvClearSelection.hidden = selectedCount === 0;
+  elements.ptvOpenRemote.disabled = selectedCount === 0;
   elements.ptvExport.disabled = selectedCount === 0;
 
   if (errorMessage) {
@@ -2099,6 +2116,26 @@ function exportPtvCsv() {
   showToast(`${orders.length} Auftraege fuer PTV exportiert.`);
 }
 
+async function openPtvRemoteControl() {
+  const orderNumbers = selectedPtvOrderNumbers();
+
+  if (orderNumbers.length === 0) {
+    showToast("Bitte zuerst Auftraege in die PTV-Auswahlliste aufnehmen.");
+    return;
+  }
+
+  const result = await api("/api/ptv/remote-url", {
+    method: "POST",
+    body: JSON.stringify({ orderNumbers })
+  });
+
+  if (result.warnings?.length) {
+    showToast(result.warnings[0]);
+  }
+
+  window.open(result.url, "_blank", "noopener");
+}
+
 async function importPtvSequence(event) {
   const [file] = event.target.files || [];
 
@@ -2328,6 +2365,27 @@ async function saveMailSettings(event) {
 
   await loadMailSettings();
   showToast("E-Mail Avis gespeichert.");
+}
+
+async function savePtvSettings(event) {
+  event.preventDefault();
+
+  if (!isAdmin()) {
+    showToast("Nur Admins und Abteilungsleiter duerfen PTV speichern.");
+    return;
+  }
+
+  await api("/api/ptv-settings", {
+    method: "PATCH",
+    body: JSON.stringify({
+      login: elements.ptvLogin.value,
+      password: elements.ptvPassword.value,
+      exportUrl: elements.ptvExportUrl.value
+    })
+  });
+
+  await loadPtvSettings();
+  showToast("PTV-Einstellungen gespeichert.");
 }
 
 async function saveLdapSettings(event) {

@@ -2172,18 +2172,15 @@ async function openPtvRemoteControl() {
     return;
   }
 
-  const remoteWindow = window.open("about:blank", "avis-ptv-remote", "popup,width=460,height=320,left=80,top=80");
+  const remoteWindow = window.open("about:blank", "_blank", "width=460,height=320,left=80,top=80");
 
-  if (!remoteWindow) {
-    showToast("PTV-Fenster wurde vom Browser blockiert.");
-    return;
-  }
-
-  try {
-    remoteWindow.document.title = "PTV wird geoeffnet";
-    remoteWindow.document.body.textContent = "PTV wird geoeffnet ...";
-  } catch {
-    // Access can fail depending on popup handling; navigating below still works.
+  if (remoteWindow) {
+    try {
+      remoteWindow.document.title = "PTV wird geoeffnet";
+      remoteWindow.document.body.textContent = "PTV wird geoeffnet ...";
+    } catch {
+      // Access can fail depending on popup handling; navigating below still works.
+    }
   }
 
   try {
@@ -2196,22 +2193,29 @@ async function openPtvRemoteControl() {
       showToast(result.warnings[0]);
     }
 
-    remoteWindow.location.href = result.url;
+    if (remoteWindow) {
+      remoteWindow.location.href = result.url;
 
-    window.setTimeout(() => {
-      try {
-        if (!remoteWindow.closed) {
-          remoteWindow.close();
+      window.setTimeout(() => {
+        try {
+          if (!remoteWindow.closed) {
+            remoteWindow.close();
+          }
+        } catch (error) {
+          // Some browsers block scripted close after cross-origin navigation.
         }
-      } catch (error) {
-        // Some browsers block scripted close after cross-origin navigation.
-      }
-    }, 5000);
+      }, 5000);
+      return;
+    }
+
+    window.location.href = result.url;
   } catch (error) {
-    try {
-      remoteWindow.close();
-    } catch {
-      // Ignore close errors and show the API error below.
+    if (remoteWindow) {
+      try {
+        remoteWindow.close();
+      } catch {
+        // Ignore close errors and show the API error below.
+      }
     }
 
     showToast(error.message || "PTV konnte nicht geoeffnet werden.");

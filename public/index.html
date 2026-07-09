@@ -404,11 +404,20 @@
                     <span>Werk Straße</span>
                     <input id="ptv-plant-street" name="plantStreet" placeholder="Gewerbepark 7">
                   </label>
-                  <p class="help-text wide-field">Remote-Control-Test nutzt action=in_stationlist, clearlist=1 und als ticketid die erste Auftragsnummer der PTV-Auswahlliste.</p>
+                  <p class="help-text wide-field">Remote-Control-Test nutzt action=in_stationlist, clearlist=1 und als ticketid die erste Auftragsnummer der PTV-Auswahlliste. Wenn hier nur Host und Port stehen, ergaenzt AVIS automatisch /api/ptv/callback fuer die Rueckgabe.</p>
                   <div class="form-actions wide-field">
                     <button class="primary" type="submit">PTV speichern</button>
                   </div>
                 </form>
+                <div class="panel ptv-callback-panel">
+                  <div class="section-title-row">
+                    <h3>PTV Rueckgaben</h3>
+                    <button class="secondary small" id="ptv-callback-refresh" type="button">Aktualisieren</button>
+                  </div>
+                  <div class="ptv-callback-list" id="ptv-callbacks">
+                    <p class="help-text">Noch keine Rueckgabe geladen.</p>
+                  </div>
+                </div>
               </div>
 
               <div class="masterdata-section masterdata-panel" id="ldap-settings-section" data-masterdata-panel="auth" hidden>
@@ -547,7 +556,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.09.5</footer>
+      <footer class="app-footer">Version 2026.07.09.6</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -756,6 +765,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260709-ptv-auto-close" type="module"></script>
+    <script src="/app.js?v=20260709-ptv-callback" type="module"></script>
   </body>
 </html>

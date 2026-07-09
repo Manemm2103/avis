@@ -25,6 +25,7 @@ if (config.auth.resetAdminPassword) {
 const app = express();
 
 app.use(express.json({ limit: "5mb" }));
+app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 app.use((request, response, next) => {
   response.setHeader("Cache-Control", "no-store");
   next();
@@ -49,6 +50,28 @@ app.post("/api/auth/login", async (request, response) => {
       error: "LOGIN_FAILED",
       message: error.message
     });
+  }
+});
+
+app.post("/api/ptv/callback", async (request, response) => {
+  try {
+    const result = await importPtvCallback({
+      ticketid: text(request.body.ticketid),
+      data: typeof request.body.data === "string" ? request.body.data : JSON.stringify(request.body.data || "")
+    });
+
+    console.log([
+      `at=${new Date().toISOString()}`,
+      "event=ptv-callback",
+      `status=${result.status}`,
+      `ticketid=${result.ticketid || ""}`,
+      `orderCount=${result.orderNumbers.length}`
+    ].join(" "));
+
+    response.type("text/plain").send("OK");
+  } catch (error) {
+    console.error(`event=ptv-callback status=failed message=${error.message}`);
+    response.status(400).type("text/plain").send(`ERROR: ${error.message}`);
   }
 });
 
@@ -167,6 +190,10 @@ app.patch("/api/ptv-settings", requireAdmin, async (request, response) => {
       message: error.message
     });
   }
+});
+
+app.get("/api/ptv/callbacks", requireAdmin, (request, response) => {
+  response.json(store.listPtvCallbacks());
 });
 
 app.get("/api/orders", async (request, response) => {
@@ -1137,7 +1164,7 @@ function buildPtvRemoteUrl(settings, orderNumbers, orders) {
     ticketid: selectedOrders[0].orderNumber,
     num_stations: String(selectedOrders.length + 1)
   });
-  const exportUrl = text(settings.exportUrl);
+  const exportUrl = ptvCallbackUrl(settings.exportUrl);
 
   if (exportUrl) {
     params.set("exportmode", "0");
@@ -1216,7 +1243,7 @@ function ptvRemoteStation(order) {
     "0",
     "00:20",
     "0",
-    order.customerName || order.orderNumber
+    [order.orderNumber, order.customerName].filter(Boolean).join(" ")
   ];
 
   return fields.map((field) => String(field || "").replaceAll("|", " ")).join("|");
@@ -1228,6 +1255,146 @@ function ptvRemoteComment(order) {
     order.tour || "",
     order.eprodStorageLocation ? `Stellplatz ${order.eprodStorageLocation}` : ""
   ].filter(Boolean).join(" / ");
+}
+
+async function importPtvCallback(input) {
+  const ticketid = text(input.ticketid);
+  const data = text(input.data);
+  const knownOrderNumbers = await listKnownOrderNumbers();
+  const orderNumbers = extractPtvOrderNumbers(data, knownOrderNumbers);
+  const status = orderNumbers.length > 0 ? "imported" : "received";
+  const message = orderNumbers.length > 0
+    ? `${orderNumbers.length} Auftraege aus PTV-Rueckgabe erkannt.`
+    : "PTV-Rueckgabe gespeichert, aber keine bekannte Auftragsnummer erkannt.";
+
+  if (orderNumbers.length > 0) {
+    await store.updateRouteSequence(orderNumbers, {
+      id: "",
+      username: "ptv-callback",
+      displayName: "PTV Rueckgabe"
+    });
+  }
+
+  await store.appendPtvCallback({
+    ticketid,
+    status,
+    message,
+    orderNumbers,
+    dataPreview: data.slice(0, 4000),
+    data: data.slice(0, 20000)
+  });
+
+  return {
+    ticketid,
+    status,
+    message,
+    orderNumbers
+  };
+}
+
+function extractPtvOrderNumbers(data, knownOrderNumbers) {
+  const result = [];
+  const known = new Set([...knownOrderNumbers].map((orderNumber) => String(orderNumber || "").trim()).filter(Boolean));
+
+  if (known.size === 0 || !data) {
+    return result;
+  }
+
+  try {
+    collectPtvOrderNumbers(JSON.parse(data), known, result);
+  } catch {
+    // PTV may return form encoded strings or formatted text. The raw scan below covers that.
+  }
+
+  if (result.length > 0) {
+    return uniqueInOrder(result);
+  }
+
+  return [...known]
+    .map((orderNumber) => ({
+      orderNumber,
+      index: data.indexOf(orderNumber)
+    }))
+    .filter((item) => item.index >= 0)
+    .sort((left, right) => left.index - right.index)
+    .map((item) => item.orderNumber);
+}
+
+function collectPtvOrderNumbers(value, knownOrderNumbers, result) {
+  if (typeof value === "string" || typeof value === "number") {
+    addKnownPtvOrderNumber(String(value), knownOrderNumbers, result);
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectPtvOrderNumbers(item, knownOrderNumbers, result));
+    return;
+  }
+
+  if (!value || typeof value !== "object") {
+    return;
+  }
+
+  const priorityKeys = ["ticketid", "ticketId", "id", "iD", "name", "comment", "desc"];
+
+  for (const key of priorityKeys) {
+    if (Object.hasOwn(value, key)) {
+      collectPtvOrderNumbers(value[key], knownOrderNumbers, result);
+    }
+  }
+
+  for (const [key, child] of Object.entries(value)) {
+    if (!priorityKeys.includes(key)) {
+      collectPtvOrderNumbers(child, knownOrderNumbers, result);
+    }
+  }
+}
+
+function addKnownPtvOrderNumber(value, knownOrderNumbers, result) {
+  const trimmed = value.trim();
+
+  if (knownOrderNumbers.has(trimmed)) {
+    result.push(trimmed);
+    return;
+  }
+
+  for (const orderNumber of knownOrderNumbers) {
+    if (trimmed.includes(orderNumber)) {
+      result.push(orderNumber);
+    }
+  }
+}
+
+function uniqueInOrder(values) {
+  const seen = new Set();
+  return values.filter((value) => {
+    if (seen.has(value)) {
+      return false;
+    }
+
+    seen.add(value);
+    return true;
+  });
+}
+
+function ptvCallbackUrl(value) {
+  const input = text(value);
+
+  if (!input) {
+    return "";
+  }
+
+  try {
+    const url = new URL(input);
+
+    if (!url.pathname || url.pathname === "/") {
+      url.pathname = "/api/ptv/callback";
+    }
+
+    return url.toString();
+  } catch {
+    return input;
+  }
 }
 
 function splitStreetAndHouseNumber(value) {

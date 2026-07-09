@@ -73,7 +73,8 @@ Bayerwald Fenster und Tueren`,
     plantStreet: "Gewerbepark 7",
     updatedAt: "",
     updatedBy: ""
-  }
+  },
+  ptvCallbacks: []
 };
 
 const ROLE_USER = "user";
@@ -129,6 +130,7 @@ export class LocalStore {
       ...structuredClone(EMPTY_STATE.ptvSettings),
       ...(this.state.ptvSettings || {})
     };
+    this.state.ptvCallbacks ||= [];
 
     for (const avis of Object.values(this.state.avisByOrder)) {
       avis.log ||= [];
@@ -672,6 +674,33 @@ export class LocalStore {
 
     await this.save();
     return this.getPtvSettings();
+  }
+
+  listPtvCallbacks() {
+    return [...(this.state.ptvCallbacks || [])]
+      .sort((a, b) => String(b.at || "").localeCompare(String(a.at || "")))
+      .slice(0, 20);
+  }
+
+  async appendPtvCallback(input) {
+    const entry = {
+      id: crypto.randomUUID(),
+      at: new Date().toISOString(),
+      ticketid: input.ticketid || "",
+      status: input.status || "received",
+      message: input.message || "",
+      orderNumbers: Array.isArray(input.orderNumbers) ? input.orderNumbers : [],
+      dataPreview: input.dataPreview || "",
+      data: input.data || ""
+    };
+
+    this.state.ptvCallbacks = [
+      entry,
+      ...(this.state.ptvCallbacks || [])
+    ].slice(0, 20);
+
+    await this.save();
+    return entry;
   }
 
   async listLocalOrders() {

@@ -19,6 +19,7 @@ const state = {
   ldapSettings: null,
   mailSettings: null,
   ptvSettings: null,
+  ptvCallbacks: [],
   sort: {
     key: "",
     direction: "asc"
@@ -152,6 +153,8 @@ const elements = {
   ptvPlantPostalCode: document.querySelector("#ptv-plant-postal-code"),
   ptvPlantCity: document.querySelector("#ptv-plant-city"),
   ptvPlantStreet: document.querySelector("#ptv-plant-street"),
+  ptvCallbackRefresh: document.querySelector("#ptv-callback-refresh"),
+  ptvCallbacks: document.querySelector("#ptv-callbacks"),
   ldapSection: document.querySelector("#ldap-settings-section"),
   ldapSettingsForm: document.querySelector("#ldap-settings-form"),
   ldapEnabled: document.querySelector("#ldap-enabled"),
@@ -338,6 +341,7 @@ function bindEvents() {
   elements.sampleCsvButton.addEventListener("click", downloadSampleCsv);
   elements.mailSettingsForm.addEventListener("submit", saveMailSettings);
   elements.ptvSettingsForm.addEventListener("submit", savePtvSettings);
+  elements.ptvCallbackRefresh.addEventListener("click", loadPtvCallbacks);
   elements.mailDemoMode.addEventListener("change", renderMailDemoState);
   elements.mailTextmarks.addEventListener("click", (event) => {
     const button = event.target.closest("[data-mail-token]");
@@ -911,6 +915,42 @@ async function loadPtvSettings() {
   elements.ptvPlantPostalCode.value = state.ptvSettings.plantPostalCode || "94154";
   elements.ptvPlantCity.value = state.ptvSettings.plantCity || "Neukirchen v. W.";
   elements.ptvPlantStreet.value = state.ptvSettings.plantStreet || "Gewerbepark 7";
+  await loadPtvCallbacks();
+}
+
+async function loadPtvCallbacks() {
+  if (!isAdmin()) {
+    return;
+  }
+
+  state.ptvCallbacks = await api("/api/ptv/callbacks");
+  renderPtvCallbacks();
+}
+
+function renderPtvCallbacks() {
+  if (!elements.ptvCallbacks) {
+    return;
+  }
+
+  if (!state.ptvCallbacks.length) {
+    elements.ptvCallbacks.innerHTML = `<p class="help-text">Noch keine Rueckgabe empfangen.</p>`;
+    return;
+  }
+
+  elements.ptvCallbacks.innerHTML = state.ptvCallbacks.map((entry) => `
+    <details class="ptv-callback-entry">
+      <summary>
+        <strong>${formatDateTime(entry.at)}</strong>
+        <span>${escapeHtml(entry.status || "received")}</span>
+        <small>ticketid: ${escapeHtml(entry.ticketid || "-")}</small>
+      </summary>
+      <div class="mail-log-meta">
+        <span><strong>Erkannte Auftraege</strong>${escapeHtml((entry.orderNumbers || []).join(", ") || "-")}</span>
+        <span><strong>Hinweis</strong>${escapeHtml(entry.message || "-")}</span>
+      </div>
+      <pre class="ptv-callback-raw">${escapeHtml(entry.dataPreview || "")}</pre>
+    </details>
+  `).join("");
 }
 
 function renderMailTextmarks(textMarks) {

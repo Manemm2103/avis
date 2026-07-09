@@ -907,6 +907,58 @@ tbody tr:last-child td {
   line-height: 1.4;
 }
 
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.section-title-row h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.ptv-callback-list {
+  display: grid;
+  gap: 10px;
+}
+
+.ptv-callback-entry {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.ptv-callback-entry summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.ptv-callback-entry summary small {
+  margin-left: auto;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.ptv-callback-raw {
+  margin: 0;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-strong);
+  color: var(--text);
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow: auto;
+  max-height: 280px;
+}
+
 .textmark-panel {
   display: grid;
   gap: 10px;

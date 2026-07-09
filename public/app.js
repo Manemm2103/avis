@@ -2172,31 +2172,50 @@ async function openPtvRemoteControl() {
     return;
   }
 
-  const result = await api("/api/ptv/remote-url", {
-    method: "POST",
-    body: JSON.stringify({ orderNumbers })
-  });
-
-  if (result.warnings?.length) {
-    showToast(result.warnings[0]);
-  }
-
-  const remoteWindow = window.open(result.url, "avis-ptv-remote", "popup,width=460,height=320,left=80,top=80");
+  const remoteWindow = window.open("about:blank", "avis-ptv-remote", "popup,width=460,height=320,left=80,top=80");
 
   if (!remoteWindow) {
     showToast("PTV-Fenster wurde vom Browser blockiert.");
     return;
   }
 
-  window.setTimeout(() => {
-    try {
-      if (!remoteWindow.closed) {
-        remoteWindow.close();
-      }
-    } catch (error) {
-      // Some browsers block scripted close after cross-origin navigation.
+  try {
+    remoteWindow.document.title = "PTV wird geoeffnet";
+    remoteWindow.document.body.textContent = "PTV wird geoeffnet ...";
+  } catch {
+    // Access can fail depending on popup handling; navigating below still works.
+  }
+
+  try {
+    const result = await api("/api/ptv/remote-url", {
+      method: "POST",
+      body: JSON.stringify({ orderNumbers })
+    });
+
+    if (result.warnings?.length) {
+      showToast(result.warnings[0]);
     }
-  }, 5000);
+
+    remoteWindow.location.href = result.url;
+
+    window.setTimeout(() => {
+      try {
+        if (!remoteWindow.closed) {
+          remoteWindow.close();
+        }
+      } catch (error) {
+        // Some browsers block scripted close after cross-origin navigation.
+      }
+    }, 5000);
+  } catch (error) {
+    try {
+      remoteWindow.close();
+    } catch {
+      // Ignore close errors and show the API error below.
+    }
+
+    showToast(error.message || "PTV konnte nicht geoeffnet werden.");
+  }
 }
 
 async function importPtvSequence(event) {

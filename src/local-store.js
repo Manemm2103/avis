@@ -694,26 +694,25 @@ export class LocalStore {
 
     this.state.localOrders.push(order);
 
-    if (avisInput.driverPhoneId) {
-      const actorName = actor?.displayName || actor?.username || "";
-      this.state.avisByOrder[input.orderNumber] = {
-        ...(this.state.avisByOrder[input.orderNumber] || {}),
-        driverPhoneId: avisInput.driverPhoneId,
-        log: [
-          ...((this.state.avisByOrder[input.orderNumber] || {}).log || []),
-          {
-            id: crypto.randomUUID(),
-            type: "gespeichert",
-            at: now,
-            by: actorName,
-            byUserId: actor?.id || ""
-          }
-        ],
-        updatedAt: now,
-        updatedBy: actorName,
-        updatedByUserId: actor?.id || ""
-      };
-    }
+    const actorName = actor?.displayName || actor?.username || "";
+    const currentAvis = this.state.avisByOrder[input.orderNumber] || {};
+    this.state.avisByOrder[input.orderNumber] = {
+      ...currentAvis,
+      ...(avisInput.driverPhoneId ? { driverPhoneId: avisInput.driverPhoneId } : {}),
+      log: [
+        ...(currentAvis.log || []),
+        {
+          id: crypto.randomUUID(),
+          type: "angelegt",
+          at: now,
+          by: actorName,
+          byUserId: actor?.id || ""
+        }
+      ],
+      updatedAt: now,
+      updatedBy: actorName,
+      updatedByUserId: actor?.id || ""
+    };
 
     await this.save();
     return order;

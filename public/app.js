@@ -2949,6 +2949,10 @@ function formatAudit(at, by) {
 }
 
 function logTypeLabel(type) {
+  if (type === "angelegt") {
+    return "Angelegt";
+  }
+
   if (type === "avisiert") {
     return "Avisiert";
   }

@@ -507,7 +507,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.06.2</footer>
+      <footer class="app-footer">Version 2026.07.09.1</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -570,7 +570,7 @@
             <strong id="drawer-blr-count">-</strong>
           </div>
           <div>
-            <span class="label">E-Prod Lagerplatz</span>
+            <span class="label" id="drawer-eprod-storage-location-label">E-Prod Lagerplatz</span>
             <strong id="drawer-eprod-storage-location">-</strong>
           </div>
         </div>
@@ -588,6 +588,11 @@
         <label id="edit-delivery-address-edit" hidden>
           <span>Lieferanschrift</span>
           <textarea id="edit-delivery-address-input" name="deliveryAddress" rows="3"></textarea>
+        </label>
+
+        <label id="edit-eprod-storage-location-edit" hidden>
+          <span>Stellplatz</span>
+          <input id="edit-eprod-storage-location-input" name="eprodStorageLocation">
         </label>
 
         <label class="checkbox">
@@ -680,6 +685,10 @@
           <input id="manual-delivery-address" name="deliveryAddress">
         </label>
         <label>
+          <span>Stellplatz</span>
+          <input id="manual-eprod-storage-location" name="eprodStorageLocation">
+        </label>
+        <label>
           <span>Telefon</span>
           <input id="manual-source-phone" name="sourcePhone">
         </label>
@@ -707,6 +716,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260706-ptv-tonnes" type="module"></script>
+    <script src="/app.js?v=20260709-local-storage-location" type="module"></script>
   </body>
 </html>

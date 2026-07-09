@@ -187,6 +187,7 @@ const elements = {
     shippingEh: document.querySelector("#drawer-shipping-eh"),
     elementWeight: document.querySelector("#drawer-element-weight"),
     blrCount: document.querySelector("#drawer-blr-count"),
+    eprodStorageLocationLabel: document.querySelector("#drawer-eprod-storage-location-label"),
     eprodStorageLocation: document.querySelector("#drawer-eprod-storage-location"),
     deliveryDate: document.querySelector("#edit-delivery-date-display"),
     deliveryDateReadonly: document.querySelector("#edit-delivery-date-readonly"),
@@ -194,6 +195,8 @@ const elements = {
     deliveryDateInput: document.querySelector("#edit-delivery-date-input"),
     deliveryAddressEdit: document.querySelector("#edit-delivery-address-edit"),
     deliveryAddressInput: document.querySelector("#edit-delivery-address-input"),
+    eprodStorageLocationEdit: document.querySelector("#edit-eprod-storage-location-edit"),
+    eprodStorageLocationInput: document.querySelector("#edit-eprod-storage-location-input"),
     twoDayTour: document.querySelector("#edit-two-day-tour"),
     driver: document.querySelector("#edit-driver"),
     note: document.querySelector("#edit-note"),
@@ -1657,15 +1660,18 @@ function openDrawer(orderNumber) {
   elements.drawerFields.shippingEh.textContent = order.shippingEh || "-";
   elements.drawerFields.elementWeight.textContent = formatElementWeight(order.elementWeight);
   elements.drawerFields.blrCount.textContent = order.blrCount || "-";
-  elements.drawerFields.eprodStorageLocation.textContent = order.eprodStorageLocation || "-";
   const deliveryDate = order.displayDeliveryDate || order.deliveryDate || "";
   const canEditLocalFields = Boolean(order.canDelete);
+  elements.drawerFields.eprodStorageLocationLabel.textContent = canEditLocalFields ? "Stellplatz" : "E-Prod Lagerplatz";
+  elements.drawerFields.eprodStorageLocation.textContent = order.eprodStorageLocation || "-";
   elements.drawerFields.deliveryDate.textContent = formatDate(deliveryDate);
   elements.drawerFields.deliveryDateInput.value = deliveryDate;
   elements.drawerFields.deliveryDateReadonly.hidden = canEditLocalFields;
   elements.drawerFields.deliveryDateEdit.hidden = !canEditLocalFields;
   elements.drawerFields.deliveryAddressInput.value = order.deliveryAddress || "";
   elements.drawerFields.deliveryAddressEdit.hidden = !canEditLocalFields;
+  elements.drawerFields.eprodStorageLocationInput.value = order.eprodStorageLocation || "";
+  elements.drawerFields.eprodStorageLocationEdit.hidden = !canEditLocalFields;
   elements.drawerFields.twoDayTour.checked = Boolean(order.avis.twoDayTour);
   elements.drawerFields.note.value = order.avis.note || "";
   elements.drawerFields.customerInfo.value = order.avis.customerInfo || "";
@@ -1778,6 +1784,7 @@ async function saveSelectedOrder(event) {
   if (state.selectedOrder.canDelete) {
     payload.deliveryDate = elements.drawerFields.deliveryDateInput.value;
     payload.deliveryAddress = elements.drawerFields.deliveryAddressInput.value;
+    payload.eprodStorageLocation = elements.drawerFields.eprodStorageLocationInput.value;
   }
 
   try {
@@ -2461,6 +2468,7 @@ function formToOrder(form) {
     tour: form.get("tour"),
     driverPhoneId: form.get("driverPhoneId"),
     deliveryAddress: form.get("deliveryAddress"),
+    eprodStorageLocation: form.get("eprodStorageLocation"),
     sourcePhone: form.get("sourcePhone"),
     sourceEmail: form.get("sourceEmail")
   };

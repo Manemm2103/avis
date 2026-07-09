@@ -320,8 +320,11 @@ app.patch("/api/orders/:orderNumber", async (request, response) => {
       throw new Error("Avisiert kann nur ueber die Aktion Avisieren gesetzt werden.");
     }
 
-    if ((Object.hasOwn(update, "deliveryDate") || Object.hasOwn(update, "deliveryAddress")) && !store.hasLocalOrder(orderNumber)) {
-      throw new Error("Liefertermin und Lieferanschrift koennen nur bei selbst angelegten oder importierten Auftraegen geaendert werden.");
+    if (
+      (Object.hasOwn(update, "deliveryDate") || Object.hasOwn(update, "deliveryAddress") || Object.hasOwn(update, "eprodStorageLocation"))
+      && !store.hasLocalOrder(orderNumber)
+    ) {
+      throw new Error("Liefertermin, Lieferanschrift und Stellplatz koennen nur bei selbst angelegten oder importierten Auftraegen geaendert werden.");
     }
 
     const saved = await store.updateAvis(orderNumber, update, request.user);
@@ -576,6 +579,7 @@ function mergeOrder(order, avis, driverMap) {
   const driver = avis?.driverPhoneId ? driverMap.get(avis.driverPhoneId) : null;
   const displayDeliveryDate = avis?.deliveryDate || order.deliveryDate;
   const displayDeliveryAddress = avis?.deliveryAddress || order.deliveryAddress;
+  const displayEprodStorageLocation = avis?.eprodStorageLocation || order.eprodStorageLocation;
   const displayDeliveryParts = avis?.deliveryAddress
     ? splitDeliveryAddress(displayDeliveryAddress)
     : splitDeliveryAddress(displayDeliveryAddress, {
@@ -592,6 +596,7 @@ function mergeOrder(order, avis, driverMap) {
     deliveryPostalCode: displayDeliveryParts.postalCode,
     deliveryStreet: displayDeliveryParts.street,
     deliveryCity: displayDeliveryParts.city,
+    eprodStorageLocation: displayEprodStorageLocation,
     sourceDeliveryAddress: order.deliveryAddress,
     displayDeliveryDate,
     displayDeliveryWeek: isoWeekText(displayDeliveryDate),
@@ -599,6 +604,7 @@ function mergeOrder(order, avis, driverMap) {
     avis: {
       deliveryDate: avis?.deliveryDate || "",
       deliveryAddress: avis?.deliveryAddress || "",
+      eprodStorageLocation: avis?.eprodStorageLocation || "",
       driverPhoneId: avis?.driverPhoneId || "",
       driverPhoneLabel: driver ? `${driver.label} (${driver.phone})` : "",
       driverPhoneName: driver?.label || "",
@@ -815,6 +821,10 @@ function sanitizeAvisUpdate(input) {
 
   if (Object.hasOwn(input, "deliveryAddress")) {
     update.deliveryAddress = text(input.deliveryAddress);
+  }
+
+  if (Object.hasOwn(input, "eprodStorageLocation")) {
+    update.eprodStorageLocation = text(input.eprodStorageLocation);
   }
 
   if (Object.hasOwn(input, "driverPhoneId")) {

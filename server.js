@@ -1668,9 +1668,10 @@ function ptvRouteInfoFromStop(item, routeStartSeconds) {
 
   return {
     arrivalAt: ptvIsoTime(itemTimestamp, 0) || ptvIsoTime(stationInfo.arrivalTime, routeStartSeconds),
-    serviceStartAt: ptvRelativeIsoTime(stationInfo.startOfService, stopStartSeconds),
-    serviceEndAt: ptvRelativeIsoTime(stationInfo.endOfService, stopStartSeconds),
-    departureAt: ptvRelativeIsoTime(stationInfo.departureTime, stopStartSeconds)
+    serviceStartAt: ptvIsoTime(stationInfo.startOfService, routeStartSeconds),
+    serviceEndAt: ptvIsoTime(stationInfo.endOfService, routeStartSeconds),
+    departureAt: ptvIsoTime(stationInfo.departureTime, routeStartSeconds)
+      || ptvIsoTime(stationInfo.endOfService, routeStartSeconds)
       || ptvRelativeIsoTime(stationInfo.period, stopStartSeconds)
       || ptvIsoTime(itemTimestamp, 0),
     travelTimeSeconds: safeNumber(item.travelTime),

@@ -1255,6 +1255,14 @@ function buildPtvRemoteUrl(settings, orderNumbers, orders, exportEntry = null) {
     throw new Error("Keine passenden Auftraege fuer PTV gefunden.");
   }
 
+  const invalidStations = selectedOrders
+    .map((order, index) => validatePtvOrderStation(order, index + 2))
+    .filter(Boolean);
+
+  if (invalidStations.length) {
+    throw new Error(`PTV kann nicht geoeffnet werden. Bitte Lieferadresse pruefen: ${invalidStations.join("; ")}`);
+  }
+
   const params = new URLSearchParams({
     login,
     password,
@@ -1303,7 +1311,7 @@ function ptvRemotePlantStation(settings) {
   const fields = [
     "places",
     "town",
-    settings.plantCountry || "DE",
+    ptvCountryCode(settings.plantCountry, settings.plantPostalCode) || "DE",
     settings.plantPostalCode || "94154",
     settings.plantCity || "Neukirchen v. W.",
     "",
@@ -1329,7 +1337,7 @@ function ptvRemotePlantEndStation(settings) {
   const fields = [
     "places",
     "town",
-    settings.plantEndCountry || settings.plantCountry || "DE",
+    ptvCountryCode(settings.plantEndCountry || settings.plantCountry, settings.plantEndPostalCode || settings.plantPostalCode) || "DE",
     settings.plantEndPostalCode || settings.plantPostalCode || "94154",
     settings.plantEndCity || settings.plantCity || "Neukirchen v. W.",
     "",
@@ -1356,7 +1364,7 @@ function ptvRemoteStation(order, settings) {
   const fields = [
     "places",
     "town",
-    order.deliveryCountry || "DE",
+    ptvCountryCode(order.deliveryCountry, order.deliveryPostalCode) || "DE",
     order.deliveryPostalCode || "",
     order.deliveryCity || "",
     "",
@@ -1375,6 +1383,44 @@ function ptvRemoteStation(order, settings) {
   ];
 
   return fields.map((field) => String(field || "").replaceAll("|", " ")).join("|");
+}
+
+function validatePtvOrderStation(order, stationNumber) {
+  const street = splitStreetAndHouseNumber(order.deliveryStreet || order.deliveryAddress);
+  const missing = [];
+
+  if (!ptvCountryCode(order.deliveryCountry, order.deliveryPostalCode)) {
+    missing.push("Land");
+  }
+
+  if (!text(order.deliveryPostalCode)) {
+    missing.push("PLZ");
+  }
+
+  if (!text(order.deliveryCity)) {
+    missing.push("Ort");
+  }
+
+  if (!text(street.street)) {
+    missing.push("Strasse");
+  }
+
+  if (missing.length) {
+    return `Station ${stationNumber} / Auftrag ${order.orderNumber}: ${missing.join(", ")} fehlt`;
+  }
+
+  return "";
+}
+
+function ptvCountryCode(country, postalCode = "") {
+  const value = text(country).toUpperCase();
+  const aliases = {
+    D: "DE",
+    A: "AT",
+    I: "IT"
+  };
+
+  return aliases[value] || value || inferCountryFromPostalCode(postalCode);
 }
 
 function ptvRemoteComment(order) {

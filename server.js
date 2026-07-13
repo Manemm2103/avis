@@ -1443,7 +1443,10 @@ async function importPtvCallback(input) {
   const ticketid = text(input.ticketid);
   const data = text(input.data);
   const knownOrderNumbers = await listKnownOrderNumbers();
-  const orderNumbers = extractPtvOrderNumbers(data, knownOrderNumbers);
+  const ptvRoute = extractPtvRoute(data, knownOrderNumbers);
+  const orderNumbers = ptvRoute.orderNumbers.length
+    ? ptvRoute.orderNumbers
+    : extractPtvOrderNumbers(data, knownOrderNumbers);
   const status = orderNumbers.length > 0 ? "imported" : "received";
   const message = orderNumbers.length > 0
     ? `${orderNumbers.length} Aufträge aus PTV-Rückgabe erkannt.`
@@ -1454,13 +1457,13 @@ async function importPtvCallback(input) {
       id: "",
       username: "ptv-callback",
       displayName: "PTV Rückgabe"
-    });
+    }, ptvRoute.routeInfos);
 
     await store.optimizePtvExport(ticketid, orderNumbers, {
       id: "",
       username: "ptv-callback",
       displayName: "PTV Rückgabe"
-    });
+    }, ptvRoute.routeInfos);
   }
 
   await store.appendPtvCallback({
@@ -1468,6 +1471,7 @@ async function importPtvCallback(input) {
     status,
     message,
     orderNumbers,
+    routeInfoCount: Object.keys(ptvRoute.routeInfos).length,
     dataPreview: data.slice(0, 4000),
     data: data.slice(0, 20000)
   });
@@ -1476,7 +1480,8 @@ async function importPtvCallback(input) {
     ticketid,
     status,
     message,
-    orderNumbers
+    orderNumbers,
+    routeInfoCount: Object.keys(ptvRoute.routeInfos).length
   };
 }
 
@@ -1568,6 +1573,133 @@ function extractPtvOrderNumbers(data, knownOrderNumbers) {
     .filter((item) => item.index >= 0)
     .sort((left, right) => left.index - right.index)
     .map((item) => item.orderNumber);
+}
+
+function extractPtvRoute(data, knownOrderNumbers) {
+  const known = new Set([...knownOrderNumbers].map((orderNumber) => String(orderNumber || "").trim()).filter(Boolean));
+
+  if (known.size === 0 || !data) {
+    return emptyPtvRoute();
+  }
+
+  try {
+    return collectPtvRoute(JSON.parse(data), known);
+  } catch {
+    return emptyPtvRoute();
+  }
+}
+
+function collectPtvRoute(payload, knownOrderNumbers) {
+  const routes = Array.isArray(payload?.routes) ? payload.routes : [];
+  const orderNumbers = [];
+  const routeInfos = {};
+
+  for (const route of routes) {
+    const items = Array.isArray(route?.itineraryItems) ? route.itineraryItems : [];
+    const routeStartSeconds = firstRouteStartSeconds(items);
+
+    for (const item of items) {
+      if (!isPtvStopOff(item)) {
+        continue;
+      }
+
+      const orderNumber = ptvOrderNumberFromStop(item, knownOrderNumbers);
+
+      if (!orderNumber || routeInfos[orderNumber]) {
+        continue;
+      }
+
+      orderNumbers.push(orderNumber);
+      routeInfos[orderNumber] = ptvRouteInfoFromStop(item, routeStartSeconds);
+    }
+  }
+
+  return {
+    orderNumbers: uniqueInOrder(orderNumbers),
+    routeInfos
+  };
+}
+
+function emptyPtvRoute() {
+  return {
+    orderNumbers: [],
+    routeInfos: {}
+  };
+}
+
+function firstRouteStartSeconds(items) {
+  const first = items.find((item) => Number.isFinite(Number(item?.timeStamp)));
+  return Number(first?.timeStamp) || 0;
+}
+
+function isPtvStopOff(item) {
+  return item && typeof item === "object" && (item.detailLevel === "STOP_OFF" || Array.isArray(item.stationTourInfo));
+}
+
+function ptvOrderNumberFromStop(item, knownOrderNumbers) {
+  const candidates = [
+    item.ticketid,
+    item.ticketId,
+    item.id,
+    item.name,
+    item.comment,
+    item.desc
+  ].map((value) => text(value)).filter(Boolean);
+
+  for (const value of candidates) {
+    if (knownOrderNumbers.has(value)) {
+      return value;
+    }
+
+    for (const orderNumber of knownOrderNumbers) {
+      if (value.includes(orderNumber)) {
+        return orderNumber;
+      }
+    }
+  }
+
+  return "";
+}
+
+function ptvRouteInfoFromStop(item, routeStartSeconds) {
+  const stationInfo = Array.isArray(item.stationTourInfo) ? item.stationTourInfo[0] || {} : {};
+  const itemTimestamp = Number(item.timeStamp);
+
+  return {
+    arrivalAt: ptvIsoTime(itemTimestamp, 0) || ptvIsoTime(stationInfo.arrivalTime, routeStartSeconds),
+    serviceStartAt: ptvIsoTime(stationInfo.startOfService, routeStartSeconds),
+    serviceEndAt: ptvIsoTime(stationInfo.endOfService, routeStartSeconds),
+    departureAt: ptvIsoTime(stationInfo.departureTimeRoute, routeStartSeconds) || ptvIsoTime(stationInfo.departureTime, routeStartSeconds),
+    travelTimeSeconds: safeNumber(item.travelTime),
+    legTravelTimeSeconds: safeNumber(item.differentialTravelTime),
+    distanceMeters: safeNumber(item.distance),
+    legDistanceMeters: safeNumber(item.differentialDistance),
+    stopOffIndex: safeNumber(item.stopOffIndex),
+    source: "ptv"
+  };
+}
+
+function ptvIsoTime(value, routeStartSeconds) {
+  const seconds = Number(value);
+
+  if (!Number.isFinite(seconds)) {
+    return "";
+  }
+
+  const absoluteSeconds = seconds > 1000000000
+    ? seconds
+    : Number(routeStartSeconds) + seconds;
+
+  if (!Number.isFinite(absoluteSeconds) || absoluteSeconds <= 0) {
+    return "";
+  }
+
+  return new Date(absoluteSeconds * 1000).toISOString();
+}
+
+function safeNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function collectPtvOrderNumbers(value, knownOrderNumbers, result) {

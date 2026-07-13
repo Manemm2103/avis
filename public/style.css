@@ -663,6 +663,12 @@ select:disabled {
   background: var(--muted);
 }
 
+.ptv-route-info {
+  grid-column: 2 / -1;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
 .ptv-export-order-row.is-draggable {
   cursor: grab;
 }

@@ -459,7 +459,7 @@ export class LocalStore {
     return next;
   }
 
-  async updateRouteSequence(orderNumbers, actor) {
+  async updateRouteSequence(orderNumbers, actor, routeInfosByOrderNumber = {}) {
     const now = new Date().toISOString();
     const actorName = actor?.displayName || actor?.username || "Unbekannt";
     const uniqueOrderNumbers = [...new Set(orderNumbers.map((orderNumber) => String(orderNumber || "").trim()).filter(Boolean))];
@@ -469,6 +469,7 @@ export class LocalStore {
       const next = {
         ...current,
         routeSequence: index + 1,
+        ...(routeInfosByOrderNumber[orderNumber] ? { ptvRouteInfo: routeInfosByOrderNumber[orderNumber] } : {}),
         routeSequenceUpdatedAt: now,
         routeSequenceUpdatedBy: actorName,
         routeSequenceUpdatedByUserId: actor?.id || "",
@@ -765,7 +766,7 @@ export class LocalStore {
     return null;
   }
 
-  async optimizePtvExport(id, orderNumbers, actor) {
+  async optimizePtvExport(id, orderNumbers, actor, routeInfosByOrderNumber = {}) {
     const exportEntry = this.getPtvExport(id);
 
     if (!exportEntry) {
@@ -774,6 +775,7 @@ export class LocalStore {
 
     exportEntry.status = "ptv_optimiert";
     exportEntry.optimizedOrderNumbers = uniqueOrderNumbers(orderNumbers);
+    exportEntry.routeInfos = routeInfosByOrderNumber || {};
     exportEntry.updatedAt = new Date().toISOString();
     exportEntry.updatedBy = actor?.displayName || actor?.username || "PTV Rückgabe";
 

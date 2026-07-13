@@ -1084,6 +1084,7 @@ function renderPtvCallbacks() {
       </summary>
       <div class="mail-log-meta">
         <span><strong>Erkannte Aufträge</strong>${escapeHtml((entry.orderNumbers || []).join(", ") || "-")}</span>
+        <span><strong>PTV-Zeitdaten</strong>${Number(entry.routeInfoCount || 0)}</span>
         <span><strong>Hinweis</strong>${escapeHtml(entry.message || "-")}</span>
       </div>
       <pre class="ptv-callback-raw">${escapeHtml(entry.dataPreview || "")}</pre>
@@ -1146,8 +1147,8 @@ function renderPtvExportsLegacy() {
           <span class="sub-text">${escapeHtml(status)} · ${count} Aufträge · ${formatDateTime(item.updatedAt || item.createdAt)}</span>
         </div>
         <div class="row-actions">
-          <button class="secondary small" data-ptv-load-export="${escapeHtml(item.id)}" type="button">Oeffnen</button>
-          <button class="secondary danger small" data-ptv-delete-export="${escapeHtml(item.id)}" type="button">Loeschen</button>
+          <button class="secondary small" data-ptv-load-export="${escapeHtml(item.id)}" type="button">Öffnen</button>
+          <button class="secondary danger small" data-ptv-delete-export="${escapeHtml(item.id)}" type="button">Löschen</button>
         </div>
       </div>
     `;
@@ -1205,7 +1206,7 @@ function renderPtvExports() {
         </div>
         <div class="row-actions">
           ${optimized ? "" : `<button class="secondary small" data-ptv-send-export="${escapeHtml(item.id)}" type="button">An PTV übergeben</button>`}
-          <button class="secondary danger small" data-ptv-delete-export="${escapeHtml(item.id)}" type="button">Loeschen</button>
+          <button class="secondary danger small" data-ptv-delete-export="${escapeHtml(item.id)}" type="button">Löschen</button>
         </div>
         <div class="ptv-export-details" ${expanded ? "" : "hidden"}>
           ${orders.length ? `
@@ -1216,6 +1217,7 @@ function renderPtvExports() {
                   <strong>${escapeHtml(order.orderNumber)}</strong>
                   <span>${escapeHtml(order.customerName || "-")}</span>
                   <span>${escapeHtml([order.deliveryPostalCode, order.deliveryCity, order.deliveryStreet].filter(Boolean).join(" ") || "-")}</span>
+                  <span class="ptv-route-info">${escapeHtml(ptvRouteInfoLine(order, item))}</span>
                 </div>
               `).join("")}
             </div>
@@ -2112,19 +2114,29 @@ function renderOrderLog(order) {
   elements.log.notified.textContent = formatAudit(order.avis.notifiedAt, order.avis.notifiedBy);
 
   const entries = [...(order.avis.log || [])].reverse();
+  const ptvRouteText = ptvRouteInfoLine(order);
 
-  if (entries.length === 0) {
+  if (entries.length === 0 && !ptvRouteText) {
     elements.log.list.innerHTML = `<p class="empty-log">Noch kein Log vorhanden.</p>`;
     return;
   }
 
-  elements.log.list.innerHTML = entries.map((entry) => `
-    <div class="log-entry">
-      <strong>${escapeHtml(logTypeLabel(entry.type))}</strong>
-      <span>${escapeHtml(formatDateTime(entry.at))}</span>
-      <span>${escapeHtml(entry.by || "-")}</span>
-    </div>
-  `).join("");
+  elements.log.list.innerHTML = [
+    ptvRouteText ? `
+      <div class="log-entry">
+        <strong>PTV Route</strong>
+        <span>${escapeHtml(ptvRouteText)}</span>
+        <span>${escapeHtml(formatAudit(order.avis.ptvRouteInfo?.updatedAt || order.avis.routeSequenceUpdatedAt, order.avis.routeSequenceUpdatedBy))}</span>
+      </div>
+    ` : "",
+    ...entries.map((entry) => `
+      <div class="log-entry">
+        <strong>${escapeHtml(logTypeLabel(entry.type))}</strong>
+        <span>${escapeHtml(formatDateTime(entry.at))}</span>
+        <span>${escapeHtml(entry.by || "-")}</span>
+      </div>
+    `)
+  ].join("");
 }
 
 function renderMailLog(order) {
@@ -3215,6 +3227,23 @@ function ptvExportOrders(item) {
     .filter(Boolean);
 }
 
+function ptvRouteInfoLine(order, exportItem = null) {
+  const routeInfo = exportItem?.routeInfos?.[order.orderNumber] || order.avis?.ptvRouteInfo;
+
+  if (!routeInfo) {
+    return "";
+  }
+
+  const parts = [
+    routeInfo.arrivalAt ? `Ankunft ${formatTime(routeInfo.arrivalAt)}` : "",
+    routeInfo.departureAt ? `Abfahrt ${formatTime(routeInfo.departureAt)}` : "",
+    routeInfo.travelTimeSeconds ? `Reisezeit ${formatDuration(routeInfo.travelTimeSeconds)}` : "",
+    routeInfo.distanceMeters ? `Distanz ${formatDistance(routeInfo.distanceMeters)}` : ""
+  ].filter(Boolean);
+
+  return parts.join(" · ");
+}
+
 function ptvExportSearchText(item) {
   return [
     item.name,
@@ -3649,6 +3678,38 @@ function formatDateTime(value) {
     dateStyle: "short",
     timeStyle: "short"
   }).format(new Date(value));
+}
+
+function formatTime(value) {
+  if (!value) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat("de-DE", {
+    timeStyle: "short"
+  }).format(new Date(value));
+}
+
+function formatDuration(seconds) {
+  const totalMinutes = Math.max(0, Math.round(Number(seconds || 0) / 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours <= 0) {
+    return `${minutes} min`;
+  }
+
+  return `${hours} h ${String(minutes).padStart(2, "0")} min`;
+}
+
+function formatDistance(meters) {
+  const kilometers = Number(meters || 0) / 1000;
+
+  if (!Number.isFinite(kilometers) || kilometers <= 0) {
+    return "-";
+  }
+
+  return `${kilometers.toLocaleString("de-DE", { maximumFractionDigits: 1 })} km`;
 }
 
 function formatAudit(at, by) {

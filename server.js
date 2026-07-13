@@ -1162,6 +1162,7 @@ function sanitizePtvSettings(input) {
     plantEndPostalCode: text(input.plantEndPostalCode) || text(input.plantPostalCode) || "94154",
     plantEndCity: text(input.plantEndCity) || text(input.plantCity) || "Neukirchen v. W.",
     plantEndStreet: text(input.plantEndStreet) || text(input.plantStreet) || "Gewerbepark 7",
+    stopPauseMinutes: Math.max(0, number(input.stopPauseMinutes, 20)),
     optimizeOnUpload: Boolean(input.optimizeOnUpload)
   };
 }
@@ -1208,6 +1209,7 @@ function publicPtvSettings(settings) {
     plantEndPostalCode: settings.plantEndPostalCode || settings.plantPostalCode || "94154",
     plantEndCity: settings.plantEndCity || settings.plantCity || "Neukirchen v. W.",
     plantEndStreet: settings.plantEndStreet || settings.plantStreet || "Gewerbepark 7",
+    stopPauseMinutes: Math.max(0, number(settings.stopPauseMinutes, 20)),
     optimizeOnUpload: Boolean(settings.optimizeOnUpload),
     updatedAt: settings.updatedAt || "",
     updatedBy: settings.updatedBy || ""
@@ -1250,7 +1252,7 @@ function buildPtvRemoteUrl(settings, orderNumbers, orders, exportEntry = null) {
   params.set("s1", ptvRemotePlantStation(settings));
 
   selectedOrders.forEach((order, index) => {
-    params.set(`s${index + 2}`, ptvRemoteStation(order));
+    params.set(`s${index + 2}`, ptvRemoteStation(order, settings));
   });
 
   params.set(`s${selectedOrders.length + 2}`, ptvRemotePlantEndStation(settings));
@@ -1273,6 +1275,7 @@ function buildPtvRemoteUrl(settings, orderNumbers, orders, exportEntry = null) {
 
 function ptvRemotePlantStation(settings) {
   const street = splitStreetAndHouseNumber(settings.plantStreet || "Gewerbepark 7");
+  const stopPause = ptvPauseTime(settings.stopPauseMinutes);
   const fields = [
     "places",
     "town",
@@ -1289,7 +1292,7 @@ function ptvRemotePlantStation(settings) {
     "00:00",
     "00:00",
     "0",
-    "00:20",
+    stopPause,
     "0",
     "Bayerwald"
   ];
@@ -1323,8 +1326,9 @@ function ptvRemotePlantEndStation(settings) {
   return fields.map((field) => String(field || "").replaceAll("|", " ")).join("|");
 }
 
-function ptvRemoteStation(order) {
+function ptvRemoteStation(order, settings) {
   const street = splitStreetAndHouseNumber(order.deliveryStreet || order.deliveryAddress);
+  const stopPause = ptvPauseTime(settings.stopPauseMinutes);
   const fields = [
     "places",
     "town",
@@ -1341,7 +1345,7 @@ function ptvRemoteStation(order) {
     "00:00",
     "00:00",
     "0",
-    "00:20",
+    stopPause,
     "0",
     [order.orderNumber, order.customerName].filter(Boolean).join(" ")
   ];
@@ -1355,6 +1359,14 @@ function ptvRemoteComment(order) {
     order.tour || "",
     order.eprodStorageLocation ? `Stellplatz ${order.eprodStorageLocation}` : ""
   ].filter(Boolean).join(" / ");
+}
+
+function ptvPauseTime(minutes) {
+  const totalMinutes = Math.max(0, Math.round(number(minutes, 20)));
+  const hours = Math.floor(totalMinutes / 60);
+  const remainingMinutes = totalMinutes % 60;
+
+  return `${String(hours).padStart(2, "0")}:${String(remainingMinutes).padStart(2, "0")}`;
 }
 
 async function importPtvCallback(input) {

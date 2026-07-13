@@ -167,6 +167,7 @@ const elements = {
   ptvPlantCity: document.querySelector("#ptv-plant-city"),
   ptvPlantStreet: document.querySelector("#ptv-plant-street"),
   ptvOptimizeOnUpload: document.querySelector("#ptv-optimize-on-upload"),
+  ptvStopPauseMinutes: document.querySelector("#ptv-stop-pause-minutes"),
   ptvPlantEndCountry: document.querySelector("#ptv-plant-end-country"),
   ptvPlantEndPostalCode: document.querySelector("#ptv-plant-end-postal-code"),
   ptvPlantEndCity: document.querySelector("#ptv-plant-end-city"),
@@ -980,6 +981,7 @@ async function loadPtvSettings() {
   elements.ptvPlantCity.value = state.ptvSettings.plantCity || "Neukirchen v. W.";
   elements.ptvPlantStreet.value = state.ptvSettings.plantStreet || "Gewerbepark 7";
   elements.ptvOptimizeOnUpload.checked = Boolean(state.ptvSettings.optimizeOnUpload);
+  elements.ptvStopPauseMinutes.value = state.ptvSettings.stopPauseMinutes ?? 20;
   elements.ptvPlantEndCountry.value = state.ptvSettings.plantEndCountry || state.ptvSettings.plantCountry || "DE";
   elements.ptvPlantEndPostalCode.value = state.ptvSettings.plantEndPostalCode || state.ptvSettings.plantPostalCode || "94154";
   elements.ptvPlantEndCity.value = state.ptvSettings.plantEndCity || state.ptvSettings.plantCity || "Neukirchen v. W.";
@@ -2466,10 +2468,11 @@ async function exportPtvCsv() {
   }
 
   const totalWeightTons = orders.reduce((sum, order) => sum + ptvWeightTonsNumber(order), 0);
+  const plant = ptvPlantSettings();
   const rows = [
-    ptvPlantRow(orders.length, totalWeightTons, ptvPlantSettings()),
-    ...orders.map(ptvOrderRow),
-    ptvPlantEndRow(ptvPlantSettings())
+    ptvPlantRow(orders.length, totalWeightTons, plant),
+    ...orders.map((order) => ptvOrderRow(order, plant)),
+    ptvPlantEndRow(plant)
   ];
 
   downloadCsv(rows, `ptv-avis-${todayIso()}.csv`);
@@ -2809,6 +2812,7 @@ async function savePtvSettings(event) {
       plantCity: elements.ptvPlantCity.value,
       plantStreet: elements.ptvPlantStreet.value,
       optimizeOnUpload: elements.ptvOptimizeOnUpload.checked,
+      stopPauseMinutes: elements.ptvStopPauseMinutes.value,
       plantEndCountry: elements.ptvPlantEndCountry.value,
       plantEndPostalCode: elements.ptvPlantEndPostalCode.value,
       plantEndCity: elements.ptvPlantEndCity.value,
@@ -3112,7 +3116,8 @@ function ptvPlantSettings() {
     endCountry: state.ptvSettings?.plantEndCountry || state.ptvSettings?.plantCountry || "DE",
     endPostalCode: state.ptvSettings?.plantEndPostalCode || state.ptvSettings?.plantPostalCode || "94154",
     endCity: state.ptvSettings?.plantEndCity || state.ptvSettings?.plantCity || "Neukirchen v. W.",
-    endStreet: state.ptvSettings?.plantEndStreet || state.ptvSettings?.plantStreet || "Gewerbepark 7"
+    endStreet: state.ptvSettings?.plantEndStreet || state.ptvSettings?.plantStreet || "Gewerbepark 7",
+    stopPauseMinutes: Number.isFinite(Number(state.ptvSettings?.stopPauseMinutes)) ? Math.max(0, Number(state.ptvSettings.stopPauseMinutes)) : 20
   };
 }
 
@@ -3122,7 +3127,7 @@ function ptvPlantRow(orderCount, totalWeightTons, plant) {
     postalCode: plant.postalCode,
     city: plant.city,
     street: plant.street,
-    duration: "20",
+    duration: String(plant.stopPauseMinutes ?? 20),
     comment: "Werksstandort",
     loading: formatPtvTons(totalWeightTons),
     unloading: "0",
@@ -3150,13 +3155,13 @@ function ptvPlantEndRow(plant) {
   });
 }
 
-function ptvOrderRow(order) {
+function ptvOrderRow(order, plant = ptvPlantSettings()) {
   return ptvStationRow({
     country: order.deliveryCountry || "",
     postalCode: order.deliveryPostalCode || "",
     city: order.deliveryCity || "",
     street: order.deliveryStreet || order.deliveryAddress || "",
-    duration: "20",
+    duration: String(plant.stopPauseMinutes ?? 20),
     comment: ptvComment(order),
     loading: "0",
     unloading: formatPtvTons(ptvWeightTonsNumber(order)),

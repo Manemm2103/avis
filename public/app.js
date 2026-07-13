@@ -3424,7 +3424,7 @@ function ptvPlantRow(orderCount, totalWeightTons, plant) {
     postalCode: plant.postalCode,
     city: plant.city,
     street: plant.street,
-    duration: String(plant.stopPauseMinutes ?? 20),
+    duration: "0",
     comment: "Werksstandort",
     loading: formatPtvTons(totalWeightTons),
     unloading: "0",

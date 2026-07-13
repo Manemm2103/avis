@@ -1318,7 +1318,6 @@ function buildPtvRemoteUrl(settings, orderNumbers, orders, exportEntry = null) {
 
 function ptvRemotePlantStation(settings) {
   const street = splitStreetAndHouseNumber(settings.plantStreet || "Gewerbepark 7");
-  const stopPause = ptvPauseTime(settings.stopPauseMinutes);
   const fields = [
     "places",
     "town",
@@ -1335,7 +1334,7 @@ function ptvRemotePlantStation(settings) {
     "00:00",
     "00:00",
     "0",
-    stopPause,
+    "00:00",
     "0",
     "Bayerwald"
   ];

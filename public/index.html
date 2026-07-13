@@ -163,6 +163,11 @@
               <button class="segment" data-ptv-status="all" type="button">Alle</button>
               <button class="segment" data-ptv-status="notified" type="button">Avisiert</button>
             </div>
+            <div class="segmented" role="group" aria-label="PTV Optimierung">
+              <button class="segment is-active" data-ptv-optimization="all" type="button">Alle Touren</button>
+              <button class="segment" data-ptv-optimization="exported" type="button">Nicht optimiert</button>
+              <button class="segment" data-ptv-optimization="optimized" type="button">Tour optimiert</button>
+            </div>
             <label class="filter-control">
               <span>Liefertag</span>
               <input id="ptv-filter-date" type="date">
@@ -420,7 +425,27 @@
                     <span>Werk Straße</span>
                     <input id="ptv-plant-street" name="plantStreet" placeholder="Gewerbepark 7">
                   </label>
-                  <p class="help-text wide-field">Remote-Control-Test nutzt action=in_stationlist, clearlist=1 und als ticketid die erste Auftragsnummer der PTV-Auswahlliste. Wenn hier nur Host und Port stehen, ergaenzt AVIS automatisch /api/ptv/callback fuer die Rueckgabe.</p>
+                  <label class="checkbox wide-field">
+                    <input id="ptv-optimize-on-upload" name="optimizeOnUpload" type="checkbox">
+                    <span>Nach PTV Upload automatisch Route berechnen</span>
+                  </label>
+                  <label>
+                    <span>Letzte Station Land</span>
+                    <input id="ptv-plant-end-country" name="plantEndCountry" placeholder="DE">
+                  </label>
+                  <label>
+                    <span>Letzte Station PLZ</span>
+                    <input id="ptv-plant-end-postal-code" name="plantEndPostalCode" placeholder="94154">
+                  </label>
+                  <label>
+                    <span>Letzte Station Ort</span>
+                    <input id="ptv-plant-end-city" name="plantEndCity" placeholder="Neukirchen v. W.">
+                  </label>
+                  <label>
+                    <span>Letzte Station Straße</span>
+                    <input id="ptv-plant-end-street" name="plantEndStreet" placeholder="Gewerbepark 7">
+                  </label>
+                  <p class="help-text wide-field">Remote-Control-Test nutzt action=in_stationlist oder bei aktivem Haken action=routing. Erste und letzte Station sind die Firmenadresse.</p>
                   <div class="form-actions wide-field">
                     <button class="primary" type="submit">PTV speichern</button>
                   </div>
@@ -572,7 +597,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.09.13</footer>
+      <footer class="app-footer">Version 2026.07.13.1</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -781,6 +806,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260709-ptv-export-tags" type="module"></script>
+    <script src="/app.js?v=20260713-ptv-workflow" type="module"></script>
   </body>
 </html>

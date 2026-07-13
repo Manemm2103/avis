@@ -29,6 +29,7 @@ const state = {
   bulkSelectedOrderNumbers: new Set(),
   bulkLastSelectedOrderNumber: "",
   ptvStatus: "open",
+  ptvOptimizationStatus: "all",
   ptvSearch: "",
   ptvDeliveryDate: "",
   ptvTour: "",
@@ -158,6 +159,11 @@ const elements = {
   ptvPlantPostalCode: document.querySelector("#ptv-plant-postal-code"),
   ptvPlantCity: document.querySelector("#ptv-plant-city"),
   ptvPlantStreet: document.querySelector("#ptv-plant-street"),
+  ptvOptimizeOnUpload: document.querySelector("#ptv-optimize-on-upload"),
+  ptvPlantEndCountry: document.querySelector("#ptv-plant-end-country"),
+  ptvPlantEndPostalCode: document.querySelector("#ptv-plant-end-postal-code"),
+  ptvPlantEndCity: document.querySelector("#ptv-plant-end-city"),
+  ptvPlantEndStreet: document.querySelector("#ptv-plant-end-street"),
   ptvCallbackRefresh: document.querySelector("#ptv-callback-refresh"),
   ptvCallbacks: document.querySelector("#ptv-callbacks"),
   ldapSection: document.querySelector("#ldap-settings-section"),
@@ -391,6 +397,17 @@ function bindEvents() {
       state.ptvStatus = button.dataset.ptvStatus || "open";
       document.querySelectorAll("[data-ptv-status]").forEach((item) => {
         item.classList.toggle("is-active", item.dataset.ptvStatus === state.ptvStatus);
+      });
+      reconcilePtvSelection();
+      renderPtv();
+      renderPtvExports();
+    });
+  });
+  document.querySelectorAll("[data-ptv-optimization]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.ptvOptimizationStatus = button.dataset.ptvOptimization || "all";
+      document.querySelectorAll("[data-ptv-optimization]").forEach((item) => {
+        item.classList.toggle("is-active", item.dataset.ptvOptimization === state.ptvOptimizationStatus);
       });
       reconcilePtvSelection();
       renderPtv();
@@ -933,6 +950,11 @@ async function loadPtvSettings() {
   elements.ptvPlantPostalCode.value = state.ptvSettings.plantPostalCode || "94154";
   elements.ptvPlantCity.value = state.ptvSettings.plantCity || "Neukirchen v. W.";
   elements.ptvPlantStreet.value = state.ptvSettings.plantStreet || "Gewerbepark 7";
+  elements.ptvOptimizeOnUpload.checked = Boolean(state.ptvSettings.optimizeOnUpload);
+  elements.ptvPlantEndCountry.value = state.ptvSettings.plantEndCountry || state.ptvSettings.plantCountry || "DE";
+  elements.ptvPlantEndPostalCode.value = state.ptvSettings.plantEndPostalCode || state.ptvSettings.plantPostalCode || "94154";
+  elements.ptvPlantEndCity.value = state.ptvSettings.plantEndCity || state.ptvSettings.plantCity || "Neukirchen v. W.";
+  elements.ptvPlantEndStreet.value = state.ptvSettings.plantEndStreet || state.ptvSettings.plantStreet || "Gewerbepark 7";
   await loadPtvCallbacks();
 }
 
@@ -1004,7 +1026,24 @@ function renderPtvExports() {
     return;
   }
 
-  elements.ptvExportList.innerHTML = state.ptvExports.slice(0, 12).map((item) => {
+  const exports = state.ptvExports.filter((item) => {
+    if (state.ptvOptimizationStatus === "optimized") {
+      return item.status === "ptv_optimiert";
+    }
+
+    if (state.ptvOptimizationStatus === "exported") {
+      return item.status !== "ptv_optimiert";
+    }
+
+    return true;
+  });
+
+  if (!exports.length) {
+    elements.ptvExportList.innerHTML = `<p class="help-text">Keine PTV-Exporte fuer diesen Filter vorhanden.</p>`;
+    return;
+  }
+
+  elements.ptvExportList.innerHTML = exports.slice(0, 12).map((item) => {
     const count = (item.optimizedOrderNumbers?.length || item.orderNumbers?.length || 0);
     const status = item.status === "ptv_optimiert" ? "PTV optimiert" : "Exportiert an PTV";
 
@@ -1379,6 +1418,10 @@ function ptvFilteredOrders() {
       }
 
       if (state.ptvExportId && !(order.avis.ptvExportTags || []).some((tag) => tag.id === state.ptvExportId)) {
+        return false;
+      }
+
+      if (state.ptvOptimizationStatus !== "all" && ptvOptimizationState(order) !== state.ptvOptimizationStatus) {
         return false;
       }
 
@@ -2225,6 +2268,7 @@ async function importCsvOrders(event) {
 
 function clearPtvFilters() {
   state.ptvStatus = "open";
+  state.ptvOptimizationStatus = "all";
   state.ptvSearch = "";
   state.ptvDeliveryDate = "";
   state.ptvTour = "";
@@ -2235,8 +2279,12 @@ function clearPtvFilters() {
   document.querySelectorAll("[data-ptv-status]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.ptvStatus === state.ptvStatus);
   });
+  document.querySelectorAll("[data-ptv-optimization]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.ptvOptimization === state.ptvOptimizationStatus);
+  });
   reconcilePtvSelection();
   renderPtv();
+  renderPtvExports();
 }
 
 async function exportPtvCsv() {
@@ -2252,7 +2300,8 @@ async function exportPtvCsv() {
   const totalWeightTons = orders.reduce((sum, order) => sum + ptvWeightTonsNumber(order), 0);
   const rows = [
     ptvPlantRow(orders.length, totalWeightTons, ptvPlantSettings()),
-    ...orders.map(ptvOrderRow)
+    ...orders.map(ptvOrderRow),
+    ptvPlantEndRow(ptvPlantSettings())
   ];
 
   downloadCsv(rows, `ptv-avis-${todayIso()}.csv`);
@@ -2591,7 +2640,12 @@ async function savePtvSettings(event) {
       plantCountry: elements.ptvPlantCountry.value,
       plantPostalCode: elements.ptvPlantPostalCode.value,
       plantCity: elements.ptvPlantCity.value,
-      plantStreet: elements.ptvPlantStreet.value
+      plantStreet: elements.ptvPlantStreet.value,
+      optimizeOnUpload: elements.ptvOptimizeOnUpload.checked,
+      plantEndCountry: elements.ptvPlantEndCountry.value,
+      plantEndPostalCode: elements.ptvPlantEndPostalCode.value,
+      plantEndCity: elements.ptvPlantEndCity.value,
+      plantEndStreet: elements.ptvPlantEndStreet.value
     })
   });
 
@@ -2807,12 +2861,30 @@ function ptvTagLine(order) {
   `).join("")}</span>`;
 }
 
+function ptvOptimizationState(order) {
+  const tags = order.avis?.ptvExportTags || [];
+
+  if (tags.some((tag) => tag.status === "PTV optimiert")) {
+    return "optimized";
+  }
+
+  if (tags.some((tag) => tag.status === "Exportiert an PTV")) {
+    return "exported";
+  }
+
+  return "none";
+}
+
 function ptvPlantSettings() {
   return {
     country: state.ptvSettings?.plantCountry || "DE",
     postalCode: state.ptvSettings?.plantPostalCode || "94154",
     city: state.ptvSettings?.plantCity || "Neukirchen v. W.",
-    street: state.ptvSettings?.plantStreet || "Gewerbepark 7"
+    street: state.ptvSettings?.plantStreet || "Gewerbepark 7",
+    endCountry: state.ptvSettings?.plantEndCountry || state.ptvSettings?.plantCountry || "DE",
+    endPostalCode: state.ptvSettings?.plantEndPostalCode || state.ptvSettings?.plantPostalCode || "94154",
+    endCity: state.ptvSettings?.plantEndCity || state.ptvSettings?.plantCity || "Neukirchen v. W.",
+    endStreet: state.ptvSettings?.plantEndStreet || state.ptvSettings?.plantStreet || "Gewerbepark 7"
   };
 }
 
@@ -2830,6 +2902,23 @@ function ptvPlantRow(orderCount, totalWeightTons, plant) {
     orderReference: "WERK",
     customer: "Bayerwald",
     description: `${orderCount} Auftraege beladen`
+  });
+}
+
+function ptvPlantEndRow(plant) {
+  return ptvStationRow({
+    country: plant.endCountry,
+    postalCode: plant.endPostalCode,
+    city: plant.endCity,
+    street: plant.endStreet,
+    duration: "0",
+    comment: "Rueckkehr Werk",
+    loading: "0",
+    unloading: "0",
+    id: "WERK_ENDE",
+    orderReference: "WERK_ENDE",
+    customer: "Bayerwald",
+    description: "Rueckkehr Werk"
   });
 }
 

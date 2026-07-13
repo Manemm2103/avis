@@ -1146,7 +1146,12 @@ function sanitizePtvSettings(input) {
     plantCountry: text(input.plantCountry) || "DE",
     plantPostalCode: text(input.plantPostalCode) || "94154",
     plantCity: text(input.plantCity) || "Neukirchen v. W.",
-    plantStreet: text(input.plantStreet) || "Gewerbepark 7"
+    plantStreet: text(input.plantStreet) || "Gewerbepark 7",
+    plantEndCountry: text(input.plantEndCountry) || text(input.plantCountry) || "DE",
+    plantEndPostalCode: text(input.plantEndPostalCode) || text(input.plantPostalCode) || "94154",
+    plantEndCity: text(input.plantEndCity) || text(input.plantCity) || "Neukirchen v. W.",
+    plantEndStreet: text(input.plantEndStreet) || text(input.plantStreet) || "Gewerbepark 7",
+    optimizeOnUpload: Boolean(input.optimizeOnUpload)
   };
 }
 
@@ -1188,6 +1193,11 @@ function publicPtvSettings(settings) {
     plantPostalCode: settings.plantPostalCode || "94154",
     plantCity: settings.plantCity || "Neukirchen v. W.",
     plantStreet: settings.plantStreet || "Gewerbepark 7",
+    plantEndCountry: settings.plantEndCountry || settings.plantCountry || "DE",
+    plantEndPostalCode: settings.plantEndPostalCode || settings.plantPostalCode || "94154",
+    plantEndCity: settings.plantEndCity || settings.plantCity || "Neukirchen v. W.",
+    plantEndStreet: settings.plantEndStreet || settings.plantStreet || "Gewerbepark 7",
+    optimizeOnUpload: Boolean(settings.optimizeOnUpload),
     updatedAt: settings.updatedAt || "",
     updatedBy: settings.updatedBy || ""
   };
@@ -1213,10 +1223,10 @@ function buildPtvRemoteUrl(settings, orderNumbers, orders, exportEntry = null) {
     password,
     language: "DE",
     remotetype: "routing",
-    action: "in_stationlist",
+    action: settings.optimizeOnUpload ? "routing" : "in_stationlist",
     clearlist: "1",
     ticketid: exportEntry?.id || selectedOrders[0].orderNumber,
-    num_stations: String(selectedOrders.length + 1)
+    num_stations: String(selectedOrders.length + 2)
   });
   const exportUrl = ptvCallbackUrl(settings.exportUrl);
 
@@ -1231,6 +1241,8 @@ function buildPtvRemoteUrl(settings, orderNumbers, orders, exportEntry = null) {
   selectedOrders.forEach((order, index) => {
     params.set(`s${index + 2}`, ptvRemoteStation(order));
   });
+
+  params.set(`s${selectedOrders.length + 2}`, ptvRemotePlantEndStation(settings));
 
   const url = `https://mginter.mapandguide.com/v7.10/remote/remote_control.html?${params.toString()}`;
   const warnings = [];
@@ -1269,6 +1281,32 @@ function ptvRemotePlantStation(settings) {
     "00:20",
     "0",
     "Bayerwald"
+  ];
+
+  return fields.map((field) => String(field || "").replaceAll("|", " ")).join("|");
+}
+
+function ptvRemotePlantEndStation(settings) {
+  const street = splitStreetAndHouseNumber(settings.plantEndStreet || settings.plantStreet || "Gewerbepark 7");
+  const fields = [
+    "places",
+    "town",
+    settings.plantEndCountry || settings.plantCountry || "DE",
+    settings.plantEndPostalCode || settings.plantPostalCode || "94154",
+    settings.plantEndCity || settings.plantCity || "Neukirchen v. W.",
+    "",
+    street.street,
+    street.houseNumber,
+    "WERK_ENDE",
+    "Rueckkehr Werk",
+    "",
+    "",
+    "00:00",
+    "00:00",
+    "0",
+    "00:00",
+    "0",
+    "Bayerwald Rueckkehr"
   ];
 
   return fields.map((field) => String(field || "").replaceAll("|", " ")).join("|");

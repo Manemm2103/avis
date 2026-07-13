@@ -824,6 +824,10 @@ export class LocalStore {
       throw new Error("Auftrag fehlt.");
     }
 
+    if (isOptimizedPtvExport(exportEntry)) {
+      throw new Error("Aus bereits optimierten Touren können keine einzelnen Aufträge entfernt werden.");
+    }
+
     const beforeCount = new Set([
       ...(exportEntry.orderNumbers || []),
       ...(exportEntry.optimizedOrderNumbers || [])
@@ -1048,6 +1052,12 @@ function normalizeTheme(value) {
 
 function uniqueOrderNumbers(values) {
   return [...new Set((values || []).map((value) => String(value || "").trim()).filter(Boolean))];
+}
+
+function isOptimizedPtvExport(exportEntry) {
+  return exportEntry?.status === "ptv_optimiert"
+    || exportEntry?.status === "Tour optimiert"
+    || Boolean(exportEntry?.optimizedOrderNumbers?.length);
 }
 
 function canManageMasterdata(role) {

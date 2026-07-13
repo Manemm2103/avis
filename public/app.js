@@ -1288,7 +1288,7 @@ function renderPtvExports() {
                   <strong>${escapeHtml(order.orderNumber)}</strong>
                   <span>${escapeHtml(order.customerName || "-")}</span>
                   <span>${escapeHtml([order.deliveryPostalCode, order.deliveryCity, order.deliveryStreet].filter(Boolean).join(" ") || "-")}</span>
-                  <button class="secondary danger small" data-ptv-export-id="${escapeHtml(item.id)}" data-ptv-remove-export-order="${escapeHtml(order.orderNumber)}" type="button">Entfernen</button>
+                  ${optimized ? `<span></span>` : `<button class="secondary danger small" data-ptv-export-id="${escapeHtml(item.id)}" data-ptv-remove-export-order="${escapeHtml(order.orderNumber)}" type="button">Entfernen</button>`}
                   <span class="ptv-route-info">${escapeHtml(ptvRouteInfoLine(order, item))}</span>
                 </div>
               `).join("")}
@@ -1837,6 +1837,11 @@ async function removeOrderFromPtvExport(exportId, orderNumber) {
 
   if (!entry) {
     showToast("Tourzusammenstellung nicht gefunden.");
+    return;
+  }
+
+  if (isPtvExportOptimized(entry)) {
+    showToast("Aus bereits optimierten Touren können keine einzelnen Aufträge entfernt werden.");
     return;
   }
 

@@ -1,6 +1,7 @@
 const state = {
   token: "",
   currentUser: null,
+  currentView: "orders",
   theme: "light",
   loginThemeTouched: false,
   status: "open",
@@ -43,6 +44,8 @@ const state = {
   ptvSelectedOrderNumbers: new Set(),
   ptvLastSelectedOrderNumber: "",
   ptvDraggedOrderNumber: "",
+  ptvAutoRefreshTimer: null,
+  ptvRefreshInFlight: false,
   selectedOrder: null,
   notifySelectedOrder: false,
   confirmResolve: null,
@@ -434,7 +437,17 @@ function bindEvents() {
   elements.sampleCsvButton.addEventListener("click", downloadSampleCsv);
   elements.mailSettingsForm.addEventListener("submit", saveMailSettings);
   elements.ptvSettingsForm.addEventListener("submit", savePtvSettings);
-  elements.ptvCallbackRefresh.addEventListener("click", loadPtvCallbacks);
+  elements.ptvCallbackRefresh.addEventListener("click", () => refreshPtvData());
+  window.addEventListener("focus", () => {
+    if (state.currentView === "ptv") {
+      refreshPtvData();
+    }
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && state.currentView === "ptv") {
+      refreshPtvData();
+    }
+  });
   elements.mailDemoMode.addEventListener("change", renderMailDemoState);
   elements.mailTextmarks.addEventListener("click", (event) => {
     const button = event.target.closest("[data-mail-token]");
@@ -474,11 +487,12 @@ function bindEvents() {
     });
   });
   document.querySelectorAll("[data-ptv-optimization]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       state.ptvOptimizationStatus = button.dataset.ptvOptimization || "all";
       document.querySelectorAll("[data-ptv-optimization]").forEach((item) => {
         item.classList.toggle("is-active", item.dataset.ptvOptimization === state.ptvOptimizationStatus);
       });
+      await refreshPtvData();
       renderPtvExports();
     });
   });
@@ -806,6 +820,7 @@ function showView(view) {
   const isPtv = view === "ptv";
   const isImport = view === "import";
   const isMasterdata = view === "masterdata";
+  state.currentView = view;
   elements.views.orders.hidden = !isOrders;
   elements.views.ptv.hidden = !isPtv;
   elements.views.import.hidden = !isImport;
@@ -823,6 +838,10 @@ function showView(view) {
     showPtvPage(state.ptvPage);
     reconcilePtvSelection();
     renderPtv();
+    startPtvAutoRefresh();
+    refreshPtvData();
+  } else {
+    stopPtvAutoRefresh();
   }
 }
 
@@ -833,6 +852,10 @@ function showPtvPage(page) {
   document.querySelectorAll("[data-ptv-page]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.ptvPage === state.ptvPage);
   });
+
+  if (state.currentView === "ptv") {
+    refreshPtvData();
+  }
 }
 
 function configureRoleUi() {
@@ -1048,6 +1071,47 @@ async function loadPtvSettings() {
   elements.ptvPlantEndCity.value = state.ptvSettings.plantEndCity || state.ptvSettings.plantCity || "Neukirchen v. W.";
   elements.ptvPlantEndStreet.value = state.ptvSettings.plantEndStreet || state.ptvSettings.plantStreet || "Gewerbepark 7";
   await loadPtvCallbacks();
+}
+
+async function refreshPtvData() {
+  if (!state.token || state.ptvRefreshInFlight) {
+    return;
+  }
+
+  state.ptvRefreshInFlight = true;
+
+  try {
+    await Promise.all([
+      loadPtvExports(),
+      loadPtvOrders(),
+      isAdmin() ? loadPtvCallbacks() : Promise.resolve()
+    ]);
+  } catch (error) {
+    console.warn("PTV refresh failed", error);
+  } finally {
+    state.ptvRefreshInFlight = false;
+  }
+}
+
+function startPtvAutoRefresh() {
+  if (state.ptvAutoRefreshTimer) {
+    return;
+  }
+
+  state.ptvAutoRefreshTimer = window.setInterval(() => {
+    if (state.currentView === "ptv" && !document.hidden) {
+      refreshPtvData();
+    }
+  }, 5000);
+}
+
+function stopPtvAutoRefresh() {
+  if (!state.ptvAutoRefreshTimer) {
+    return;
+  }
+
+  window.clearInterval(state.ptvAutoRefreshTimer);
+  state.ptvAutoRefreshTimer = null;
 }
 
 async function loadPtvCallbacks() {

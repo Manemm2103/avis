@@ -10,6 +10,7 @@ const state = {
   tour: "",
   driverPhoneId: "",
   orders: [],
+  ptvOrders: [],
   drivers: [],
   tours: [],
   filterTours: [],
@@ -691,6 +692,7 @@ async function enterApp() {
   }
   await loadPtvExports();
   await loadOrders();
+  await loadPtvOrders();
 }
 
 function setStatusFilter(status) {
@@ -927,8 +929,6 @@ async function loadOrders() {
     renderStats(data.summary);
     renderOrders();
     renderBulkState();
-    reconcilePtvSelection();
-    renderPtv();
   } catch (error) {
     state.orders = [];
     reconcileBulkSelection();
@@ -939,8 +939,21 @@ async function loadOrders() {
     renderStats({ total: 0, open: 0, notified: 0 });
     renderOrders(sourceErrorMessage(error));
     renderBulkState();
+  }
+}
+
+async function loadPtvOrders() {
+  try {
+    const data = await api("/api/orders?status=all");
+    state.ptvOrders = data.orders;
+    reconcilePtvSelection();
+    renderPtv();
+    renderPtvExports();
+  } catch (error) {
+    state.ptvOrders = [];
     reconcilePtvSelection();
     renderPtv(sourceErrorMessage(error));
+    renderPtvExports();
   }
 }
 
@@ -1553,7 +1566,7 @@ function clearBulkSelection() {
 function ptvFilteredOrders() {
   const query = state.ptvSearch.trim().toLowerCase();
 
-  return state.orders
+  return state.ptvOrders
     .filter((order) => {
       if (state.ptvStatus === "open" && order.avis.notified) {
         return false;
@@ -1614,19 +1627,19 @@ function ptvFilteredOrders() {
 }
 
 function selectedPtvOrderNumbers() {
-  const known = new Set(state.orders.map((order) => order.orderNumber));
+  const known = new Set(state.ptvOrders.map((order) => order.orderNumber));
   return state.ptvListOrderNumbers.filter((orderNumber) => known.has(orderNumber));
 }
 
 function ptvTargetOrders() {
-  const orderMap = new Map(state.orders.map((order) => [order.orderNumber, order]));
+  const orderMap = new Map(state.ptvOrders.map((order) => [order.orderNumber, order]));
   return selectedPtvOrderNumbers()
     .map((orderNumber) => orderMap.get(orderNumber))
     .filter(Boolean);
 }
 
 function reconcilePtvSelection() {
-  const known = new Set(state.orders.map((order) => order.orderNumber));
+  const known = new Set(state.ptvOrders.map((order) => order.orderNumber));
   state.ptvListOrderNumbers = state.ptvListOrderNumbers.filter((orderNumber) => known.has(orderNumber));
   state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
 
@@ -1735,7 +1748,7 @@ async function deletePtvExport(id) {
   }
 
   await loadPtvExports();
-  await loadOrders();
+  await loadPtvOrders();
   renderPtv();
   showToast("Tourzusammenstellung geloescht.");
 }
@@ -1817,7 +1830,7 @@ function renderTours() {
 }
 
 function renderPtvTours() {
-  const tours = [...new Set(state.orders
+  const tours = [...new Set(state.ptvOrders
     .filter((order) => !state.ptvDeliveryDate || (order.displayDeliveryDate || order.deliveryDate) === state.ptvDeliveryDate)
     .map((order) => order.displayTour || order.tour)
     .filter(Boolean))]
@@ -2204,6 +2217,7 @@ async function saveSelectedOrder(event) {
 
     closeDrawer();
     await loadOrders();
+    await loadPtvOrders();
     showToast(`${notifyAction ? "Auftrag avisiert" : "Auftrag gespeichert"}.${mailToastSuffix(result.mail)}`);
   } finally {
     state.notifySelectedOrder = false;
@@ -2259,6 +2273,7 @@ async function applyBulk(notified) {
   });
 
   await loadOrders();
+  await loadPtvOrders();
   showToast(notified ? `${result.updated} Aufträge avisiert.${mailToastSuffix(result.mail)}` : `${result.updated} Aufträge gespeichert.`);
 }
 
@@ -2294,6 +2309,7 @@ async function revokeBulkAvis() {
   });
 
   await loadOrders();
+  await loadPtvOrders();
   showToast(`${result.updated} Avisierungen zurückgenommen.`);
 }
 
@@ -2431,6 +2447,7 @@ async function deleteDriverPhone(driverId) {
 
   await loadDrivers();
   await loadOrders();
+  await loadPtvOrders();
   showToast(`Fahrertelefon gelöscht. ${result.clearedOrders || 0} Aufträge bereinigt.`);
 }
 
@@ -2446,6 +2463,7 @@ async function createLocalOrder(event) {
   closeManualOrderModal();
   await loadTours();
   await loadOrders();
+  await loadPtvOrders();
   showToast("Auftrag angelegt.");
 }
 
@@ -2473,6 +2491,7 @@ async function importCsvOrders(event) {
   elements.csvImportForm.reset();
   await loadTours();
   await loadOrders();
+  await loadPtvOrders();
   showToast(`${result.created} Aufträge importiert, ${result.skipped} übersprungen.`);
 }
 
@@ -2528,7 +2547,7 @@ async function exportPtvCsv() {
   downloadCsv(rows, `ptv-avis-${todayIso()}.csv`);
   state.ptvExportId = exportEntry.id;
   await loadPtvExports();
-  await loadOrders();
+  await loadPtvOrders();
   showToast(`${orders.length} Auftraege fuer die Tourzusammenstellung exportiert: ${exportEntry.name}.`);
 }
 
@@ -2571,7 +2590,7 @@ async function openPtvRemoteControl() {
     if (remoteWindow) {
       remoteWindow.location.href = result.url;
       await loadPtvExports();
-      await loadOrders();
+      await loadPtvOrders();
       return;
     }
 
@@ -2624,7 +2643,7 @@ async function openPtvExportRemoteControl(id) {
     if (remoteWindow) {
       remoteWindow.location.href = result.url;
       await loadPtvExports();
-      await loadOrders();
+      await loadPtvOrders();
       renderPtvExports();
       return;
     }
@@ -2755,7 +2774,7 @@ async function savePtvSequence(orderNumbers) {
     });
   }
 
-  await loadOrders();
+  await loadPtvOrders();
 }
 
 function downloadCsv(rows, filename) {
@@ -2842,6 +2861,7 @@ async function deleteLocalOrder(orderNumber) {
 
   await loadTours();
   await loadOrders();
+  await loadPtvOrders();
   showToast("Auftrag gelöscht.");
 }
 
@@ -2865,6 +2885,7 @@ async function revokeOrderAvis(orderNumber) {
   });
 
   await loadOrders();
+  await loadPtvOrders();
   showToast("Avisierung zurückgenommen.");
 }
 
@@ -2887,6 +2908,7 @@ async function saveSqlSettings(event) {
   await loadSqlSettings();
   await loadTours();
   await loadOrders();
+  await loadPtvOrders();
   showToast("SQL-Abfragen gespeichert.");
 }
 
@@ -3185,7 +3207,7 @@ function dateOnly(value) {
 }
 
 function ptvExportOrders(item) {
-  const orderMap = new Map(state.orders.map((order) => [order.orderNumber, order]));
+  const orderMap = new Map(state.ptvOrders.map((order) => [order.orderNumber, order]));
   const orderNumbers = item.optimizedOrderNumbers?.length ? item.optimizedOrderNumbers : item.orderNumbers || [];
 
   return orderNumbers
@@ -3214,7 +3236,7 @@ function ptvExportSearchText(item) {
 }
 
 function ptvExistingExportForOrder(orderNumber) {
-  const order = state.orders.find((item) => item.orderNumber === orderNumber);
+  const order = state.ptvOrders.find((item) => item.orderNumber === orderNumber);
   const tags = order?.avis?.ptvExportTags || [];
 
   for (const tag of tags) {
@@ -3364,7 +3386,7 @@ function formatPtvTons(value) {
 
 function extractPtvOrderNumbers(content) {
   const rows = parseCsvRows(content);
-  const known = new Set(state.orders.map((order) => order.orderNumber));
+  const known = new Set(state.ptvOrders.map((order) => order.orderNumber));
   const result = [];
   const seen = new Set();
 

@@ -1664,12 +1664,15 @@ function ptvOrderNumberFromStop(item, knownOrderNumbers) {
 function ptvRouteInfoFromStop(item, routeStartSeconds) {
   const stationInfo = Array.isArray(item.stationTourInfo) ? item.stationTourInfo[0] || {} : {};
   const itemTimestamp = Number(item.timeStamp);
+  const stopStartSeconds = Number.isFinite(itemTimestamp) ? itemTimestamp : routeStartSeconds;
 
   return {
     arrivalAt: ptvIsoTime(itemTimestamp, 0) || ptvIsoTime(stationInfo.arrivalTime, routeStartSeconds),
-    serviceStartAt: ptvIsoTime(stationInfo.startOfService, routeStartSeconds),
-    serviceEndAt: ptvIsoTime(stationInfo.endOfService, routeStartSeconds),
-    departureAt: ptvIsoTime(stationInfo.departureTimeRoute, routeStartSeconds) || ptvIsoTime(stationInfo.departureTime, routeStartSeconds),
+    serviceStartAt: ptvRelativeIsoTime(stationInfo.startOfService, stopStartSeconds),
+    serviceEndAt: ptvRelativeIsoTime(stationInfo.endOfService, stopStartSeconds),
+    departureAt: ptvRelativeIsoTime(stationInfo.departureTime, stopStartSeconds)
+      || ptvRelativeIsoTime(stationInfo.period, stopStartSeconds)
+      || ptvIsoTime(itemTimestamp, 0),
     travelTimeSeconds: safeNumber(item.travelTime),
     legTravelTimeSeconds: safeNumber(item.differentialTravelTime),
     distanceMeters: safeNumber(item.distance),
@@ -1677,6 +1680,17 @@ function ptvRouteInfoFromStop(item, routeStartSeconds) {
     stopOffIndex: safeNumber(item.stopOffIndex),
     source: "ptv"
   };
+}
+
+function ptvRelativeIsoTime(value, baseSeconds) {
+  const seconds = Number(value);
+  const base = Number(baseSeconds);
+
+  if (!Number.isFinite(seconds) || !Number.isFinite(base) || base <= 0) {
+    return "";
+  }
+
+  return new Date((base + seconds) * 1000).toISOString();
 }
 
 function ptvIsoTime(value, routeStartSeconds) {

@@ -224,6 +224,17 @@ app.post("/api/ptv/exports", async (request, response) => {
   }
 });
 
+app.delete("/api/ptv/exports/:id", async (request, response) => {
+  try {
+    response.json(await store.deletePtvExport(request.params.id));
+  } catch (error) {
+    response.status(400).json({
+      error: "PTV_EXPORT_DELETE_FAILED",
+      message: error.message
+    });
+  }
+});
+
 app.get("/api/orders", async (request, response) => {
   try {
     const source = await loadSourceOrders();

@@ -29,6 +29,7 @@ const state = {
   bulkSelectedOrderNumbers: new Set(),
   bulkLastSelectedOrderNumber: "",
   ptvStatus: "open",
+  ptvPage: "assemblies",
   ptvOptimizationStatus: "all",
   ptvSearch: "",
   ptvDeliveryDate: "",
@@ -91,6 +92,8 @@ const elements = {
   bulkRevoke: document.querySelector("#bulk-revoke"),
   bulkHint: document.querySelector("#bulk-hint"),
   ptvFilterDate: document.querySelector("#ptv-filter-date"),
+  ptvAssembliesPage: document.querySelector("#ptv-assemblies-page"),
+  ptvOrdersPage: document.querySelector("#ptv-orders-page"),
   ptvFilterTour: document.querySelector("#ptv-filter-tour"),
   ptvFilterExport: document.querySelector("#ptv-filter-export"),
   ptvSearchInput: document.querySelector("#ptv-search-input"),
@@ -341,8 +344,17 @@ function bindEvents() {
   elements.ptvOpenRemote.addEventListener("click", openPtvRemoteControl);
   elements.ptvExport.addEventListener("click", exportPtvCsv);
   elements.ptvImportFile.addEventListener("change", importPtvSequence);
+  document.querySelectorAll("[data-ptv-page]").forEach((button) => {
+    button.addEventListener("click", () => showPtvPage(button.dataset.ptvPage || "assemblies"));
+  });
   elements.ptvExportList.addEventListener("click", (event) => {
+    const deleteButton = event.target.closest("[data-ptv-delete-export]");
     const button = event.target.closest("[data-ptv-load-export]");
+
+    if (deleteButton) {
+      deletePtvExport(deleteButton.dataset.ptvDeleteExport);
+      return;
+    }
 
     if (button) {
       loadPtvExport(button.dataset.ptvLoadExport);
@@ -750,9 +762,19 @@ function showView(view) {
   }
 
   if (isPtv) {
+    showPtvPage(state.ptvPage);
     reconcilePtvSelection();
     renderPtv();
   }
+}
+
+function showPtvPage(page) {
+  state.ptvPage = page === "orders" ? "orders" : "assemblies";
+  elements.ptvAssembliesPage.hidden = state.ptvPage !== "assemblies";
+  elements.ptvOrdersPage.hidden = state.ptvPage !== "orders";
+  document.querySelectorAll("[data-ptv-page]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.ptvPage === state.ptvPage);
+  });
 }
 
 function configureRoleUi() {
@@ -1008,7 +1030,7 @@ function renderPtvExportControls() {
     <option value="${escapeHtml(item.id)}" ${item.id === state.ptvExportId ? "selected" : ""}>${escapeHtml(item.name)}${item.status === "ptv_optimiert" ? " - PTV optimiert" : ""}</option>
   `).join("");
 
-  elements.ptvFilterExport.innerHTML = `<option value="">Alle Exporte</option>${options}`;
+  elements.ptvFilterExport.innerHTML = `<option value="">Alle Zusammenstellungen</option>${options}`;
 
   if (state.ptvExportId && !state.ptvExports.some((item) => item.id === state.ptvExportId)) {
     state.ptvExportId = "";
@@ -1022,7 +1044,7 @@ function renderPtvExports() {
   }
 
   if (!state.ptvExports.length) {
-    elements.ptvExportList.innerHTML = `<p class="help-text">Noch keine PTV-Exporte vorhanden.</p>`;
+    elements.ptvExportList.innerHTML = `<p class="help-text">Noch keine Tourzusammenstellungen vorhanden.</p>`;
     return;
   }
 
@@ -1039,13 +1061,13 @@ function renderPtvExports() {
   });
 
   if (!exports.length) {
-    elements.ptvExportList.innerHTML = `<p class="help-text">Keine PTV-Exporte fuer diesen Filter vorhanden.</p>`;
+    elements.ptvExportList.innerHTML = `<p class="help-text">Keine Tourzusammenstellungen fuer diesen Filter vorhanden.</p>`;
     return;
   }
 
-  elements.ptvExportList.innerHTML = exports.slice(0, 12).map((item) => {
+  elements.ptvExportList.innerHTML = exports.map((item) => {
     const count = (item.optimizedOrderNumbers?.length || item.orderNumbers?.length || 0);
-    const status = item.status === "ptv_optimiert" ? "PTV optimiert" : "Exportiert an PTV";
+    const status = item.status === "ptv_optimiert" ? "Tour optimiert" : "Tourzusammenstellung";
 
     return `
       <div class="ptv-export-card">
@@ -1053,7 +1075,10 @@ function renderPtvExports() {
           <strong>${escapeHtml(item.name)}</strong>
           <span class="sub-text">${escapeHtml(status)} · ${count} Auftraege · ${formatDateTime(item.updatedAt || item.createdAt)}</span>
         </div>
-        <button class="secondary small" data-ptv-load-export="${escapeHtml(item.id)}" type="button">Oeffnen</button>
+        <div class="row-actions">
+          <button class="secondary small" data-ptv-load-export="${escapeHtml(item.id)}" type="button">Oeffnen</button>
+          <button class="secondary danger small" data-ptv-delete-export="${escapeHtml(item.id)}" type="button">Loeschen</button>
+        </div>
       </div>
     `;
   }).join("");
@@ -1525,7 +1550,7 @@ function loadPtvExport(id) {
   const entry = state.ptvExports.find((item) => item.id === id);
 
   if (!entry) {
-    showToast("PTV-Export nicht gefunden.");
+    showToast("Tourzusammenstellung nicht gefunden.");
     return;
   }
 
@@ -1536,7 +1561,38 @@ function loadPtvExport(id) {
   state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
   state.ptvLastSelectedOrderNumber = "";
   renderPtv();
-  showToast(`PTV-Export geoeffnet: ${entry.name}.`);
+  showToast(`Tourzusammenstellung geoeffnet: ${entry.name}.`);
+}
+
+async function deletePtvExport(id) {
+  const entry = state.ptvExports.find((item) => item.id === id);
+
+  if (!entry) {
+    showToast("Tourzusammenstellung nicht gefunden.");
+    return;
+  }
+
+  const confirmed = await requestConfirm(`Soll die Tourzusammenstellung "${entry.name}" wirklich geloescht werden? Die Tags an den Auftraegen werden entfernt.`);
+
+  if (!confirmed) {
+    return;
+  }
+
+  await api(`/api/ptv/exports/${encodeURIComponent(id)}`, {
+    method: "DELETE"
+  });
+
+  if (state.ptvExportId === id) {
+    state.ptvExportId = "";
+    state.ptvListOrderNumbers = [];
+    state.ptvSelectedOrderNumbers.clear();
+    elements.ptvExportName.value = "";
+  }
+
+  await loadPtvExports();
+  await loadOrders();
+  renderPtv();
+  showToast("Tourzusammenstellung geloescht.");
 }
 
 function addPtvListOrder(orderNumber) {
@@ -2291,7 +2347,7 @@ async function exportPtvCsv() {
   const orders = ptvTargetOrders();
 
   if (orders.length === 0) {
-    showToast("Keine Auftraege fuer den PTV-Export gefunden.");
+    showToast("Keine Auftraege fuer die Tourzusammenstellung gefunden.");
     return;
   }
 
@@ -2308,7 +2364,7 @@ async function exportPtvCsv() {
   state.ptvExportId = exportEntry.id;
   await loadPtvExports();
   await loadOrders();
-  showToast(`${orders.length} Auftraege fuer PTV exportiert: ${exportEntry.name}.`);
+  showToast(`${orders.length} Auftraege fuer die Tourzusammenstellung exportiert: ${exportEntry.name}.`);
 }
 
 async function openPtvRemoteControl() {
@@ -2381,7 +2437,7 @@ async function createPtvExportRecord(orderNumbers) {
 
 function ptvExportName() {
   return elements.ptvExportName.value.trim()
-    || [state.ptvTour || "PTV Export", state.ptvDeliveryDate || todayIso()].join(" ");
+    || [state.ptvTour || "Tourzusammenstellung", state.ptvDeliveryDate || todayIso()].join(" ");
 }
 
 async function importPtvSequence(event) {
@@ -2856,19 +2912,25 @@ function ptvTagLine(order) {
     return "";
   }
 
-  return `<span class="tag-list">${tags.slice(-2).map((tag) => `
-    <span class="ptv-tag ${tag.status === "PTV optimiert" ? "is-optimized" : ""}">${escapeHtml(tag.status)}: ${escapeHtml(tag.name)}</span>
-  `).join("")}</span>`;
+  return `<span class="tag-list">${tags.slice(-2).map((tag) => {
+    const label = tag.status === "PTV optimiert" || tag.status === "Tour optimiert"
+      ? "Tour optimiert"
+      : "Tourzusammenstellung";
+
+    return `
+    <span class="ptv-tag ${label === "Tour optimiert" ? "is-optimized" : ""}">${escapeHtml(label)}: ${escapeHtml(tag.name)}</span>
+  `;
+  }).join("")}</span>`;
 }
 
 function ptvOptimizationState(order) {
   const tags = order.avis?.ptvExportTags || [];
 
-  if (tags.some((tag) => tag.status === "PTV optimiert")) {
+  if (tags.some((tag) => tag.status === "PTV optimiert" || tag.status === "Tour optimiert")) {
     return "optimized";
   }
 
-  if (tags.some((tag) => tag.status === "Exportiert an PTV")) {
+  if (tags.some((tag) => tag.status === "Exportiert an PTV" || tag.status === "Tourzusammenstellung")) {
     return "exported";
   }
 

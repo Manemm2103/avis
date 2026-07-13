@@ -724,7 +724,7 @@ export class LocalStore {
     const orderNumbers = uniqueOrderNumbers(input.orderNumbers);
     const entry = {
       id: crypto.randomUUID(),
-      name: String(input.name || "").trim() || `PTV Export ${new Date().toLocaleString("de-DE")}`,
+      name: String(input.name || "").trim() || `Tourzusammenstellung ${new Date().toLocaleString("de-DE")}`,
       status: "exportiert",
       orderNumbers,
       optimizedOrderNumbers: [],
@@ -757,6 +757,34 @@ export class LocalStore {
     return exportEntry;
   }
 
+  async deletePtvExport(id) {
+    const index = this.state.ptvExports.findIndex((item) => item.id === id);
+
+    if (index === -1) {
+      throw new Error("Tourzusammenstellung nicht gefunden.");
+    }
+
+    const [deleted] = this.state.ptvExports.splice(index, 1);
+
+    for (const [orderNumber, avis] of Object.entries(this.state.avisByOrder)) {
+      const tags = Array.isArray(avis?.ptvExportTags)
+        ? avis.ptvExportTags.filter((tag) => tag.id !== id)
+        : [];
+
+      if (tags.length === (avis?.ptvExportTags || []).length) {
+        continue;
+      }
+
+      this.state.avisByOrder[orderNumber] = {
+        ...avis,
+        ptvExportTags: tags
+      };
+    }
+
+    await this.save();
+    return deleted;
+  }
+
   async applyPtvExportTags(exportEntry, actor, optimized) {
     const now = new Date().toISOString();
     const actorName = actor?.displayName || actor?.username || "PTV Rueckgabe";
@@ -772,7 +800,7 @@ export class LocalStore {
       const tag = {
         id: exportEntry.id,
         name: exportEntry.name,
-        status: optimized ? "PTV optimiert" : "Exportiert an PTV",
+        status: optimized ? "Tour optimiert" : "Tourzusammenstellung",
         exportedAt: exportEntry.createdAt,
         optimizedAt: optimized ? now : exportTags[tagIndex]?.optimizedAt || ""
       };

@@ -617,6 +617,10 @@ select:disabled {
   margin-bottom: 16px;
 }
 
+.ptv-page-tabs {
+  margin-bottom: 14px;
+}
+
 .ptv-export-card {
   display: flex;
   align-items: center;

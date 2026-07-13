@@ -155,18 +155,41 @@
 
         <section id="ptv-view" class="view" hidden>
           <div class="page-heading">
-            <h2>PTV Map&Guide</h2>
+            <h2>Tourzusammenstellung</h2>
           </div>
-          <div class="toolbar">
+          <div class="segmented ptv-page-tabs" role="group" aria-label="Tourzusammenstellung Ansicht">
+            <button class="segment is-active" data-ptv-page="assemblies" type="button">Tourzusammenstellungen</button>
+            <button class="segment" data-ptv-page="orders" type="button">Aufträge auswählen</button>
+          </div>
+
+          <div id="ptv-assemblies-page">
+            <div class="toolbar">
+              <div class="segmented" role="group" aria-label="Tour Optimierung">
+                <button class="segment is-active" data-ptv-optimization="all" type="button">Alle Touren</button>
+                <button class="segment" data-ptv-optimization="exported" type="button">Nicht optimiert</button>
+                <button class="segment" data-ptv-optimization="optimized" type="button">Tour optimiert</button>
+              </div>
+              <label class="filter-control wide">
+                <span>Tourzusammenstellung</span>
+                <select id="ptv-filter-export">
+                  <option value="">Alle Zusammenstellungen</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="ptv-section-heading">
+              <h3>Tourzusammenstellungen</h3>
+              <p class="help-text">Gespeicherte Zusammenstellungen koennen wieder geoeffnet oder geloescht werden. Rueckimporte aus PTV werden als Tour optimiert markiert.</p>
+            </div>
+            <div class="ptv-export-list" id="ptv-export-list"></div>
+          </div>
+
+          <div id="ptv-orders-page" hidden>
+            <div class="toolbar">
             <div class="segmented" role="group" aria-label="PTV Avis Status">
               <button class="segment is-active" data-ptv-status="open" type="button">Nicht avisiert</button>
               <button class="segment" data-ptv-status="all" type="button">Alle</button>
               <button class="segment" data-ptv-status="notified" type="button">Avisiert</button>
-            </div>
-            <div class="segmented" role="group" aria-label="PTV Optimierung">
-              <button class="segment is-active" data-ptv-optimization="all" type="button">Alle Touren</button>
-              <button class="segment" data-ptv-optimization="exported" type="button">Nicht optimiert</button>
-              <button class="segment" data-ptv-optimization="optimized" type="button">Tour optimiert</button>
             </div>
             <label class="filter-control">
               <span>Liefertag</span>
@@ -182,40 +205,28 @@
               <span>Suchen</span>
               <input id="ptv-search-input" type="search" autocomplete="off" placeholder="Auftrag, Kunde, Ort">
             </label>
-            <label class="filter-control wide">
-              <span>PTV Export</span>
-              <select id="ptv-filter-export">
-                <option value="">Alle Exporte</option>
-              </select>
-            </label>
             <button class="secondary" id="ptv-clear-filters" type="button">Filter löschen</button>
           </div>
 
-          <div class="bulk-panel">
+            <div class="bulk-panel">
             <div class="ptv-actions">
               <div>
                 <strong id="ptv-count">0 Aufträge</strong>
                 <span class="bulk-subline" id="ptv-subline">im aktuellen Filter</span>
               </div>
               <label class="filter-control wide">
-                <span>Exportname</span>
+                <span>Name der Tourzusammenstellung</span>
                 <input id="ptv-export-name" type="text" autocomplete="off" placeholder="z. B. Tour T09 09.07.2026">
               </label>
               <button class="secondary" id="ptv-clear-selection" type="button" hidden>Auswahl aufheben</button>
               <button class="secondary" id="ptv-open-remote" type="button">In PTV öffnen</button>
-              <button class="primary" id="ptv-export" type="button">PTV CSV exportieren</button>
+              <button class="primary" id="ptv-export" type="button">CSV für PTV</button>
               <label class="secondary file-button">
                 <span>PTV Reihenfolge importieren</span>
                 <input id="ptv-import-file" type="file" accept=".csv,.txt,text/csv,text/plain">
               </label>
             </div>
           </div>
-
-          <div class="ptv-section-heading">
-            <h3>PTV-Exporte</h3>
-            <p class="help-text">Gespeicherte Exporte koennen wieder geoeffnet werden. Rueckimporte aus PTV werden als PTV optimiert markiert.</p>
-          </div>
-          <div class="ptv-export-list" id="ptv-export-list"></div>
 
           <div class="ptv-section-heading">
             <h3>AuftrÃ¤ge auswÃ¤hlen</h3>
@@ -257,6 +268,7 @@
               </thead>
               <tbody id="ptv-list-body"></tbody>
             </table>
+          </div>
           </div>
         </section>
 
@@ -597,7 +609,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.13.1</footer>
+      <footer class="app-footer">Version 2026.07.13.2</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">

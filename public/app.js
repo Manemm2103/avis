@@ -32,6 +32,9 @@ const state = {
   ptvPage: "assemblies",
   ptvOptimizationStatus: "all",
   ptvSearch: "",
+  ptvAssemblySearch: "",
+  ptvAssemblyDate: "",
+  ptvExpandedExportId: "",
   ptvDeliveryDate: "",
   ptvTour: "",
   ptvExportId: "",
@@ -95,7 +98,8 @@ const elements = {
   ptvAssembliesPage: document.querySelector("#ptv-assemblies-page"),
   ptvOrdersPage: document.querySelector("#ptv-orders-page"),
   ptvFilterTour: document.querySelector("#ptv-filter-tour"),
-  ptvFilterExport: document.querySelector("#ptv-filter-export"),
+  ptvAssemblySearch: document.querySelector("#ptv-assembly-search"),
+  ptvAssemblyDate: document.querySelector("#ptv-assembly-date"),
   ptvSearchInput: document.querySelector("#ptv-search-input"),
   ptvClearFilters: document.querySelector("#ptv-clear-filters"),
   ptvCount: document.querySelector("#ptv-count"),
@@ -329,10 +333,13 @@ function bindEvents() {
     reconcilePtvSelection();
     renderPtv();
   });
-  elements.ptvFilterExport.addEventListener("change", () => {
-    state.ptvExportId = elements.ptvFilterExport.value;
-    reconcilePtvSelection();
-    renderPtv();
+  elements.ptvAssemblySearch.addEventListener("input", debounce(() => {
+    state.ptvAssemblySearch = elements.ptvAssemblySearch.value;
+    renderPtvExports();
+  }, 150));
+  elements.ptvAssemblyDate.addEventListener("change", () => {
+    state.ptvAssemblyDate = elements.ptvAssemblyDate.value;
+    renderPtvExports();
   });
   elements.ptvSearchInput.addEventListener("input", debounce(() => {
     state.ptvSearch = elements.ptvSearchInput.value;
@@ -349,15 +356,16 @@ function bindEvents() {
   });
   elements.ptvExportList.addEventListener("click", (event) => {
     const deleteButton = event.target.closest("[data-ptv-delete-export]");
-    const button = event.target.closest("[data-ptv-load-export]");
+    const card = event.target.closest("[data-ptv-export-card]");
 
     if (deleteButton) {
+      event.stopPropagation();
       deletePtvExport(deleteButton.dataset.ptvDeleteExport);
       return;
     }
 
-    if (button) {
-      loadPtvExport(button.dataset.ptvLoadExport);
+    if (card) {
+      togglePtvExportDetails(card.dataset.ptvExportCard);
     }
   });
   elements.masterdataTabs.forEach((button) => {
@@ -421,8 +429,7 @@ function bindEvents() {
       document.querySelectorAll("[data-ptv-optimization]").forEach((item) => {
         item.classList.toggle("is-active", item.dataset.ptvOptimization === state.ptvOptimizationStatus);
       });
-      reconcilePtvSelection();
-      renderPtv();
+      renderPtvExports();
     });
   });
 
@@ -1038,7 +1045,7 @@ function renderPtvExportControls() {
   }
 }
 
-function renderPtvExports() {
+function renderPtvExportsLegacy() {
   if (!elements.ptvExportList) {
     return;
   }
@@ -1080,6 +1087,76 @@ function renderPtvExports() {
           <button class="secondary danger small" data-ptv-delete-export="${escapeHtml(item.id)}" type="button">Loeschen</button>
         </div>
       </div>
+    `;
+  }).join("");
+}
+
+function renderPtvExports() {
+  if (!elements.ptvExportList) {
+    return;
+  }
+
+  if (!state.ptvExports.length) {
+    elements.ptvExportList.innerHTML = `<p class="help-text">Noch keine Tourzusammenstellungen vorhanden.</p>`;
+    return;
+  }
+
+  const query = state.ptvAssemblySearch.trim().toLowerCase();
+  const exports = state.ptvExports
+    .filter((item) => {
+      if (state.ptvOptimizationStatus === "optimized") {
+        return isPtvExportOptimized(item);
+      }
+
+      if (state.ptvOptimizationStatus === "exported") {
+        return !isPtvExportOptimized(item);
+      }
+
+      return true;
+    })
+    .filter((item) => {
+      if (state.ptvAssemblyDate && dateOnly(item.createdAt) !== state.ptvAssemblyDate) {
+        return false;
+      }
+
+      return !query || ptvExportSearchText(item).includes(query);
+    });
+
+  if (!exports.length) {
+    elements.ptvExportList.innerHTML = `<p class="help-text">Keine Tourzusammenstellungen fuer diesen Filter vorhanden.</p>`;
+    return;
+  }
+
+  elements.ptvExportList.innerHTML = exports.map((item) => {
+    const count = (item.optimizedOrderNumbers?.length || item.orderNumbers?.length || 0);
+    const status = isPtvExportOptimized(item) ? "Tour optimiert" : "Nicht optimiert";
+    const expanded = state.ptvExpandedExportId === item.id;
+    const orders = ptvExportOrders(item);
+
+    return `
+      <article class="ptv-export-card ${expanded ? "is-expanded" : ""}" data-ptv-export-card="${escapeHtml(item.id)}">
+        <div class="ptv-export-card-main">
+          <strong>${escapeHtml(item.name)}</strong>
+          <span class="sub-text">${escapeHtml(status)} - ${count} Auftraege - ${formatDateTime(item.updatedAt || item.createdAt)}</span>
+        </div>
+        <div class="row-actions">
+          <button class="secondary danger small" data-ptv-delete-export="${escapeHtml(item.id)}" type="button">Loeschen</button>
+        </div>
+        <div class="ptv-export-details" ${expanded ? "" : "hidden"}>
+          ${orders.length ? `
+            <div class="ptv-export-order-list">
+              ${orders.map((order, index) => `
+                <div class="ptv-export-order-row">
+                  <span class="sequence-pill">${index + 1}</span>
+                  <strong>${escapeHtml(order.orderNumber)}</strong>
+                  <span>${escapeHtml(order.customerName || "-")}</span>
+                  <span>${escapeHtml([order.deliveryPostalCode, order.deliveryCity, order.deliveryStreet].filter(Boolean).join(" ") || "-")}</span>
+                </div>
+              `).join("")}
+            </div>
+          ` : `<p class="help-text">Keine Auftraege in dieser Tourzusammenstellung gefunden.</p>`}
+        </div>
+      </article>
     `;
   }).join("");
 }
@@ -1446,10 +1523,6 @@ function ptvFilteredOrders() {
         return false;
       }
 
-      if (state.ptvOptimizationStatus !== "all" && ptvOptimizationState(order) !== state.ptvOptimizationStatus) {
-        return false;
-      }
-
       if (!query) {
         return true;
       }
@@ -1555,13 +1628,33 @@ function loadPtvExport(id) {
   }
 
   state.ptvExportId = entry.id;
-  elements.ptvFilterExport.value = entry.id;
   elements.ptvExportName.value = entry.name || "";
   state.ptvListOrderNumbers = [...(entry.optimizedOrderNumbers?.length ? entry.optimizedOrderNumbers : entry.orderNumbers || [])];
   state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
   state.ptvLastSelectedOrderNumber = "";
   renderPtv();
   showToast(`Tourzusammenstellung geoeffnet: ${entry.name}.`);
+}
+
+function togglePtvExportDetails(id) {
+  const entry = state.ptvExports.find((item) => item.id === id);
+
+  if (!entry) {
+    return;
+  }
+
+  state.ptvExpandedExportId = state.ptvExpandedExportId === id ? "" : id;
+
+  if (state.ptvExpandedExportId) {
+    state.ptvExportId = entry.id;
+    elements.ptvExportName.value = entry.name || "";
+    state.ptvListOrderNumbers = [...(entry.optimizedOrderNumbers?.length ? entry.optimizedOrderNumbers : entry.orderNumbers || [])];
+    state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
+    state.ptvLastSelectedOrderNumber = "";
+    renderPtv();
+  }
+
+  renderPtvExports();
 }
 
 async function deletePtvExport(id) {
@@ -1596,9 +1689,18 @@ async function deletePtvExport(id) {
 }
 
 function addPtvListOrder(orderNumber) {
+  const existing = ptvExistingExportForOrder(orderNumber);
+
+  if (existing && existing.id !== state.ptvExportId) {
+    showToast(`Auftrag ${orderNumber} ist bereits in der Tourzusammenstellung "${existing.name}".`);
+    return false;
+  }
+
   if (!state.ptvListOrderNumbers.includes(orderNumber)) {
     state.ptvListOrderNumbers.push(orderNumber);
   }
+
+  return true;
 }
 
 function togglePtvListOrder(orderNumber) {
@@ -1607,7 +1709,7 @@ function togglePtvListOrder(orderNumber) {
     return;
   }
 
-  state.ptvListOrderNumbers.push(orderNumber);
+  addPtvListOrder(orderNumber);
 }
 
 function removePtvListOrder(orderNumber) {
@@ -2329,9 +2431,12 @@ function clearPtvFilters() {
   state.ptvDeliveryDate = "";
   state.ptvTour = "";
   state.ptvExportId = "";
+  state.ptvAssemblySearch = "";
+  state.ptvAssemblyDate = "";
   elements.ptvSearchInput.value = "";
   elements.ptvFilterDate.value = "";
-  elements.ptvFilterExport.value = "";
+  elements.ptvAssemblySearch.value = "";
+  elements.ptvAssemblyDate.value = "";
   document.querySelectorAll("[data-ptv-status]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.ptvStatus === state.ptvStatus);
   });
@@ -2351,7 +2456,14 @@ async function exportPtvCsv() {
     return;
   }
 
-  const exportEntry = await createPtvExportRecord(orders.map((order) => order.orderNumber));
+  let exportEntry;
+
+  try {
+    exportEntry = await createPtvExportRecord(orders.map((order) => order.orderNumber));
+  } catch (error) {
+    showToast(error.message || "Tourzusammenstellung konnte nicht erstellt werden.");
+    return;
+  }
 
   const totalWeightTons = orders.reduce((sum, order) => sum + ptvWeightTonsNumber(order), 0);
   const rows = [
@@ -2401,7 +2513,6 @@ async function openPtvRemoteControl() {
 
     if (result.export?.id) {
       state.ptvExportId = result.export.id;
-      elements.ptvFilterExport.value = result.export.id;
     }
 
     if (remoteWindow) {
@@ -2846,7 +2957,10 @@ function formToOrder(form) {
     deliveryDate: form.get("deliveryDate"),
     tour: form.get("tour"),
     driverPhoneId: form.get("driverPhoneId"),
-    deliveryAddress: form.get("deliveryAddress"),
+    deliveryCountry: form.get("deliveryCountry"),
+    deliveryPostalCode: form.get("deliveryPostalCode"),
+    deliveryStreet: form.get("deliveryStreet"),
+    deliveryCity: form.get("deliveryCity"),
     eprodStorageLocation: form.get("eprodStorageLocation"),
     sourcePhone: form.get("sourcePhone"),
     sourceEmail: form.get("sourceEmail")
@@ -2921,6 +3035,58 @@ function ptvTagLine(order) {
     <span class="ptv-tag ${label === "Tour optimiert" ? "is-optimized" : ""}">${escapeHtml(label)}: ${escapeHtml(tag.name)}</span>
   `;
   }).join("")}</span>`;
+}
+
+function isPtvExportOptimized(item) {
+  return item.status === "ptv_optimiert" || item.status === "Tour optimiert" || Boolean(item.optimizedOrderNumbers?.length);
+}
+
+function dateOnly(value) {
+  return String(value || "").slice(0, 10);
+}
+
+function ptvExportOrders(item) {
+  const orderMap = new Map(state.orders.map((order) => [order.orderNumber, order]));
+  const orderNumbers = item.optimizedOrderNumbers?.length ? item.optimizedOrderNumbers : item.orderNumbers || [];
+
+  return orderNumbers
+    .map((orderNumber) => orderMap.get(orderNumber))
+    .filter(Boolean);
+}
+
+function ptvExportSearchText(item) {
+  return [
+    item.name,
+    item.createdAt,
+    item.updatedAt,
+    ...ptvExportOrders(item).flatMap((order) => [
+      order.orderNumber,
+      order.customerNumber,
+      order.customerName,
+      order.commission,
+      order.deliveryAddress,
+      order.deliveryCountry,
+      order.deliveryPostalCode,
+      order.deliveryCity,
+      order.deliveryStreet,
+      order.displayTour || order.tour
+    ])
+  ].join(" ").toLowerCase();
+}
+
+function ptvExistingExportForOrder(orderNumber) {
+  const order = state.orders.find((item) => item.orderNumber === orderNumber);
+  const tags = order?.avis?.ptvExportTags || [];
+
+  for (const tag of tags) {
+    const entry = state.ptvExports.find((item) => item.id === tag.id);
+
+    if (entry) {
+      return entry;
+    }
+  }
+
+  return null;
 }
 
 function ptvOptimizationState(order) {

@@ -622,20 +622,45 @@ select:disabled {
 }
 
 .ptv-export-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
+  cursor: pointer;
 }
 
-.ptv-export-card > div {
+.ptv-export-card.is-expanded {
+  border-color: var(--accent);
+}
+
+.ptv-export-card-main {
   display: grid;
   gap: 3px;
   min-width: 0;
+}
+
+.ptv-export-details {
+  grid-column: 1 / -1;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.ptv-export-order-list {
+  display: grid;
+  gap: 6px;
+}
+
+.ptv-export-order-row {
+  display: grid;
+  grid-template-columns: 44px 120px minmax(160px, 1fr) minmax(220px, 1.2fr);
+  gap: 10px;
+  align-items: center;
+  padding: 7px 8px;
+  border-radius: 6px;
+  background: var(--muted);
 }
 
 .tag-list {

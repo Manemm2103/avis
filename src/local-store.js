@@ -722,6 +722,12 @@ export class LocalStore {
   async createPtvExport(input, actor) {
     const now = new Date().toISOString();
     const orderNumbers = uniqueOrderNumbers(input.orderNumbers);
+    const duplicate = this.findPtvExportDuplicate(orderNumbers);
+
+    if (duplicate) {
+      throw new Error(`Auftrag ${duplicate.orderNumber} ist bereits in der Tourzusammenstellung "${duplicate.name}".`);
+    }
+
     const entry = {
       id: crypto.randomUUID(),
       name: String(input.name || "").trim() || `Tourzusammenstellung ${new Date().toLocaleString("de-DE")}`,
@@ -738,6 +744,24 @@ export class LocalStore {
     await this.applyPtvExportTags(entry, actor, false);
     await this.save();
     return entry;
+  }
+
+  findPtvExportDuplicate(orderNumbers) {
+    const existingIds = new Set((this.state.ptvExports || []).map((item) => item.id));
+
+    for (const orderNumber of orderNumbers) {
+      const tags = this.state.avisByOrder[orderNumber]?.ptvExportTags || [];
+      const tag = tags.find((item) => existingIds.has(item.id));
+
+      if (tag) {
+        return {
+          orderNumber,
+          name: tag.name || this.getPtvExport(tag.id)?.name || tag.id
+        };
+      }
+    }
+
+    return null;
   }
 
   async optimizePtvExport(id, orderNumbers, actor) {

@@ -1664,7 +1664,12 @@ function splitStreetAndHouseNumber(value) {
 
 function sanitizeLocalOrder(input, origin) {
   const customerAddress = text(input.customerAddress ?? input.KUNDE_ANSCHRIFT);
-  const deliveryAddress = text(input.deliveryAddress ?? input.KAPA_LIEFERANSCHRIFT);
+  const deliveryAddress = text(input.deliveryAddress ?? input.KAPA_LIEFERANSCHRIFT)
+    || formatDeliveryAddress({
+      postalCode: input.deliveryPostalCode ?? input.KAPA_LIEFER_PLZ,
+      street: input.deliveryStreet ?? input.KAPA_LIEFER_STRASSE,
+      city: input.deliveryCity ?? input.KAPA_LIEFER_ORT
+    });
   const deliveryParts = splitDeliveryAddress(deliveryAddress, {
     country: input.deliveryCountry ?? input.KAPA_LIEFER_LAND ?? countryFromAddressPrefix(customerAddress),
     postalCode: input.deliveryPostalCode ?? input.KAPA_LIEFER_PLZ,
@@ -1693,6 +1698,14 @@ function sanitizeLocalOrder(input, origin) {
     eprodStorageLocation: text(input.eprodStorageLocation ?? input.EPROD_LAGERPLATZ),
     origin
   };
+}
+
+function formatDeliveryAddress(parts) {
+  return [
+    text(parts.postalCode),
+    text(parts.street),
+    text(parts.city)
+  ].filter(Boolean).join(" ");
 }
 
 function sanitizeUser(input, partial = false) {

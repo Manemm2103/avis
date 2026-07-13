@@ -362,6 +362,7 @@ function bindEvents() {
   elements.ptvExportList.addEventListener("click", (event) => {
     const deleteButton = event.target.closest("[data-ptv-delete-export]");
     const sendButton = event.target.closest("[data-ptv-send-export]");
+    const removeOrderButton = event.target.closest("[data-ptv-remove-export-order]");
     const card = event.target.closest("[data-ptv-export-card]");
 
     if (deleteButton) {
@@ -373,6 +374,12 @@ function bindEvents() {
     if (sendButton) {
       event.stopPropagation();
       openPtvExportRemoteControl(sendButton.dataset.ptvSendExport);
+      return;
+    }
+
+    if (removeOrderButton) {
+      event.stopPropagation();
+      removeOrderFromPtvExport(removeOrderButton.dataset.ptvExportId, removeOrderButton.dataset.ptvRemoveExportOrder);
       return;
     }
 
@@ -1281,6 +1288,7 @@ function renderPtvExports() {
                   <strong>${escapeHtml(order.orderNumber)}</strong>
                   <span>${escapeHtml(order.customerName || "-")}</span>
                   <span>${escapeHtml([order.deliveryPostalCode, order.deliveryCity, order.deliveryStreet].filter(Boolean).join(" ") || "-")}</span>
+                  <button class="secondary danger small" data-ptv-export-id="${escapeHtml(item.id)}" data-ptv-remove-export-order="${escapeHtml(order.orderNumber)}" type="button">Entfernen</button>
                   <span class="ptv-route-info">${escapeHtml(ptvRouteInfoLine(order, item))}</span>
                 </div>
               `).join("")}
@@ -1822,6 +1830,35 @@ async function deletePtvExport(id) {
   await loadPtvOrders();
   renderPtv();
   showToast("Tourzusammenstellung gelöscht.");
+}
+
+async function removeOrderFromPtvExport(exportId, orderNumber) {
+  const entry = state.ptvExports.find((item) => item.id === exportId);
+
+  if (!entry) {
+    showToast("Tourzusammenstellung nicht gefunden.");
+    return;
+  }
+
+  const confirmed = await requestConfirm(`Soll Auftrag "${orderNumber}" aus der Tourzusammenstellung "${entry.name}" entfernt werden?`);
+
+  if (!confirmed) {
+    return;
+  }
+
+  await api(`/api/ptv/exports/${encodeURIComponent(exportId)}/orders/${encodeURIComponent(orderNumber)}`, {
+    method: "DELETE"
+  });
+
+  if (state.ptvListOrderNumbers.includes(orderNumber)) {
+    state.ptvListOrderNumbers = state.ptvListOrderNumbers.filter((item) => item !== orderNumber);
+    state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
+  }
+
+  await loadPtvExports();
+  await loadPtvOrders();
+  renderPtv();
+  showToast("Auftrag aus Tourzusammenstellung entfernt.");
 }
 
 function addPtvListOrder(orderNumber) {

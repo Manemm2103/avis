@@ -655,7 +655,7 @@ select:disabled {
 
 .ptv-export-order-row {
   display: grid;
-  grid-template-columns: 44px 120px minmax(160px, 1fr) minmax(220px, 1.2fr);
+  grid-template-columns: 44px 120px minmax(160px, 1fr) minmax(220px, 1.2fr) auto;
   gap: 10px;
   align-items: center;
   padding: 7px 8px;

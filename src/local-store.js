@@ -812,6 +812,92 @@ export class LocalStore {
     return deleted;
   }
 
+  async removeOrderFromPtvExport(id, orderNumber, actor) {
+    const exportEntry = this.getPtvExport(id);
+    const normalizedOrderNumber = String(orderNumber || "").trim();
+
+    if (!exportEntry) {
+      throw new Error("Tourzusammenstellung nicht gefunden.");
+    }
+
+    if (!normalizedOrderNumber) {
+      throw new Error("Auftrag fehlt.");
+    }
+
+    const beforeCount = new Set([
+      ...(exportEntry.orderNumbers || []),
+      ...(exportEntry.optimizedOrderNumbers || [])
+    ]).size;
+    exportEntry.orderNumbers = (exportEntry.orderNumbers || []).filter((item) => item !== normalizedOrderNumber);
+    exportEntry.optimizedOrderNumbers = (exportEntry.optimizedOrderNumbers || []).filter((item) => item !== normalizedOrderNumber);
+
+    if (exportEntry.routeInfos && typeof exportEntry.routeInfos === "object") {
+      delete exportEntry.routeInfos[normalizedOrderNumber];
+    }
+
+    const afterCount = new Set([
+      ...(exportEntry.orderNumbers || []),
+      ...(exportEntry.optimizedOrderNumbers || [])
+    ]).size;
+
+    if (beforeCount === afterCount) {
+      throw new Error("Auftrag ist nicht in dieser Tourzusammenstellung.");
+    }
+
+    exportEntry.updatedAt = new Date().toISOString();
+    exportEntry.updatedBy = actor?.displayName || actor?.username || "";
+    this.removePtvExportTagFromOrder(normalizedOrderNumber, id);
+    this.reindexPtvExportRoute(exportEntry, actor);
+
+    await this.save();
+    return exportEntry;
+  }
+
+  removePtvExportTagFromOrder(orderNumber, exportId) {
+    const current = this.state.avisByOrder[orderNumber] || {};
+    const tags = Array.isArray(current.ptvExportTags)
+      ? current.ptvExportTags.filter((tag) => tag.id !== exportId)
+      : [];
+    const next = {
+      ...current,
+      ptvExportTags: tags
+    };
+
+    if (tags.length === 0) {
+      delete next.routeSequence;
+      delete next.routeSequenceUpdatedAt;
+      delete next.routeSequenceUpdatedBy;
+      delete next.routeSequenceUpdatedByUserId;
+      delete next.ptvRouteInfo;
+    }
+
+    this.state.avisByOrder[orderNumber] = next;
+  }
+
+  reindexPtvExportRoute(exportEntry, actor) {
+    const orderNumbers = Array.isArray(exportEntry.optimizedOrderNumbers) && exportEntry.optimizedOrderNumbers.length > 0
+      ? exportEntry.optimizedOrderNumbers
+      : [];
+
+    if (orderNumbers.length === 0) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const actorName = actor?.displayName || actor?.username || "Unbekannt";
+
+    orderNumbers.forEach((orderNumber, index) => {
+      const current = this.state.avisByOrder[orderNumber] || {};
+      this.state.avisByOrder[orderNumber] = {
+        ...current,
+        routeSequence: index + 1,
+        routeSequenceUpdatedAt: now,
+        routeSequenceUpdatedBy: actorName,
+        routeSequenceUpdatedByUserId: actor?.id || current.routeSequenceUpdatedByUserId || ""
+      };
+    });
+  }
+
   async applyPtvExportTags(exportEntry, actor, optimized) {
     const now = new Date().toISOString();
     const actorName = actor?.displayName || actor?.username || "PTV Rückgabe";

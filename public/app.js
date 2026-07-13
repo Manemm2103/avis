@@ -1360,7 +1360,12 @@ function renderOrders(errorMessage = "") {
 
     return `
       <tr class="${selected ? "is-selected" : ""}" data-order-number="${escapeHtml(order.orderNumber)}" aria-selected="${selected ? "true" : "false"}">
-        <td>${statusBadge(order.avis.notified)}</td>
+        <td>
+          <span class="status-stack">
+            ${statusBadge(order.avis.notified)}
+            ${ptvStatusBadge(order)}
+          </span>
+        </td>
         ${showNotifiedAtColumn ? `<td>
           <span class="main-text">${formatDateTime(order.avis.notifiedAt)}</span>
           ${order.avis.notifiedBy ? `<span class="sub-text">${escapeHtml(order.avis.notifiedBy)}</span>` : ""}
@@ -3645,6 +3650,20 @@ function statusBadge(notified) {
   return notified
     ? `<span class="badge is-ok">Avisiert</span>`
     : `<span class="badge is-open">Nicht avisiert</span>`;
+}
+
+function ptvStatusBadge(order) {
+  const state = ptvOptimizationState(order);
+
+  if (state === "optimized") {
+    return `<span class="badge is-ptv-optimized">Tour optimiert</span>`;
+  }
+
+  if (state === "exported") {
+    return `<span class="badge is-ptv-exported">Tour eingeteilt</span>`;
+  }
+
+  return "";
 }
 
 function driverPhoneBadge(driverPhoneId) {

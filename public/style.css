@@ -868,6 +868,13 @@ tbody tr:last-child td {
   white-space: nowrap;
 }
 
+.status-stack {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+
 .badge.is-ok {
   background: #dcfce7;
   color: var(--success);
@@ -891,6 +898,16 @@ tbody tr:last-child td {
 .badge.is-demo-mail {
   background: #fef3c7;
   color: #92400e;
+}
+
+.badge.is-ptv-exported {
+  background: #e7f0ff;
+  color: #16417a;
+}
+
+.badge.is-ptv-optimized {
+  background: #dcfce7;
+  color: #166534;
 }
 
 .empty {

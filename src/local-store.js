@@ -37,7 +37,7 @@ const EMPTY_STATE = {
     subject: "Avisierung Auftrag {{auftrag}}",
     body: `Guten Tag,
 
-Ihr Auftrag {{auftrag}} ist fuer den {{liefertag}} eingeplant.
+Ihr Auftrag {{auftrag}} ist für den {{liefertag}} eingeplant.
 
 Kunde: {{kunde}}
 Kommission: {{kommission}}
@@ -48,14 +48,14 @@ Fahrertelefon: {{fahrertelefon}}
 {{info_fuer_kunden}}
 
 Mit freundlichen Gruessen
-Bayerwald Fenster und Tueren`,
+Bayerwald Fenster und Türen`,
     smtpHost: "",
     smtpPort: 587,
     smtpSecure: false,
     smtpVerifyCertificate: false,
     smtpUser: "",
     smtpPassword: "",
-    fromName: "Bayerwald Fenster und Tueren",
+    fromName: "Bayerwald Fenster und Türen",
     fromEmail: "",
     replyTo: "",
     demoMode: true,
@@ -775,7 +775,7 @@ export class LocalStore {
     exportEntry.status = "ptv_optimiert";
     exportEntry.optimizedOrderNumbers = uniqueOrderNumbers(orderNumbers);
     exportEntry.updatedAt = new Date().toISOString();
-    exportEntry.updatedBy = actor?.displayName || actor?.username || "PTV Rueckgabe";
+    exportEntry.updatedBy = actor?.displayName || actor?.username || "PTV Rückgabe";
 
     await this.applyPtvExportTags(exportEntry, actor, true);
     await this.save();
@@ -812,7 +812,7 @@ export class LocalStore {
 
   async applyPtvExportTags(exportEntry, actor, optimized) {
     const now = new Date().toISOString();
-    const actorName = actor?.displayName || actor?.username || "PTV Rueckgabe";
+    const actorName = actor?.displayName || actor?.username || "PTV Rückgabe";
     const orderNumbers = uniqueOrderNumbers([
       ...(exportEntry.orderNumbers || []),
       ...(exportEntry.optimizedOrderNumbers || [])
@@ -921,7 +921,7 @@ export class LocalStore {
 
   ensureActorMayWriteUser(input, existingUser, actor) {
     if (!canManageMasterdata(actor?.role)) {
-      throw new Error("Nur Admins duerfen Benutzer verwalten.");
+      throw new Error("Nur Admins dürfen Benutzer verwalten.");
     }
 
     const actorIsAdmin = actor?.role === ROLE_ADMIN;
@@ -929,7 +929,7 @@ export class LocalStore {
     const existingRole = existingUser?.role || "";
 
     if (!actorIsAdmin && (targetRole === ROLE_ADMIN || existingRole === ROLE_ADMIN)) {
-      throw new Error("Nur Admins duerfen Admins verwalten.");
+      throw new Error("Nur Admins dürfen Admins verwalten.");
     }
   }
 

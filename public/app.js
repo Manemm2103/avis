@@ -1071,7 +1071,7 @@ function renderPtvCallbacks() {
   }
 
   if (!state.ptvCallbacks.length) {
-    elements.ptvCallbacks.innerHTML = `<p class="help-text">Noch keine Rueckgabe empfangen.</p>`;
+    elements.ptvCallbacks.innerHTML = `<p class="help-text">Noch keine Rückgabe empfangen.</p>`;
     return;
   }
 
@@ -1083,7 +1083,7 @@ function renderPtvCallbacks() {
         <small>ticketid: ${escapeHtml(entry.ticketid || "-")}</small>
       </summary>
       <div class="mail-log-meta">
-        <span><strong>Erkannte Auftraege</strong>${escapeHtml((entry.orderNumbers || []).join(", ") || "-")}</span>
+        <span><strong>Erkannte Aufträge</strong>${escapeHtml((entry.orderNumbers || []).join(", ") || "-")}</span>
         <span><strong>Hinweis</strong>${escapeHtml(entry.message || "-")}</span>
       </div>
       <pre class="ptv-callback-raw">${escapeHtml(entry.dataPreview || "")}</pre>
@@ -1131,7 +1131,7 @@ function renderPtvExportsLegacy() {
   });
 
   if (!exports.length) {
-    elements.ptvExportList.innerHTML = `<p class="help-text">Keine Tourzusammenstellungen fuer diesen Filter vorhanden.</p>`;
+    elements.ptvExportList.innerHTML = `<p class="help-text">Keine Tourzusammenstellungen für diesen Filter vorhanden.</p>`;
     return;
   }
 
@@ -1143,7 +1143,7 @@ function renderPtvExportsLegacy() {
       <div class="ptv-export-card">
         <div>
           <strong>${escapeHtml(item.name)}</strong>
-          <span class="sub-text">${escapeHtml(status)} · ${count} Auftraege · ${formatDateTime(item.updatedAt || item.createdAt)}</span>
+          <span class="sub-text">${escapeHtml(status)} · ${count} Aufträge · ${formatDateTime(item.updatedAt || item.createdAt)}</span>
         </div>
         <div class="row-actions">
           <button class="secondary small" data-ptv-load-export="${escapeHtml(item.id)}" type="button">Oeffnen</button>
@@ -1186,7 +1186,7 @@ function renderPtvExports() {
     });
 
   if (!exports.length) {
-    elements.ptvExportList.innerHTML = `<p class="help-text">Keine Tourzusammenstellungen fuer diesen Filter vorhanden.</p>`;
+    elements.ptvExportList.innerHTML = `<p class="help-text">Keine Tourzusammenstellungen für diesen Filter vorhanden.</p>`;
     return;
   }
 
@@ -1201,10 +1201,10 @@ function renderPtvExports() {
       <article class="ptv-export-card ${expanded ? "is-expanded" : ""}" data-ptv-export-card="${escapeHtml(item.id)}">
         <div class="ptv-export-card-main">
           <strong>${escapeHtml(item.name)}</strong>
-          <span class="sub-text">${escapeHtml(status)} - ${count} Auftraege - ${formatDateTime(item.updatedAt || item.createdAt)}</span>
+          <span class="sub-text">${escapeHtml(status)} - ${count} Aufträge - ${formatDateTime(item.updatedAt || item.createdAt)}</span>
         </div>
         <div class="row-actions">
-          ${optimized ? "" : `<button class="secondary small" data-ptv-send-export="${escapeHtml(item.id)}" type="button">An PTV uebergeben</button>`}
+          ${optimized ? "" : `<button class="secondary small" data-ptv-send-export="${escapeHtml(item.id)}" type="button">An PTV übergeben</button>`}
           <button class="secondary danger small" data-ptv-delete-export="${escapeHtml(item.id)}" type="button">Loeschen</button>
         </div>
         <div class="ptv-export-details" ${expanded ? "" : "hidden"}>
@@ -1219,7 +1219,7 @@ function renderPtvExports() {
                 </div>
               `).join("")}
             </div>
-          ` : `<p class="help-text">Keine Auftraege in dieser Tourzusammenstellung gefunden.</p>`}
+          ` : `<p class="help-text">Keine Aufträge in dieser Tourzusammenstellung gefunden.</p>`}
         </div>
       </article>
     `;
@@ -1285,7 +1285,7 @@ function renderOrders(errorMessage = "") {
   }
 
   if (state.orders.length === 0) {
-    elements.ordersBody.innerHTML = `<tr><td class="empty" colspan="${columnCount}">Keine Auftraege gefunden.</td></tr>`;
+    elements.ordersBody.innerHTML = `<tr><td class="empty" colspan="${columnCount}">Keine Aufträge gefunden.</td></tr>`;
     return;
   }
 
@@ -1319,8 +1319,8 @@ function renderOrders(errorMessage = "") {
         <td>
           <div class="row-actions">
             <button class="secondary small" data-edit-order="${escapeHtml(order.orderNumber)}" type="button">Bearbeiten</button>
-            ${order.avis.notified ? `<button class="secondary danger small" data-revoke-order="${escapeHtml(order.orderNumber)}" type="button">Avisierung zuruecknehmen</button>` : ""}
-            ${isAdmin() && order.canDelete ? `<button class="secondary danger small" data-delete-order="${escapeHtml(order.orderNumber)}" type="button">Loeschen</button>` : ""}
+            ${order.avis.notified ? `<button class="secondary danger small" data-revoke-order="${escapeHtml(order.orderNumber)}" type="button">Avisierung zurücknehmen</button>` : ""}
+            ${isAdmin() && order.canDelete ? `<button class="secondary danger small" data-delete-order="${escapeHtml(order.orderNumber)}" type="button">Löschen</button>` : ""}
           </div>
         </td>
       </tr>
@@ -1337,7 +1337,7 @@ function renderPtv(errorMessage = "") {
 
   const orders = ptvFilteredOrders();
   const selectedCount = selectedPtvOrderNumbers().length;
-  const countLabel = selectedCount === 1 ? "1 Auftrag" : `${selectedCount} Auftraege`;
+  const countLabel = selectedCount === 1 ? "1 Auftrag" : `${selectedCount} Aufträge`;
 
   elements.ptvCount.textContent = countLabel;
   elements.ptvSubline.textContent = selectedCount > 0
@@ -1354,7 +1354,7 @@ function renderPtv(errorMessage = "") {
   }
 
   if (orders.length === 0) {
-    elements.ptvBody.innerHTML = `<tr><td class="empty" colspan="7">Keine Auftraege fuer PTV gefunden.</td></tr>`;
+    elements.ptvBody.innerHTML = `<tr><td class="empty" colspan="7">Keine Aufträge für PTV gefunden.</td></tr>`;
   } else {
     elements.ptvBody.innerHTML = orders.map((order) => {
       const selected = state.ptvSelectedOrderNumbers.has(order.orderNumber);
@@ -1388,7 +1388,7 @@ function renderPtv(errorMessage = "") {
   const listOrders = ptvTargetOrders();
 
   if (listOrders.length === 0) {
-    elements.ptvListBody.innerHTML = `<tr><td class="empty" colspan="7">Noch keine Auftraege ausgewaehlt.</td></tr>`;
+    elements.ptvListBody.innerHTML = `<tr><td class="empty" colspan="7">Noch keine Aufträge ausgewählt.</td></tr>`;
     return;
   }
 
@@ -1698,7 +1698,7 @@ function loadPtvExport(id) {
   state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
   state.ptvLastSelectedOrderNumber = "";
   renderPtv();
-  showToast(`Tourzusammenstellung geoeffnet: ${entry.name}.`);
+  showToast(`Tourzusammenstellung geöffnet: ${entry.name}.`);
 }
 
 function togglePtvExportDetails(id) {
@@ -1730,7 +1730,7 @@ async function deletePtvExport(id) {
     return;
   }
 
-  const confirmed = await requestConfirm(`Soll die Tourzusammenstellung "${entry.name}" wirklich geloescht werden? Die Tags an den Auftraegen werden entfernt.`);
+  const confirmed = await requestConfirm(`Soll die Tourzusammenstellung "${entry.name}" wirklich gelöscht werden? Die Tags an den Aufträgen werden entfernt.`);
 
   if (!confirmed) {
     return;
@@ -1750,7 +1750,7 @@ async function deletePtvExport(id) {
   await loadPtvExports();
   await loadPtvOrders();
   renderPtv();
-  showToast("Tourzusammenstellung geloescht.");
+  showToast("Tourzusammenstellung gelöscht.");
 }
 
 function addPtvListOrder(orderNumber) {
@@ -1820,7 +1820,7 @@ function renderTours() {
   ].join("");
 
   elements.manualTour.innerHTML = [
-    `<option value="">Bitte auswaehlen</option>`,
+    `<option value="">Bitte auswählen</option>`,
     ...state.tours.map((tour) => `
       <option value="${escapeHtml(tour)}">${escapeHtml(tour)}</option>
     `)
@@ -1937,7 +1937,7 @@ function renderDrivers() {
       <td>
         <div class="row-actions">
           <button class="secondary small" data-edit-driver="${escapeHtml(driver.id)}" type="button">Bearbeiten</button>
-          <button class="secondary danger small" data-delete-driver="${escapeHtml(driver.id)}" type="button">Loeschen</button>
+          <button class="secondary danger small" data-delete-driver="${escapeHtml(driver.id)}" type="button">Löschen</button>
         </div>
       </td>
     </tr>
@@ -1999,7 +1999,7 @@ function renderDriverFilterOptions() {
 function renderDriverOptions(target, selectedId = "") {
   const activeDrivers = state.drivers.filter((driver) => driver.active || driver.id === selectedId);
   target.innerHTML = [
-    `<option value="">Bitte auswaehlen</option>`,
+    `<option value="">Bitte auswählen</option>`,
     ...activeDrivers.map((driver) => `
       <option value="${escapeHtml(driver.id)}" ${driver.id === selectedId ? "selected" : ""}>
         ${escapeHtml(driver.label)} - ${escapeHtml(driver.phone)}
@@ -2014,7 +2014,7 @@ function renderBulkState() {
   const revokeTargetCount = bulkRevokeTargetOrderNumbers().length;
   const targetCount = targetOrderNumbers.length;
   const hasSelection = selectedCount > 0;
-  const countLabel = targetCount === 1 ? "1 Auftrag" : `${targetCount} Auftraege`;
+  const countLabel = targetCount === 1 ? "1 Auftrag" : `${targetCount} Aufträge`;
   const countVerb = hasSelection ? "markiert" : "gefiltert";
   const missing = [];
   const hasOrders = targetCount > 0;
@@ -2026,7 +2026,7 @@ function renderBulkState() {
   elements.bulkClearSelection.hidden = !hasSelection;
 
   if (!hasOrders) {
-    missing.push(hasSelection ? "markierte Auftraege" : "Auftraege im Filter");
+    missing.push(hasSelection ? "markierte Aufträge" : "Aufträge im Filter");
   }
 
   const saveReady = hasOrders && (hasDriver || marksTwoDayTour);
@@ -2043,12 +2043,12 @@ function renderBulkState() {
   }
 
   if (!saveReady) {
-    elements.bulkHint.textContent = "Fuer Nur speichern bitte Fahrertelefon auswaehlen oder 2-Tagestour markieren.";
+    elements.bulkHint.textContent = "Für Nur speichern bitte Fahrertelefon auswählen oder 2-Tagestour markieren.";
     return;
   }
 
   if (!notifyReady) {
-    elements.bulkHint.textContent = `${bulkScopeLabel(hasSelection)} Es wurden ${countLabel} ${countVerb}. Avisieren benoetigt zusaetzlich ein Fahrertelefon.`;
+    elements.bulkHint.textContent = `${bulkScopeLabel(hasSelection)} Es wurden ${countLabel} ${countVerb}. Avisieren benötigt zusätzlich ein Fahrertelefon.`;
     return;
   }
 
@@ -2057,8 +2057,8 @@ function renderBulkState() {
 
 function bulkScopeLabel(hasSelection) {
   return hasSelection
-    ? "Wird nur fuer die markierten Auftraege angewandt."
-    : "Wird fuer alle Auftraege im Filter angewandt.";
+    ? "Wird nur für die markierten Aufträge angewandt."
+    : "Wird für alle Aufträge im Filter angewandt.";
 }
 
 function openDrawer(orderNumber) {
@@ -2231,23 +2231,23 @@ async function applyBulk(notified) {
   const hasSelection = selectedBulkOrderNumbers().length > 0;
 
   if (targetOrderNumbers.length === 0) {
-    showToast(hasSelection ? "Keine markierten Auftraege." : "Keine Auftraege im aktuellen Filter.");
+    showToast(hasSelection ? "Keine markierten Aufträge." : "Keine Aufträge im aktuellen Filter.");
     return;
   }
 
   if (notified && !hasDriver) {
-    showToast("Bitte Fahrertelefon auswaehlen.");
+    showToast("Bitte Fahrertelefon auswählen.");
     return;
   }
 
   if (!notified && !hasDriver && !marksTwoDayTour) {
-    showToast("Bitte Fahrertelefon auswaehlen oder 2-Tagestour markieren.");
+    showToast("Bitte Fahrertelefon auswählen oder 2-Tagestour markieren.");
     return;
   }
 
   const driverLabel = selectedBulkDriverLabel();
   const action = notified ? "avisieren" : "speichern";
-  const recordLabel = targetOrderNumbers.length === 1 ? "1 Datensatz" : `${targetOrderNumbers.length} Datensaetze`;
+  const recordLabel = targetOrderNumbers.length === 1 ? "1 Datensatz" : `${targetOrderNumbers.length} Datensätze`;
   const isSingleRecord = targetOrderNumbers.length === 1;
   const sourceLabel = hasSelection ? "aus der Markierung" : "aus der aktuell sichtbaren Liste";
   const changes = [
@@ -2274,12 +2274,12 @@ async function applyBulk(notified) {
 
   await loadOrders();
   await loadPtvOrders();
-  showToast(notified ? `${result.updated} Auftraege avisiert.${mailToastSuffix(result.mail)}` : `${result.updated} Auftraege gespeichert.`);
+  showToast(notified ? `${result.updated} Aufträge avisiert.${mailToastSuffix(result.mail)}` : `${result.updated} Aufträge gespeichert.`);
 }
 
 async function revokeBulkAvis() {
   if (!isAdmin()) {
-    showToast("Nur Admins und Abteilungsleiter duerfen Avisierungen per Massenbearbeitung zuruecknehmen.");
+    showToast("Nur Admins und Abteilungsleiter dürfen Avisierungen per Massenbearbeitung zurücknehmen.");
     return;
   }
 
@@ -2287,16 +2287,16 @@ async function revokeBulkAvis() {
   const hasSelection = selectedBulkOrderNumbers().length > 0;
 
   if (targetOrderNumbers.length === 0) {
-    showToast(hasSelection ? "Keine avisierten Auftraege markiert." : "Keine avisierten Auftraege im aktuellen Filter.");
+    showToast(hasSelection ? "Keine avisierten Aufträge markiert." : "Keine avisierten Aufträge im aktuellen Filter.");
     return;
   }
 
   const recordLabel = targetOrderNumbers.length === 1 ? "1 Avisierung" : `${targetOrderNumbers.length} Avisierungen`;
   const sourceLabel = hasSelection ? "aus der Markierung" : "aus der aktuell sichtbaren Liste";
-  const confirmed = await requestConfirm(`${targetOrderNumbers.length === 1 ? "Soll" : "Sollen"} ${recordLabel} ${sourceLabel} wirklich zurueckgenommen werden?`);
+  const confirmed = await requestConfirm(`${targetOrderNumbers.length === 1 ? "Soll" : "Sollen"} ${recordLabel} ${sourceLabel} wirklich zurückgenommen werden?`);
 
   if (!confirmed) {
-    showToast("Zuruecknehmen abgebrochen.");
+    showToast("Zurücknehmen abgebrochen.");
     return;
   }
 
@@ -2310,7 +2310,7 @@ async function revokeBulkAvis() {
 
   await loadOrders();
   await loadPtvOrders();
-  showToast(`${result.updated} Avisierungen zurueckgenommen.`);
+  showToast(`${result.updated} Avisierungen zurückgenommen.`);
 }
 
 function selectedBulkDriverLabel() {
@@ -2340,7 +2340,7 @@ function mailToastSuffix(mail) {
       return ` ${mail.sent} E-Mails versendet, ${mail.skipped} ohne Mail.`;
     }
 
-    return ` Keine Mail versendet: ${mail.messages[0] || "Mailversand wurde uebersprungen."}`;
+    return ` Keine Mail versendet: ${mail.messages[0] || "Mailversand wurde übersprungen."}`;
   }
 
   if (mail.failed) {
@@ -2352,7 +2352,7 @@ function mailToastSuffix(mail) {
   }
 
   if (mail.skipped) {
-    return ` Keine Mail versendet: ${mail.message || "Mailversand wurde uebersprungen."}`;
+    return ` Keine Mail versendet: ${mail.message || "Mailversand wurde übersprungen."}`;
   }
 
   return "";
@@ -2402,7 +2402,7 @@ async function saveDriverPhone(event) {
   });
 
   await loadDrivers();
-  showToast(driverId ? "Fahrertelefon geaendert." : "Fahrertelefon gespeichert.");
+  showToast(driverId ? "Fahrertelefon geändert." : "Fahrertelefon gespeichert.");
 }
 
 function editDriverPhone(driverId) {
@@ -2434,10 +2434,10 @@ async function deleteDriverPhone(driverId) {
     return;
   }
 
-  const confirmed = await requestConfirm(`Fahrertelefon "${driver.label} - ${driver.phone}" wirklich loeschen? Die Zuordnung wird aus allen Auftraegen entfernt.`);
+  const confirmed = await requestConfirm(`Fahrertelefon "${driver.label} - ${driver.phone}" wirklich löschen? Die Zuordnung wird aus allen Aufträgen entfernt.`);
 
   if (!confirmed) {
-    showToast("Loeschen abgebrochen.");
+    showToast("Löschen abgebrochen.");
     return;
   }
 
@@ -2448,7 +2448,7 @@ async function deleteDriverPhone(driverId) {
   await loadDrivers();
   await loadOrders();
   await loadPtvOrders();
-  showToast(`Fahrertelefon geloescht. ${result.clearedOrders || 0} Auftraege bereinigt.`);
+  showToast(`Fahrertelefon gelöscht. ${result.clearedOrders || 0} Aufträge bereinigt.`);
 }
 
 async function createLocalOrder(event) {
@@ -2472,14 +2472,14 @@ async function importCsvOrders(event) {
   const file = elements.csvFile.files[0];
 
   if (!file) {
-    showToast("Bitte CSV-Datei auswaehlen.");
+    showToast("Bitte CSV-Datei auswählen.");
     return;
   }
 
   const rows = parseCsv(await file.text()).map(mapCsvOrder).filter((order) => order.orderNumber);
 
   if (rows.length === 0) {
-    showToast("Keine Auftraege in der CSV gefunden.");
+    showToast("Keine Aufträge in der CSV gefunden.");
     return;
   }
 
@@ -2492,7 +2492,7 @@ async function importCsvOrders(event) {
   await loadTours();
   await loadOrders();
   await loadPtvOrders();
-  showToast(`${result.created} Auftraege importiert, ${result.skipped} uebersprungen.`);
+  showToast(`${result.created} Aufträge importiert, ${result.skipped} übersprungen.`);
 }
 
 function clearPtvFilters() {
@@ -2523,7 +2523,7 @@ async function exportPtvCsv() {
   const orders = ptvTargetOrders();
 
   if (orders.length === 0) {
-    showToast("Keine Auftraege fuer die Tourzusammenstellung gefunden.");
+    showToast("Keine Aufträge für die Tourzusammenstellung gefunden.");
     return;
   }
 
@@ -2548,14 +2548,14 @@ async function exportPtvCsv() {
   state.ptvExportId = exportEntry.id;
   await loadPtvExports();
   await loadPtvOrders();
-  showToast(`${orders.length} Auftraege fuer die Tourzusammenstellung exportiert: ${exportEntry.name}.`);
+  showToast(`${orders.length} Aufträge für die Tourzusammenstellung exportiert: ${exportEntry.name}.`);
 }
 
 async function openPtvRemoteControl() {
   const orderNumbers = selectedPtvOrderNumbers();
 
   if (orderNumbers.length === 0) {
-    showToast("Bitte zuerst Auftraege in die PTV-Auswahlliste aufnehmen.");
+    showToast("Bitte zuerst Aufträge in die PTV-Auswahlliste aufnehmen.");
     return;
   }
 
@@ -2563,8 +2563,8 @@ async function openPtvRemoteControl() {
 
   if (remoteWindow) {
     try {
-      remoteWindow.document.title = "PTV wird geoeffnet";
-      remoteWindow.document.body.textContent = "PTV wird geoeffnet ...";
+      remoteWindow.document.title = "PTV wird geöffnet";
+      remoteWindow.document.body.textContent = "PTV wird geöffnet ...";
     } catch {
       // Access can fail depending on popup handling; navigating below still works.
     }
@@ -2604,7 +2604,7 @@ async function openPtvRemoteControl() {
       }
     }
 
-    showToast(error.message || "PTV konnte nicht geoeffnet werden.");
+    showToast(error.message || "PTV konnte nicht geöffnet werden.");
   }
 }
 
@@ -2620,8 +2620,8 @@ async function openPtvExportRemoteControl(id) {
 
   if (remoteWindow) {
     try {
-      remoteWindow.document.title = "PTV wird geoeffnet";
-      remoteWindow.document.body.textContent = "PTV wird geoeffnet ...";
+      remoteWindow.document.title = "PTV wird geöffnet";
+      remoteWindow.document.body.textContent = "PTV wird geöffnet ...";
     } catch {
       // Navigation below still works if the browser blocks document access.
     }
@@ -2658,7 +2658,7 @@ async function openPtvExportRemoteControl(id) {
       }
     }
 
-    showToast(error.message || "Tourzusammenstellung konnte nicht an PTV uebergeben werden.");
+    showToast(error.message || "Tourzusammenstellung konnte nicht an PTV übergeben werden.");
   }
 }
 
@@ -2693,7 +2693,7 @@ async function importPtvSequence(event) {
       return;
     }
 
-    const confirmed = await requestConfirm(`Soll die PTV-Reihenfolge fuer ${orderNumbers.length} Auftraege gespeichert werden?`);
+    const confirmed = await requestConfirm(`Soll die PTV-Reihenfolge für ${orderNumbers.length} Aufträge gespeichert werden?`);
 
     if (!confirmed) {
       return;
@@ -2818,7 +2818,7 @@ function downloadSampleCsv() {
       "1002000",
       "Musterkunde GmbH",
       "DE-94154 Musterort, Musterstrasse 1",
-      "Beispielauftrag Fenster und Tueren",
+      "Beispielauftrag Fenster und Türen",
       "94154 Musterstrasse 1 Musterort",
       "DE",
       "94154",
@@ -2849,7 +2849,7 @@ function downloadSampleCsv() {
 }
 
 async function deleteLocalOrder(orderNumber) {
-  const confirmed = await requestConfirm(`Soll der selbst angelegte oder importierte Auftrag "${orderNumber}" wirklich geloescht werden?`);
+  const confirmed = await requestConfirm(`Soll der selbst angelegte oder importierte Auftrag "${orderNumber}" wirklich gelöscht werden?`);
 
   if (!confirmed) {
     return;
@@ -2862,7 +2862,7 @@ async function deleteLocalOrder(orderNumber) {
   await loadTours();
   await loadOrders();
   await loadPtvOrders();
-  showToast("Auftrag geloescht.");
+  showToast("Auftrag gelöscht.");
 }
 
 async function revokeOrderAvis(orderNumber) {
@@ -2873,7 +2873,7 @@ async function revokeOrderAvis(orderNumber) {
     return;
   }
 
-  const confirmed = await requestConfirm(`Soll die Avisierung fuer Auftrag "${orderNumber}" wirklich zurueckgenommen werden?`);
+  const confirmed = await requestConfirm(`Soll die Avisierung für Auftrag "${orderNumber}" wirklich zurückgenommen werden?`);
 
   if (!confirmed) {
     return;
@@ -2886,14 +2886,14 @@ async function revokeOrderAvis(orderNumber) {
 
   await loadOrders();
   await loadPtvOrders();
-  showToast("Avisierung zurueckgenommen.");
+  showToast("Avisierung zurückgenommen.");
 }
 
 async function saveSqlSettings(event) {
   event.preventDefault();
 
   if (!isFullAdmin()) {
-    showToast("Nur Admins duerfen SQL-Abfragen speichern.");
+    showToast("Nur Admins dürfen SQL-Abfragen speichern.");
     return;
   }
 
@@ -2916,7 +2916,7 @@ async function saveMailSettings(event) {
   event.preventDefault();
 
   if (!isAdmin()) {
-    showToast("Nur Admins und Abteilungsleiter duerfen E-Mail Avis speichern.");
+    showToast("Nur Admins und Abteilungsleiter dürfen E-Mail Avis speichern.");
     return;
   }
 
@@ -2954,7 +2954,7 @@ async function savePtvSettings(event) {
   event.preventDefault();
 
   if (!isAdmin()) {
-    showToast("Nur Admins und Abteilungsleiter duerfen PTV speichern.");
+    showToast("Nur Admins und Abteilungsleiter dürfen PTV speichern.");
     return;
   }
 
@@ -2985,7 +2985,7 @@ async function saveLdapSettings(event) {
   event.preventDefault();
 
   if (!isFullAdmin()) {
-    showToast("Nur Admins duerfen LDAPS-Einstellungen speichern.");
+    showToast("Nur Admins dürfen LDAPS-Einstellungen speichern.");
     return;
   }
 
@@ -3069,7 +3069,7 @@ function editUser(userId) {
   elements.userDisplayName.value = user.displayName;
   elements.userPassword.value = "";
   elements.userPassword.required = false;
-  elements.userPassword.placeholder = "Leer lassen, wenn unveraendert";
+  elements.userPassword.placeholder = "Leer lassen, wenn unverändert";
   renderUserRoleOptions(user.role || "user");
   elements.userRole.value = user.role || "user";
   elements.userActive.checked = user.active;
@@ -3291,7 +3291,7 @@ function ptvPlantRow(orderCount, totalWeightTons, plant) {
     id: "WERK",
     orderReference: "WERK",
     customer: "Bayerwald",
-    description: `${orderCount} Auftraege beladen`
+    description: `${orderCount} Aufträge beladen`
   });
 }
 
@@ -3302,13 +3302,13 @@ function ptvPlantEndRow(plant) {
     city: plant.endCity,
     street: plant.endStreet,
     duration: "0",
-    comment: "Rueckkehr Werk",
+    comment: "Rückkehr Werk",
     loading: "0",
     unloading: "0",
     id: "WERK_ENDE",
     orderReference: "WERK_ENDE",
     customer: "Bayerwald",
-    description: "Rueckkehr Werk"
+    description: "Rückkehr Werk"
   });
 }
 
@@ -3530,7 +3530,7 @@ async function api(url, options = {}) {
   }
 
   if (data === null) {
-    throw new Error("Server hat keine gueltige JSON-Antwort geliefert. Bitte Seite neu laden.");
+    throw new Error("Server hat keine gültige JSON-Antwort geliefert. Bitte Seite neu laden.");
   }
 
   return data;
@@ -3669,11 +3669,11 @@ function logTypeLabel(type) {
   }
 
   if (type === "fahrertelefon_geloescht") {
-    return "Fahrertelefon geloescht";
+    return "Fahrertelefon gelöscht";
   }
 
   if (type === "avisierung_zurueckgenommen") {
-    return "Avisierung zurueckgenommen";
+    return "Avisierung zurückgenommen";
   }
 
   return "Gespeichert";

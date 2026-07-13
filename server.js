@@ -325,7 +325,7 @@ app.patch("/api/orders/bulk", async (request, response) => {
     const mailOrderNumbers = [];
 
     if (update.values.notified === false && !canManageMasterdata(request.user?.role)) {
-      throw new Error("Avisierungen duerfen per Massenbearbeitung nur von Admins und Abteilungsleitern zurueckgenommen werden.");
+      throw new Error("Avisierungen dürfen per Massenbearbeitung nur von Admins und Abteilungsleitern zurückgenommen werden.");
     }
 
     for (const orderNumber of update.orderNumbers) {
@@ -461,14 +461,14 @@ app.patch("/api/orders/:orderNumber", async (request, response) => {
     const shouldSendMail = update.notified === true && !currentAvis?.notified;
 
     if (shouldSendMail && request.body?.notifyAction !== true) {
-      throw new Error("Avisiert kann nur ueber die Aktion Avisieren gesetzt werden.");
+      throw new Error("Avisiert kann nur über die Aktion Avisieren gesetzt werden.");
     }
 
     if (
       (Object.hasOwn(update, "deliveryDate") || Object.hasOwn(update, "deliveryAddress") || Object.hasOwn(update, "eprodStorageLocation"))
       && !store.hasLocalOrder(orderNumber)
     ) {
-      throw new Error("Liefertermin, Lieferanschrift und Stellplatz koennen nur bei selbst angelegten oder importierten Auftraegen geaendert werden.");
+      throw new Error("Liefertermin, Lieferanschrift und Stellplatz können nur bei selbst angelegten oder importierten Aufträgen geändert werden.");
     }
 
     const saved = await store.updateAvis(orderNumber, update, request.user);
@@ -583,7 +583,7 @@ async function loadMergedOrders(sourceOrders, avisOverrides = new Map()) {
 
 async function sendAvisMailForOrder(orderNumber, avisOverride, actor) {
   const results = await sendAvisMailsForOrders([orderNumber], new Map([[orderNumber, avisOverride]]), actor);
-  return results.items[0] || skippedMailResult("Auftrag wurde fuer den Mailversand nicht gefunden.");
+  return results.items[0] || skippedMailResult("Auftrag wurde für den Mailversand nicht gefunden.");
 }
 
 async function sendAvisMailsForOrders(orderNumbers, avisOverrides = new Map(), actor = null) {
@@ -608,7 +608,7 @@ async function sendAvisMailsForOrders(orderNumbers, avisOverrides = new Map(), a
     const order = orderMap.get(orderNumber);
 
     if (!order) {
-      results.push(skippedMailResult(`Auftrag ${orderNumber} wurde fuer den Mailversand nicht gefunden.`));
+      results.push(skippedMailResult(`Auftrag ${orderNumber} wurde für den Mailversand nicht gefunden.`));
       continue;
     }
 
@@ -1003,7 +1003,7 @@ function sanitizeBulkAvisUpdate(input) {
     : [];
 
   if (orderNumbers.length === 0) {
-    throw new Error("Keine Auftraege fuer die Massenbearbeitung ausgewaehlt.");
+    throw new Error("Keine Aufträge für die Massenbearbeitung ausgewählt.");
   }
 
   const driverPhoneId = text(input.driverPhoneId);
@@ -1028,7 +1028,7 @@ function sanitizeBulkAvisUpdate(input) {
   }
 
   if (Object.keys(values).length === 0) {
-    throw new Error("Keine Aenderung fuer die Massenbearbeitung ausgewaehlt.");
+    throw new Error("Keine Änderung für die Massenbearbeitung ausgewählt.");
   }
 
   return {
@@ -1039,13 +1039,13 @@ function sanitizeBulkAvisUpdate(input) {
 
 function sanitizeOrderNumbers(input) {
   if (!Array.isArray(input)) {
-    throw new Error("Keine Auftraege uebergeben.");
+    throw new Error("Keine Aufträge übergeben.");
   }
 
   const orderNumbers = [...new Set(input.map((orderNumber) => text(orderNumber)).filter(Boolean))];
 
   if (orderNumbers.length === 0) {
-    throw new Error("Keine Auftraege fuer die Reihenfolge gefunden.");
+    throw new Error("Keine Aufträge für die Reihenfolge gefunden.");
   }
 
   return orderNumbers;
@@ -1252,7 +1252,7 @@ function buildPtvRemoteUrl(settings, orderNumbers, orders, exportEntry = null) {
   const selectedOrders = orderNumbers.map((orderNumber) => orderMap.get(orderNumber)).filter(Boolean);
 
   if (selectedOrders.length === 0) {
-    throw new Error("Keine passenden Auftraege fuer PTV gefunden.");
+    throw new Error("Keine passenden Aufträge für PTV gefunden.");
   }
 
   const invalidStations = selectedOrders
@@ -1260,7 +1260,7 @@ function buildPtvRemoteUrl(settings, orderNumbers, orders, exportEntry = null) {
     .filter(Boolean);
 
   if (invalidStations.length) {
-    throw new Error(`PTV kann nicht geoeffnet werden. Bitte Lieferadresse pruefen: ${invalidStations.join("; ")}`);
+    throw new Error(`PTV kann nicht geöffnet werden. Bitte Lieferadresse prüfen: ${invalidStations.join("; ")}`);
   }
 
   const params = new URLSearchParams({
@@ -1293,7 +1293,7 @@ function buildPtvRemoteUrl(settings, orderNumbers, orders, exportEntry = null) {
   const warnings = [];
 
   if (url.length > 32768) {
-    warnings.push("Der PTV-Link ist laenger als 32.768 Zeichen. Bitte weniger Auftraege auswaehlen oder CSV verwenden.");
+    warnings.push("Der PTV-Link ist länger als 32.768 Zeichen. Bitte weniger Aufträge auswählen oder CSV verwenden.");
   }
 
   return {
@@ -1344,7 +1344,7 @@ function ptvRemotePlantEndStation(settings) {
     street.street,
     street.houseNumber,
     "WERK_ENDE",
-    "Rueckkehr Werk",
+    "Rückkehr Werk",
     "",
     "",
     "00:00",
@@ -1352,7 +1352,7 @@ function ptvRemotePlantEndStation(settings) {
     "0",
     "00:00",
     "0",
-    "Bayerwald Rueckkehr"
+    "Bayerwald Rückkehr"
   ];
 
   return fields.map((field) => String(field || "").replaceAll("|", " ")).join("|");
@@ -1402,7 +1402,7 @@ function validatePtvOrderStation(order, stationNumber) {
   }
 
   if (!text(street.street)) {
-    missing.push("Strasse");
+    missing.push("Straße");
   }
 
   if (missing.length) {
@@ -1446,20 +1446,20 @@ async function importPtvCallback(input) {
   const orderNumbers = extractPtvOrderNumbers(data, knownOrderNumbers);
   const status = orderNumbers.length > 0 ? "imported" : "received";
   const message = orderNumbers.length > 0
-    ? `${orderNumbers.length} Auftraege aus PTV-Rueckgabe erkannt.`
-    : "PTV-Rueckgabe gespeichert, aber keine bekannte Auftragsnummer erkannt.";
+    ? `${orderNumbers.length} Aufträge aus PTV-Rückgabe erkannt.`
+    : "PTV-Rückgabe gespeichert, aber keine bekannte Auftragsnummer erkannt.";
 
   if (orderNumbers.length > 0) {
     await store.updateRouteSequence(orderNumbers, {
       id: "",
       username: "ptv-callback",
-      displayName: "PTV Rueckgabe"
+      displayName: "PTV Rückgabe"
     });
 
     await store.optimizePtvExport(ticketid, orderNumbers, {
       id: "",
       username: "ptv-callback",
-      displayName: "PTV Rueckgabe"
+      displayName: "PTV Rückgabe"
     });
   }
 
@@ -1842,7 +1842,7 @@ function sanitizeUserPreferences(input) {
   const theme = text(input.theme);
 
   if (!["light", "dark", "system"].includes(theme)) {
-    throw new Error("Ungueltiges Design.");
+    throw new Error("Ungültiges Design.");
   }
 
   return { theme };
@@ -1869,7 +1869,7 @@ function requireAdmin(request, response, next) {
   if (!canManageMasterdata(request.user?.role)) {
     response.status(403).json({
       error: "ADMIN_REQUIRED",
-      message: "Nur Admins duerfen diesen Bereich nutzen."
+      message: "Nur Admins dürfen diesen Bereich nutzen."
     });
     return;
   }
@@ -1881,7 +1881,7 @@ function requireFullAdmin(request, response, next) {
   if (!isFullAdminRole(request.user)) {
     response.status(403).json({
       error: "ADMIN_REQUIRED",
-      message: "Nur Admins duerfen diesen Bereich nutzen."
+      message: "Nur Admins dürfen diesen Bereich nutzen."
     });
     return;
   }

@@ -18,7 +18,7 @@ export const MAIL_TEXT_MARKS = [
   ["{{fahrertelefon}}", "Fahrertelefon mit Bezeichnung"],
   ["{{fahrertelefon_nummer}}", "Telefonnummer des Fahrers"],
   ["{{bemerkung}}", "Interne Bemerkung am Auftrag"],
-  ["{{info_fuer_kunden}}", "Info fuer Kunden"],
+  ["{{info_fuer_kunden}}", "Info für Kunden"],
   ["{{gespeichert_von}}", "Benutzer der letzten Speicherung"]
 ].map(([token, description]) => ({ token, description }));
 
@@ -122,14 +122,14 @@ function mailErrorInfo(error, settings) {
 
   if (lower.includes("wrong version number") || lower.includes("ssl routines")) {
     hint = Number(settings.smtpPort) === 465
-      ? "SMTP-Server/Port erwartet vermutlich kein direktes SSL. Testweise SMTP SSL/TLS deaktivieren oder den korrekten SMTP-Port pruefen."
+      ? "SMTP-Server/Port erwartet vermutlich kein direktes SSL. Testweise SMTP SSL/TLS deaktivieren oder den korrekten SMTP-Port prüfen."
       : "Wahrscheinlich ist SMTP SSL/TLS aktiv, obwohl der Port STARTTLS erwartet. Bei Port 587 SMTP SSL/TLS deaktivieren; bei Port 465 aktivieren.";
   } else if (lower.includes("unable to verify") || lower.includes("self-signed") || lower.includes("certificate") || lower.includes("cert")) {
-    hint = "Der SMTP-Server liefert ein Zertifikat, dem Node/Docker nicht vertraut. SMTP-Zertifikat pruefen auf Nein stellen oder das Zertifikat im Container vertrauenswuerdig machen.";
+    hint = "Der SMTP-Server liefert ein Zertifikat, dem Node/Docker nicht vertraut. SMTP-Zertifikat prüfen auf Nein stellen oder das Zertifikat im Container vertrauenswürdig machen.";
   } else if (lower.includes("auth") || lower.includes("login") || lower.includes("credential")) {
-    hint = "SMTP-Benutzer oder Kennwort pruefen.";
+    hint = "SMTP-Benutzer oder Kennwort prüfen.";
   } else if (lower.includes("enotfound") || lower.includes("econnrefused") || lower.includes("etimedout")) {
-    hint = "SMTP Host, Port, DNS und Firewall-Verbindung aus dem Docker-Container pruefen.";
+    hint = "SMTP Host, Port, DNS und Firewall-Verbindung aus dem Docker-Container prüfen.";
   }
 
   return {

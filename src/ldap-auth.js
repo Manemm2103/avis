@@ -84,7 +84,7 @@ function validateLdapConfig(config) {
   if (!config.departmentLeadGroupDn) missing.push("Abteilungsleiter-Gruppe");
 
   if (missing.length > 0) {
-    throw new Error(`LDAP ist unvollständig konfiguriert: ${missing.join(", ")}.`);
+    throw new Error(`LDAP ist unvollstaendig konfiguriert: ${missing.join(", ")}.`);
   }
 }
 
@@ -106,7 +106,7 @@ async function findLdapUser(client, config, username) {
   });
 
   if (result.searchEntries.length === 0) {
-    throw new Error("Benutzer ist in LDAP nicht für AVIS freigegeben.");
+    throw new Error("Benutzer ist in LDAP nicht fuer AVIS freigegeben.");
   }
 
   if (result.searchEntries.length > 1) {

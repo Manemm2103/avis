@@ -9,7 +9,7 @@
   <body>
     <section class="login-view" id="login-view">
       <form class="login-card" id="login-form">
-        <img class="login-logo" src="/assets/logo-bayerwald-fenster-und-tueren.png" alt="Bayerwald Fenster und Türen">
+        <img class="login-logo" src="/assets/logo-bayerwald-fenster-und-tueren.png" alt="Bayerwald Fenster und Tueren">
         <p class="eyebrow">AVIS Anmeldung</p>
         <h1>Einloggen</h1>
         <label>
@@ -36,7 +36,7 @@
     <div class="app-shell" id="app-shell" hidden>
       <header class="topbar">
         <button class="brand brand-home-button" id="brand-home-button" type="button" title="Zur Startseite">
-          <img class="brand-logo" src="/assets/logo-bayerwald-fenster-und-tueren.png" alt="Bayerwald Fenster und Türen">
+          <img class="brand-logo" src="/assets/logo-bayerwald-fenster-und-tueren.png" alt="Bayerwald Fenster und Tueren">
           <div class="brand-title">
             <p class="eyebrow">Auftragsavisierung</p>
             <h1>AVIS</h1>
@@ -56,7 +56,7 @@
       </header>
 
       <nav class="tabs" aria-label="Bereiche">
-        <button class="tab is-active" id="tab-orders" type="button">Aufträge</button>
+        <button class="tab is-active" id="tab-orders" type="button">Auftraege</button>
         <button class="tab" id="tab-ptv" type="button">PTV</button>
         <button class="tab" id="tab-import" type="button">Import</button>
         <button class="tab" id="tab-masterdata" type="button">Stammdaten</button>
@@ -97,7 +97,7 @@
               <span>Suchen</span>
               <input id="search-input" type="search" autocomplete="off" placeholder="Auftrag, Kunde, Kommission">
             </label>
-            <button class="secondary" id="clear-filters-button" type="button">Filter löschen</button>
+            <button class="secondary" id="clear-filters-button" type="button">Filter loeschen</button>
             <button class="secondary" id="new-order-button" type="button">Neuer Auftrag</button>
           </div>
 
@@ -107,7 +107,7 @@
             </summary>
             <div class="bulk-bar">
               <div class="bulk-summary">
-                <strong id="bulk-count">0 Aufträge</strong>
+                <strong id="bulk-count">0 Auftraege</strong>
                 <span class="bulk-subline" id="bulk-subline">im aktuellen Filter</span>
                 <button class="secondary small bulk-clear-selection" id="bulk-clear-selection" type="button" hidden>Auswahl aufheben</button>
               </div>
@@ -121,7 +121,7 @@
               </label>
               <button class="secondary" id="bulk-save" type="button">Nur speichern</button>
               <button class="primary" id="bulk-notify" type="button">Avisieren</button>
-              <button class="secondary danger" id="bulk-revoke" type="button" hidden>Avisierung zurücknehmen</button>
+              <button class="secondary danger" id="bulk-revoke" type="button" hidden>Avisierung zuruecknehmen</button>
               <span class="bulk-hint" id="bulk-hint"></span>
             </div>
           </details>
@@ -159,7 +159,7 @@
           </div>
           <div class="segmented ptv-page-tabs" role="group" aria-label="Tourzusammenstellung Ansicht">
             <button class="segment is-active" data-ptv-page="assemblies" type="button">Tourzusammenstellungen</button>
-            <button class="segment" data-ptv-page="orders" type="button">Aufträge auswählen</button>
+            <button class="segment" data-ptv-page="orders" type="button">Auftraege auswaehlen</button>
           </div>
 
           <div id="ptv-assemblies-page">
@@ -207,13 +207,13 @@
               <span>Suchen</span>
               <input id="ptv-search-input" type="search" autocomplete="off" placeholder="Auftrag, Kunde, Ort">
             </label>
-            <button class="secondary" id="ptv-clear-filters" type="button">Filter löschen</button>
+            <button class="secondary" id="ptv-clear-filters" type="button">Filter loeschen</button>
           </div>
 
             <div class="bulk-panel">
             <div class="ptv-actions">
               <div>
-                <strong id="ptv-count">0 Aufträge</strong>
+                <strong id="ptv-count">0 Auftraege</strong>
                 <span class="bulk-subline" id="ptv-subline">im aktuellen Filter</span>
               </div>
               <label class="filter-control wide">
@@ -221,8 +221,8 @@
                 <input id="ptv-export-name" type="text" autocomplete="off" placeholder="z. B. Tour T09 09.07.2026">
               </label>
               <button class="secondary" id="ptv-clear-selection" type="button" hidden>Auswahl aufheben</button>
-              <button class="secondary" id="ptv-open-remote" type="button">In PTV öffnen</button>
-              <button class="primary" id="ptv-export" type="button">CSV für PTV</button>
+              <button class="secondary" id="ptv-open-remote" type="button">In PTV oeffnen</button>
+              <button class="primary" id="ptv-export" type="button">CSV fuer PTV</button>
               <label class="secondary file-button">
                 <span>PTV Reihenfolge importieren</span>
                 <input id="ptv-import-file" type="file" accept=".csv,.txt,text/csv,text/plain">
@@ -231,8 +231,8 @@
           </div>
 
           <div class="ptv-section-heading">
-            <h3>AuftrÃ¤ge auswÃ¤hlen</h3>
-            <p class="help-text">Klick auf einen Auftrag fÃ¼gt ihn zur PTV-Auswahlliste hinzu oder entfernt ihn wieder.</p>
+            <h3>Auftraege auswaehlen</h3>
+            <p class="help-text">Klick auf einen Auftrag fuegt ihn zur PTV-Auswahlliste hinzu oder entfernt ihn wieder.</p>
           </div>
           <div class="table-wrap">
             <table class="orders-table ptv-table">
@@ -283,7 +283,7 @@
               <span>CSV importieren</span>
               <input id="csv-file" name="csvFile" type="file" accept=".csv,text/csv">
             </label>
-            <p class="help-text">Unterstützt Spalten wie ABNUMMER, KDNR, KUNDE, KOMMISSION, KAPA_LIEFERANSCHRIFT, KAPA_LIEFER_LAND, KAPA_LIEFER_PLZ, KAPA_LIEFER_STRASSE, KAPA_LIEFER_ORT, LIEFERTERMIN, KAPA_TOUR, KAPA_TELEFON, KAPA_EMAIL, VERSAND_EH, GEWICHT_ELEMENTE, ANZ_BLR und EPROD_LAGERPLATZ.</p>
+            <p class="help-text">Unterstuetzt Spalten wie ABNUMMER, KDNR, KUNDE, KOMMISSION, KAPA_LIEFERANSCHRIFT, KAPA_LIEFER_LAND, KAPA_LIEFER_PLZ, KAPA_LIEFER_STRASSE, KAPA_LIEFER_ORT, LIEFERTERMIN, KAPA_TOUR, KAPA_TELEFON, KAPA_EMAIL, VERSAND_EH, GEWICHT_ELEMENTE, ANZ_BLR und EPROD_LAGERPLATZ.</p>
             <div class="import-actions">
               <button class="secondary" id="sample-csv-button" type="button">Beispiel-Export herunterladen</button>
               <button class="primary" type="submit">CSV importieren</button>
@@ -367,7 +367,7 @@
                   </label>
                   <p class="help-text mail-admin-only wide-field">Hinweis: Fuer Port 587 normalerweise deaktiviert lassen (STARTTLS). Fuer Port 465 normalerweise aktivieren.</p>
                   <label class="mail-admin-only wide-field">
-                    <span>SMTP-Zertifikat prüfen</span>
+                    <span>SMTP-Zertifikat pruefen</span>
                     <select id="mail-smtp-verify-certificate" name="smtpVerifyCertificate">
                       <option value="no" selected>Nein</option>
                       <option value="yes">Ja</option>
@@ -399,7 +399,7 @@
                     <span>E-Mail Avis DEMOBETRIEB</span>
                   </label>
                   <label class="mail-admin-only wide-field" id="mail-demo-recipients-row">
-                    <span>Demo-Empfänger</span>
+                    <span>Demo-Empfaenger</span>
                     <input id="mail-demo-recipients" name="demoRecipients" placeholder="test1@example.de; test2@example.de">
                   </label>
                   <div class="form-actions wide-field">
@@ -436,7 +436,7 @@
                     <input id="ptv-plant-city" name="plantCity" placeholder="Neukirchen v. W.">
                   </label>
                   <label>
-                    <span>Werk Straße</span>
+                    <span>Werk Strasse</span>
                     <input id="ptv-plant-street" name="plantStreet" placeholder="Gewerbepark 7">
                   </label>
                   <label class="checkbox wide-field">
@@ -460,7 +460,7 @@
                     <input id="ptv-plant-end-city" name="plantEndCity" placeholder="Neukirchen v. W.">
                   </label>
                   <label>
-                    <span>Letzte Station Straße</span>
+                    <span>Letzte Station Strasse</span>
                     <input id="ptv-plant-end-street" name="plantEndStreet" placeholder="Gewerbepark 7">
                   </label>
                   <p class="help-text wide-field">Remote-Control-Test nutzt action=in_stationlist oder bei aktivem Haken action=routing. Erste und letzte Station sind die Firmenadresse.</p>
@@ -504,7 +504,7 @@
                   </label>
                   <label class="checkbox wide-field">
                     <input id="ldap-verify-certificate" name="verifyCertificate" type="checkbox" checked>
-                    <span>SSL-Zertifikat überprüfen</span>
+                    <span>SSL-Zertifikat ueberpruefen</span>
                   </label>
                   <label class="wide-field">
                     <span>LDAP-Server SSL-Zertifikat</span>
@@ -615,7 +615,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.13.7</footer>
+      <footer class="app-footer">Version 2026.07.13.8</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -654,7 +654,7 @@
             <strong id="drawer-delivery-city">-</strong>
           </div>
           <div>
-            <span class="label">Lieferstraße</span>
+            <span class="label">Lieferstrasse</span>
             <strong id="drawer-delivery-street">-</strong>
           </div>
           <div>
@@ -719,7 +719,7 @@
         </label>
 
         <label>
-          <span>Info für Kunden</span>
+          <span>Info fuer Kunden</span>
           <textarea id="edit-customer-info" name="customerInfo" rows="4" placeholder="Text fuer die spaetere Avisierungs-E-Mail"></textarea>
         </label>
 
@@ -830,7 +830,7 @@
         <p id="confirm-message"></p>
         <div class="confirm-actions">
           <button class="secondary" id="confirm-cancel" type="button">Abbrechen</button>
-          <button class="primary" id="confirm-accept" type="button">Bestätigen</button>
+          <button class="primary" id="confirm-accept" type="button">Bestaetigen</button>
         </div>
       </div>
     </aside>

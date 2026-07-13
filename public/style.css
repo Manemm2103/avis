@@ -663,6 +663,15 @@ select:disabled {
   background: var(--muted);
 }
 
+.ptv-export-order-row.is-draggable {
+  cursor: grab;
+}
+
+.ptv-export-order-row.is-drag-over {
+  outline: 2px solid var(--accent);
+  background: var(--selected-bg);
+}
+
 .tag-list {
   display: flex;
   flex-wrap: wrap;

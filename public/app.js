@@ -357,6 +357,7 @@ function bindEvents() {
   });
   elements.ptvExportList.addEventListener("click", (event) => {
     const deleteButton = event.target.closest("[data-ptv-delete-export]");
+    const sendButton = event.target.closest("[data-ptv-send-export]");
     const card = event.target.closest("[data-ptv-export-card]");
 
     if (deleteButton) {
@@ -365,9 +366,56 @@ function bindEvents() {
       return;
     }
 
+    if (sendButton) {
+      event.stopPropagation();
+      openPtvExportRemoteControl(sendButton.dataset.ptvSendExport);
+      return;
+    }
+
     if (card) {
       togglePtvExportDetails(card.dataset.ptvExportCard);
     }
+  });
+
+  elements.ptvExportList.addEventListener("dragstart", (event) => {
+    const row = event.target.closest("[data-ptv-export-order-number]");
+
+    if (!row) {
+      return;
+    }
+
+    state.ptvDraggedOrderNumber = row.dataset.ptvExportOrderNumber;
+    state.ptvExportId = row.dataset.ptvExportId || state.ptvExportId;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", state.ptvDraggedOrderNumber);
+  });
+
+  elements.ptvExportList.addEventListener("dragover", (event) => {
+    const row = event.target.closest("[data-ptv-export-order-number]");
+
+    if (!row || row.dataset.ptvExportOrderNumber === state.ptvDraggedOrderNumber) {
+      return;
+    }
+
+    event.preventDefault();
+    row.classList.add("is-drag-over");
+  });
+
+  elements.ptvExportList.addEventListener("dragleave", (event) => {
+    event.target.closest("[data-ptv-export-order-number]")?.classList.remove("is-drag-over");
+  });
+
+  elements.ptvExportList.addEventListener("drop", async (event) => {
+    const row = event.target.closest("[data-ptv-export-order-number]");
+
+    if (!row) {
+      return;
+    }
+
+    event.preventDefault();
+    row.classList.remove("is-drag-over");
+    await movePtvExportOrder(row.dataset.ptvExportId, state.ptvDraggedOrderNumber, row.dataset.ptvExportOrderNumber);
+    state.ptvDraggedOrderNumber = "";
   });
   elements.masterdataTabs.forEach((button) => {
     button.addEventListener("click", () => showMasterdataPage(button.dataset.masterdataTab));
@@ -1131,7 +1179,8 @@ function renderPtvExports() {
 
   elements.ptvExportList.innerHTML = exports.map((item) => {
     const count = (item.optimizedOrderNumbers?.length || item.orderNumbers?.length || 0);
-    const status = isPtvExportOptimized(item) ? "Tour optimiert" : "Nicht optimiert";
+    const optimized = isPtvExportOptimized(item);
+    const status = optimized ? "Tour optimiert" : "Nicht optimiert";
     const expanded = state.ptvExpandedExportId === item.id;
     const orders = ptvExportOrders(item);
 
@@ -1142,13 +1191,14 @@ function renderPtvExports() {
           <span class="sub-text">${escapeHtml(status)} - ${count} Auftraege - ${formatDateTime(item.updatedAt || item.createdAt)}</span>
         </div>
         <div class="row-actions">
+          ${optimized ? "" : `<button class="secondary small" data-ptv-send-export="${escapeHtml(item.id)}" type="button">An PTV uebergeben</button>`}
           <button class="secondary danger small" data-ptv-delete-export="${escapeHtml(item.id)}" type="button">Loeschen</button>
         </div>
         <div class="ptv-export-details" ${expanded ? "" : "hidden"}>
           ${orders.length ? `
             <div class="ptv-export-order-list">
               ${orders.map((order, index) => `
-                <div class="ptv-export-order-row">
+                <div class="ptv-export-order-row ${optimized ? "is-draggable" : ""}" ${optimized ? `draggable="true"` : ""} data-ptv-export-id="${escapeHtml(item.id)}" data-ptv-export-order-number="${escapeHtml(order.orderNumber)}">
                   <span class="sequence-pill">${index + 1}</span>
                   <strong>${escapeHtml(order.orderNumber)}</strong>
                   <span>${escapeHtml(order.customerName || "-")}</span>
@@ -2539,6 +2589,60 @@ async function openPtvRemoteControl() {
   }
 }
 
+async function openPtvExportRemoteControl(id) {
+  const entry = state.ptvExports.find((item) => item.id === id);
+
+  if (!entry) {
+    showToast("Tourzusammenstellung nicht gefunden.");
+    return;
+  }
+
+  const remoteWindow = window.open("about:blank", "_blank", "width=460,height=320,left=80,top=80");
+
+  if (remoteWindow) {
+    try {
+      remoteWindow.document.title = "PTV wird geoeffnet";
+      remoteWindow.document.body.textContent = "PTV wird geoeffnet ...";
+    } catch {
+      // Navigation below still works if the browser blocks document access.
+    }
+  }
+
+  try {
+    const result = await api(`/api/ptv/exports/${encodeURIComponent(id)}/remote-url`, {
+      method: "POST",
+      body: JSON.stringify({})
+    });
+
+    if (result.warnings?.length) {
+      showToast(result.warnings[0]);
+    }
+
+    state.ptvExportId = id;
+    state.ptvExpandedExportId = id;
+
+    if (remoteWindow) {
+      remoteWindow.location.href = result.url;
+      await loadPtvExports();
+      await loadOrders();
+      renderPtvExports();
+      return;
+    }
+
+    window.location.href = result.url;
+  } catch (error) {
+    if (remoteWindow) {
+      try {
+        remoteWindow.close();
+      } catch {
+        // Ignore close errors and show the API error below.
+      }
+    }
+
+    showToast(error.message || "Tourzusammenstellung konnte nicht an PTV uebergeben werden.");
+  }
+}
+
 async function createPtvExportRecord(orderNumbers) {
   return api("/api/ptv/exports", {
     method: "POST",
@@ -2604,6 +2708,37 @@ async function movePtvOrder(draggedOrderNumber, targetOrderNumber) {
   state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
   await savePtvSequence(orderNumbers);
   showToast("PTV-Reihenfolge gespeichert.");
+}
+
+async function movePtvExportOrder(exportId, draggedOrderNumber, targetOrderNumber) {
+  if (!exportId || !draggedOrderNumber || !targetOrderNumber || draggedOrderNumber === targetOrderNumber) {
+    return;
+  }
+
+  const entry = state.ptvExports.find((item) => item.id === exportId);
+
+  if (!entry || !isPtvExportOptimized(entry)) {
+    return;
+  }
+
+  const orderNumbers = [...(entry.optimizedOrderNumbers?.length ? entry.optimizedOrderNumbers : entry.orderNumbers || [])];
+  const from = orderNumbers.indexOf(draggedOrderNumber);
+  const to = orderNumbers.indexOf(targetOrderNumber);
+
+  if (from === -1 || to === -1) {
+    return;
+  }
+
+  const [moved] = orderNumbers.splice(from, 1);
+  orderNumbers.splice(to, 0, moved);
+  state.ptvExportId = exportId;
+  state.ptvExpandedExportId = exportId;
+  state.ptvListOrderNumbers = orderNumbers;
+  state.ptvSelectedOrderNumbers = new Set(orderNumbers);
+  await savePtvSequence(orderNumbers);
+  renderPtv();
+  renderPtvExports();
+  showToast("Tour-Reihenfolge gespeichert.");
 }
 
 async function savePtvSequence(orderNumbers) {

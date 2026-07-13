@@ -293,6 +293,30 @@ app.post("/api/ptv/remote-url", async (request, response) => {
   }
 });
 
+app.post("/api/ptv/exports/:id/remote-url", async (request, response) => {
+  try {
+    const exportEntry = store.getPtvExport(request.params.id);
+
+    if (!exportEntry) {
+      throw new Error("Tourzusammenstellung nicht gefunden.");
+    }
+
+    const orderNumbers = exportEntry.optimizedOrderNumbers?.length
+      ? exportEntry.optimizedOrderNumbers
+      : exportEntry.orderNumbers || [];
+    const settings = store.getPtvSettings();
+    const source = await loadSourceOrders();
+    const orders = await loadMergedOrders(source.orders);
+
+    response.json(buildPtvRemoteUrl(settings, orderNumbers, orders, exportEntry));
+  } catch (error) {
+    response.status(400).json({
+      error: "PTV_EXPORT_REMOTE_URL_FAILED",
+      message: error.message
+    });
+  }
+});
+
 app.patch("/api/orders/bulk", async (request, response) => {
   try {
     const update = sanitizeBulkAvisUpdate(request.body);

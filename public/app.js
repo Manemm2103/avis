@@ -136,6 +136,7 @@ const elements = {
   ptvOpenRemote: document.querySelector("#ptv-open-remote"),
   ptvExport: document.querySelector("#ptv-export"),
   ptvExportName: document.querySelector("#ptv-export-name"),
+  ptvExportTruck: document.querySelector("#ptv-export-truck"),
   ptvExportList: document.querySelector("#ptv-export-list"),
   ptvImportFile: document.querySelector("#ptv-import-file"),
   ptvBody: document.querySelector("#ptv-body"),
@@ -443,6 +444,7 @@ function bindEvents() {
   elements.ptvClearSelection.addEventListener("click", clearPtvSelection);
   elements.ptvOpenRemote.addEventListener("click", openPtvRemoteControl);
   elements.ptvExport.addEventListener("click", exportPtvCsv);
+  elements.ptvExportTruck.addEventListener("change", () => renderPtv());
   elements.ptvImportFile.addEventListener("change", importPtvSequence);
   document.querySelectorAll("[data-ptv-page]").forEach((button) => {
     button.addEventListener("click", () => showPtvPage(button.dataset.ptvPage || "assemblies"));
@@ -1228,9 +1230,10 @@ async function loadLoadingListSettings() {
   state.loadingListSettings = await api("/api/loading-list-settings");
   elements.loadingListShippingEhLimit.value = state.loadingListSettings.shippingEhLimit ?? 100;
   elements.loadingListTrucks.value = (state.loadingListSettings.trucks || [])
-    .map((truck) => truck.licensePlate || truck.label)
+    .map((truck) => [truck.licensePlate || truck.label, truck.ptvVehicleId].filter(Boolean).join(";"))
     .filter(Boolean)
     .join("\n");
+  renderPtvTruckOptions();
   renderLoadingListTruckOptions();
   renderLoadingList();
 }
@@ -1474,6 +1477,7 @@ function renderPtvExports() {
         <div class="ptv-export-card-main">
           <strong>${escapeHtml(item.name)}</strong>
           <span class="sub-text">${escapeHtml(status)} - ${count} Aufträge - ${formatDateTime(item.updatedAt || item.createdAt)}</span>
+          ${item.loadingListTruckLabel ? `<span class="sub-text">LKW ${escapeHtml(item.loadingListTruckLabel)}${item.loadingListPtvVehicleId ? ` - vehicle ${escapeHtml(item.loadingListPtvVehicleId)}` : ""}</span>` : ""}
           <span class="sub-text">Zusammengestellt von ${escapeHtml(createdBy)} am ${formatDateTime(item.createdAt)}</span>
           ${optimized ? `<span class="sub-text">Optimiert von ${escapeHtml(optimizedBy)} am ${formatDateTime(optimizedAt)}</span>` : ""}
         </div>
@@ -1658,6 +1662,20 @@ function renderLoadingListTruckOptions() {
   elements.loadingListTruck.value = state.loadingListTruckId;
 }
 
+function renderPtvTruckOptions() {
+  if (!elements.ptvExportTruck) {
+    return;
+  }
+
+  const currentValue = elements.ptvExportTruck.value;
+  const trucks = state.loadingListSettings?.trucks || [];
+  elements.ptvExportTruck.innerHTML = [
+    `<option value="">Kein Fahrzeug</option>`,
+    ...trucks.map((truck) => `<option value="${escapeHtml(truck.id)}">${escapeHtml(loadingListTruckLabel(truck))}</option>`)
+  ].join("");
+  elements.ptvExportTruck.value = trucks.some((truck) => truck.id === currentValue) ? currentValue : "";
+}
+
 async function assignLoadingListTruck() {
   const selectedExport = state.ptvExports.find((item) => item.id === state.loadingListExportId);
 
@@ -1669,7 +1687,8 @@ async function assignLoadingListTruck() {
   const payload = {
     truckId: truck?.id || "",
     truckLabel: truck ? loadingListTruckLabel(truck) : "",
-    licensePlate: truck?.licensePlate || ""
+    licensePlate: truck?.licensePlate || "",
+    ptvVehicleId: truck?.ptvVehicleId || ""
   };
 
   await api(`/api/ptv/exports/${encodeURIComponent(selectedExport.id)}/loading-list`, {
@@ -1686,7 +1705,20 @@ async function assignLoadingListTruck() {
 function loadingListTruckLabel(truck) {
   const label = truck.label || "";
   const licensePlate = truck.licensePlate || "";
-  return label && label !== licensePlate ? `${label} (${licensePlate})` : licensePlate || label;
+  const vehicleId = truck.ptvVehicleId ? ` / PTV ${truck.ptvVehicleId}` : "";
+  const base = label && label !== licensePlate ? `${label} (${licensePlate})` : licensePlate || label;
+  return `${base}${vehicleId}`;
+}
+
+function selectedPtvTruckPayload() {
+  const truck = (state.loadingListSettings?.trucks || []).find((item) => item.id === elements.ptvExportTruck.value);
+
+  return {
+    truckId: truck?.id || "",
+    truckLabel: truck ? loadingListTruckLabel(truck) : "",
+    licensePlate: truck?.licensePlate || "",
+    ptvVehicleId: truck?.ptvVehicleId || ""
+  };
 }
 
 function applyLoadingListDefaultDate() {
@@ -3463,7 +3495,8 @@ async function openPtvRemoteControl() {
       method: "POST",
       body: JSON.stringify({
         orderNumbers,
-        exportName: ptvExportName()
+        exportName: ptvExportName(),
+        ...selectedPtvTruckPayload()
       })
     });
 
@@ -3557,7 +3590,8 @@ async function createPtvExportRecord(orderNumbers) {
     method: "POST",
     body: JSON.stringify({
       name: ptvExportName(),
-      orderNumbers
+      orderNumbers,
+      ...selectedPtvTruckPayload()
     })
   });
 }
@@ -3582,6 +3616,7 @@ function resetPtvPlanningForm() {
   state.ptvSelectedOrderNumbers.clear();
   state.ptvLastSelectedOrderNumber = "";
   elements.ptvSearchInput.value = "";
+  elements.ptvExportTruck.value = "";
   elements.ptvFilterDate.value = "";
   elements.ptvFilterTour.value = "";
   renderPtvWeekPicker();

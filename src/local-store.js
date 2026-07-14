@@ -737,6 +737,7 @@ export class LocalStore {
     exportEntry.loadingListTruckId = String(input.truckId || "").trim();
     exportEntry.loadingListTruckLabel = String(input.truckLabel || "").trim();
     exportEntry.loadingListLicensePlate = String(input.licensePlate || "").trim();
+    exportEntry.loadingListPtvVehicleId = String(input.ptvVehicleId || "").trim();
     exportEntry.updatedAt = new Date().toISOString();
     exportEntry.updatedBy = actor?.displayName || actor?.username || "";
 
@@ -795,6 +796,10 @@ export class LocalStore {
       status: "exportiert",
       orderNumbers,
       optimizedOrderNumbers: [],
+      loadingListTruckId: String(input.truckId || "").trim(),
+      loadingListTruckLabel: String(input.truckLabel || "").trim(),
+      loadingListLicensePlate: String(input.licensePlate || "").trim(),
+      loadingListPtvVehicleId: String(input.ptvVehicleId || "").trim(),
       createdAt: now,
       createdBy: actor?.displayName || actor?.username || "",
       updatedAt: now,

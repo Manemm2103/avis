@@ -233,6 +233,10 @@
                 <span>Name der Tourzusammenstellung</span>
                 <input id="ptv-export-name" type="text" autocomplete="off" placeholder="z. B. Tour T09 09.07.2026">
               </label>
+              <label class="filter-control wide">
+                <span>LKW</span>
+                <select id="ptv-export-truck"></select>
+              </label>
               <button class="secondary" id="ptv-clear-selection" type="button" hidden>Auswahl aufheben</button>
               <button class="secondary" id="ptv-open-remote" type="button">Tour speichern und in PTV öffnen</button>
               <button class="primary" id="ptv-export" type="button">CSV für PTV</button>
@@ -560,10 +564,10 @@
                     <input id="loading-list-shipping-eh-limit" name="shippingEhLimit" type="number" min="1" step="1" placeholder="100">
                   </label>
                   <label class="wide-field">
-                    <span>LKW Kennzeichen</span>
-                    <textarea id="loading-list-trucks" name="trucks" rows="6" placeholder="PA-BW 123&#10;PA-BW 456"></textarea>
+                    <span>LKW Kennzeichen und PTV-ID</span>
+                    <textarea id="loading-list-trucks" name="trucks" rows="6" placeholder="PA-BW 123;12345&#10;PA-BW 456;67890"></textarea>
                   </label>
-                  <p class="help-text wide-field">Ein LKW je Zeile. In der Ladeliste kann dann ein LKW ausgewählt und der Tour zugewiesen werden.</p>
+                  <p class="help-text wide-field">Ein LKW je Zeile im Format Kennzeichen;PTV-Fahrzeug-ID. Die PTV-ID wird beim Öffnen in PTV als vehicle übergeben.</p>
                   <p class="help-text wide-field">Nach dieser Grenze wird in der Ladeliste eine rote Trennlinie angezeigt. Standard ist 100 Versand EH.</p>
                   <div class="form-actions wide-field">
                     <button class="primary" type="submit">Ladeliste speichern</button>
@@ -708,7 +712,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.14.15</footer>
+      <footer class="app-footer">Version 2026.07.14.16</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -945,6 +949,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260714-loading-list-truck" type="module"></script>
+    <script src="/app.js?v=20260714-ptv-vehicle-id" type="module"></script>
   </body>
 </html>

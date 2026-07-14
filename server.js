@@ -243,7 +243,8 @@ app.post("/api/ptv/exports", async (request, response) => {
   try {
     const entry = await store.createPtvExport({
       name: text(request.body.name),
-      orderNumbers: sanitizeOrderNumbers(request.body.orderNumbers)
+      orderNumbers: sanitizeOrderNumbers(request.body.orderNumbers),
+      ...sanitizePtvExportLoadingList(request.body)
     }, request.user);
     response.status(201).json(entry);
   } catch (error) {
@@ -320,7 +321,8 @@ app.post("/api/ptv/remote-url", async (request, response) => {
     const orderNumbers = sanitizeOrderNumbers(request.body.orderNumbers);
     const exportEntry = await store.createPtvExport({
       name: text(request.body.exportName),
-      orderNumbers
+      orderNumbers,
+      ...sanitizePtvExportLoadingList(request.body)
     }, request.user);
     const settings = store.getPtvSettings();
     const source = await loadSourceOrders();
@@ -1497,7 +1499,8 @@ function sanitizePtvExportLoadingList(input) {
   return {
     truckId: text(input.truckId),
     truckLabel: text(input.truckLabel),
-    licensePlate: text(input.licensePlate)
+    licensePlate: text(input.licensePlate),
+    ptvVehicleId: text(input.ptvVehicleId)
   };
 }
 
@@ -1565,7 +1568,10 @@ function sanitizeLoadingListTrucks(value) {
     ? value
     : String(value || "")
       .split(/\r?\n/)
-      .map((line) => ({ licensePlate: line }));
+      .map((line) => {
+        const [licensePlate, ptvVehicleId, label] = String(line || "").split(";").map((part) => part.trim());
+        return { licensePlate, ptvVehicleId, label };
+      });
 
   const seen = new Set();
 
@@ -1573,9 +1579,10 @@ function sanitizeLoadingListTrucks(value) {
     .map((item) => {
       const licensePlate = text(item.licensePlate ?? item.plate ?? item);
       const label = text(item.label ?? item.name) || licensePlate;
+      const ptvVehicleId = text(item.ptvVehicleId ?? item.vehicleId ?? item.ptvId);
       const id = text(item.id) || stableTruckId(licensePlate || label);
 
-      return { id, label, licensePlate };
+      return { id, label, licensePlate, ptvVehicleId };
     })
     .filter((item) => item.licensePlate || item.label)
     .filter((item) => {
@@ -1631,6 +1638,11 @@ function buildPtvRemoteUrl(settings, orderNumbers, orders, exportEntry = null) {
     ticketid: exportEntry?.id || selectedOrders[0].orderNumber,
     num_stations: String(selectedOrders.length + 2)
   });
+  const vehicle = text(exportEntry?.loadingListPtvVehicleId);
+
+  if (vehicle) {
+    params.set("vehicle", vehicle);
+  }
   const exportUrl = ptvCallbackUrl(settings.exportUrl);
 
   if (exportUrl) {

@@ -48,6 +48,7 @@ const state = {
   loadingListExportId: "",
   loadingListDeliveryDate: "",
   loadingListLoadingText: "",
+  loadingListTruckId: "",
   loadingListLicensePlate: "",
   loadingListTrailer: false,
   loadingListSelectedOrderNumbers: new Set(),
@@ -142,6 +143,7 @@ const elements = {
   loadingListExport: document.querySelector("#loading-list-export"),
   loadingListDeliveryDate: document.querySelector("#loading-list-delivery-date"),
   loadingListLoadingText: document.querySelector("#loading-list-loading-text"),
+  loadingListTruck: document.querySelector("#loading-list-truck"),
   loadingListLicensePlate: document.querySelector("#loading-list-license-plate"),
   loadingListTrailer: document.querySelector("#loading-list-trailer"),
   loadingListClearSelection: document.querySelector("#loading-list-clear-selection"),
@@ -149,6 +151,7 @@ const elements = {
   loadingListContent: document.querySelector("#loading-list-content"),
   loadingListSettingsForm: document.querySelector("#loading-list-settings-form"),
   loadingListShippingEhLimit: document.querySelector("#loading-list-shipping-eh-limit"),
+  loadingListTrucks: document.querySelector("#loading-list-trucks"),
   demoNotice: document.querySelector("#demo-notice"),
   sourceErrorNotice: document.querySelector("#source-error-notice"),
   drawer: document.querySelector("#order-drawer"),
@@ -343,10 +346,7 @@ function bindEvents() {
     state.loadingListLoadingText = elements.loadingListLoadingText.value;
     renderLoadingList();
   });
-  elements.loadingListLicensePlate.addEventListener("input", () => {
-    state.loadingListLicensePlate = elements.loadingListLicensePlate.value;
-    renderLoadingList();
-  });
+  elements.loadingListTruck.addEventListener("change", assignLoadingListTruck);
   elements.loadingListTrailer.addEventListener("change", () => {
     state.loadingListTrailer = elements.loadingListTrailer.checked;
     applyLoadingListTrailerMark(elements.loadingListTrailer.checked);
@@ -1227,6 +1227,11 @@ async function loadPtvSettings() {
 async function loadLoadingListSettings() {
   state.loadingListSettings = await api("/api/loading-list-settings");
   elements.loadingListShippingEhLimit.value = state.loadingListSettings.shippingEhLimit ?? 100;
+  elements.loadingListTrucks.value = (state.loadingListSettings.trucks || [])
+    .map((truck) => truck.licensePlate || truck.label)
+    .filter(Boolean)
+    .join("\n");
+  renderLoadingListTruckOptions();
   renderLoadingList();
 }
 
@@ -1541,6 +1546,11 @@ function renderLoadingList(errorMessage = "") {
     return;
   }
 
+  state.loadingListTruckId = selectedExport.loadingListTruckId || "";
+  state.loadingListLicensePlate = selectedExport.loadingListLicensePlate || "";
+  renderLoadingListTruckOptions();
+  syncLoadingListControls();
+
   const loadingOrders = orders.slice();
   reconcileLoadingListSelection(loadingOrders);
   const unloadingStops = groupLoadingListStops(loadingOrders);
@@ -1557,6 +1567,7 @@ function renderLoadingList(errorMessage = "") {
       <span><strong>Fahrer</strong>${escapeHtml(driverLabel)}</span>
       <span><strong>Auslieferungsdatum</strong>${escapeHtml(state.loadingListDeliveryDate ? formatDate(state.loadingListDeliveryDate) : "-")}</span>
       <span><strong>Verladung</strong>${escapeHtml(state.loadingListLoadingText || "-")}</span>
+      <span><strong>LKW</strong>${escapeHtml(selectedExport.loadingListTruckLabel || "-")}</span>
       <span><strong>Kennzeichen</strong>${escapeHtml(state.loadingListLicensePlate || "-")}</span>
       <span><strong>Auswahl</strong>${selectedCount ? `${selectedCount} markiert` : "keine"}</span>
       <span><strong>Entladestellen</strong>${unloadingStops.length}</span>
@@ -1626,8 +1637,56 @@ function renderLoadingList(errorMessage = "") {
 function syncLoadingListControls() {
   elements.loadingListDeliveryDate.value = state.loadingListDeliveryDate;
   elements.loadingListLoadingText.value = state.loadingListLoadingText;
+  elements.loadingListTruck.value = state.loadingListTruckId;
   elements.loadingListLicensePlate.value = state.loadingListLicensePlate;
   elements.loadingListTrailer.checked = state.loadingListTrailer;
+}
+
+function renderLoadingListTruckOptions() {
+  const trucks = state.loadingListSettings?.trucks || [];
+
+  elements.loadingListTruck.innerHTML = [
+    `<option value="">Bitte auswählen</option>`,
+    ...trucks.map((truck) => `<option value="${escapeHtml(truck.id)}">${escapeHtml(loadingListTruckLabel(truck))}</option>`)
+  ].join("");
+
+  if (state.loadingListTruckId && !trucks.some((truck) => truck.id === state.loadingListTruckId)) {
+    state.loadingListTruckId = "";
+    state.loadingListLicensePlate = "";
+  }
+
+  elements.loadingListTruck.value = state.loadingListTruckId;
+}
+
+async function assignLoadingListTruck() {
+  const selectedExport = state.ptvExports.find((item) => item.id === state.loadingListExportId);
+
+  if (!selectedExport) {
+    return;
+  }
+
+  const truck = (state.loadingListSettings?.trucks || []).find((item) => item.id === elements.loadingListTruck.value);
+  const payload = {
+    truckId: truck?.id || "",
+    truckLabel: truck ? loadingListTruckLabel(truck) : "",
+    licensePlate: truck?.licensePlate || ""
+  };
+
+  await api(`/api/ptv/exports/${encodeURIComponent(selectedExport.id)}/loading-list`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+
+  state.loadingListTruckId = payload.truckId;
+  state.loadingListLicensePlate = payload.licensePlate;
+  await loadPtvExports();
+  showToast(payload.licensePlate ? `LKW ${payload.licensePlate} zugewiesen.` : "LKW-Zuweisung entfernt.");
+}
+
+function loadingListTruckLabel(truck) {
+  const label = truck.label || "";
+  const licensePlate = truck.licensePlate || "";
+  return label && label !== licensePlate ? `${label} (${licensePlate})` : licensePlate || label;
 }
 
 function applyLoadingListDefaultDate() {
@@ -3854,7 +3913,8 @@ async function saveLoadingListSettings(event) {
   await api("/api/loading-list-settings", {
     method: "PATCH",
     body: JSON.stringify({
-      shippingEhLimit: elements.loadingListShippingEhLimit.value
+      shippingEhLimit: elements.loadingListShippingEhLimit.value,
+      trucks: elements.loadingListTrucks.value
     })
   });
 

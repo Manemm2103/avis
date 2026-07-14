@@ -83,6 +83,7 @@ Bayerwald Fenster und Türen`,
   },
   loadingListSettings: {
     shippingEhLimit: 100,
+    trucks: [],
     updatedAt: "",
     updatedBy: ""
   },
@@ -724,6 +725,23 @@ export class LocalStore {
 
     await this.save();
     return this.getLoadingListSettings();
+  }
+
+  async updatePtvExportLoadingList(id, input, actor) {
+    const exportEntry = this.getPtvExport(id);
+
+    if (!exportEntry) {
+      throw new Error("Tourzusammenstellung nicht gefunden.");
+    }
+
+    exportEntry.loadingListTruckId = String(input.truckId || "").trim();
+    exportEntry.loadingListTruckLabel = String(input.truckLabel || "").trim();
+    exportEntry.loadingListLicensePlate = String(input.licensePlate || "").trim();
+    exportEntry.updatedAt = new Date().toISOString();
+    exportEntry.updatedBy = actor?.displayName || actor?.username || "";
+
+    await this.save();
+    return exportEntry;
   }
 
   listPtvCallbacks() {

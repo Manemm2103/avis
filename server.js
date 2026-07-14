@@ -1,4 +1,5 @@
 import express from "express";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import https from "node:https";
@@ -388,6 +389,17 @@ app.patch("/api/orders/bulk", async (request, response) => {
   } catch (error) {
     response.status(400).json({
       error: "BULK_SAVE_FAILED",
+      message: error.message
+    });
+  }
+});
+
+app.patch("/api/ptv/exports/:id/loading-list", async (request, response) => {
+  try {
+    response.json(await store.updatePtvExportLoadingList(request.params.id, sanitizePtvExportLoadingList(request.body), request.user));
+  } catch (error) {
+    response.status(400).json({
+      error: "PTV_EXPORT_LOADING_LIST_SAVE_FAILED",
       message: error.message
     });
   }
@@ -1476,7 +1488,16 @@ function sanitizePtvSettings(input) {
 
 function sanitizeLoadingListSettings(input) {
   return {
-    shippingEhLimit: Math.max(1, number(input.shippingEhLimit, 100))
+    shippingEhLimit: Math.max(1, number(input.shippingEhLimit, 100)),
+    trucks: sanitizeLoadingListTrucks(input.trucks)
+  };
+}
+
+function sanitizePtvExportLoadingList(input) {
+  return {
+    truckId: text(input.truckId),
+    truckLabel: text(input.truckLabel),
+    licensePlate: text(input.licensePlate)
   };
 }
 
@@ -1533,9 +1554,48 @@ function publicPtvSettings(settings) {
 function publicLoadingListSettings(settings) {
   return {
     shippingEhLimit: Math.max(1, number(settings.shippingEhLimit, 100)),
+    trucks: sanitizeLoadingListTrucks(settings.trucks),
     updatedAt: settings.updatedAt || "",
     updatedBy: settings.updatedBy || ""
   };
+}
+
+function sanitizeLoadingListTrucks(value) {
+  const list = Array.isArray(value)
+    ? value
+    : String(value || "")
+      .split(/\r?\n/)
+      .map((line) => ({ licensePlate: line }));
+
+  const seen = new Set();
+
+  return list
+    .map((item) => {
+      const licensePlate = text(item.licensePlate ?? item.plate ?? item);
+      const label = text(item.label ?? item.name) || licensePlate;
+      const id = text(item.id) || stableTruckId(licensePlate || label);
+
+      return { id, label, licensePlate };
+    })
+    .filter((item) => item.licensePlate || item.label)
+    .filter((item) => {
+      const key = item.licensePlate.toLowerCase() || item.label.toLowerCase();
+
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
+}
+
+function stableTruckId(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    || crypto.randomUUID();
 }
 
 function buildPtvRemoteUrl(settings, orderNumbers, orders, exportEntry = null) {

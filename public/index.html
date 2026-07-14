@@ -306,8 +306,12 @@
               <input id="loading-list-loading-text" type="text" placeholder="wird später ergänzt">
             </label>
             <label>
+              <span>LKW</span>
+              <select id="loading-list-truck"></select>
+            </label>
+            <label>
               <span>Kennzeichen</span>
-              <input id="loading-list-license-plate" type="text" placeholder="wird später ergänzt">
+              <input id="loading-list-license-plate" type="text" readonly placeholder="LKW auswählen">
             </label>
             <label class="checkbox-row">
               <input id="loading-list-trailer" type="checkbox">
@@ -555,6 +559,11 @@
                     <span>Grenze Versand EH</span>
                     <input id="loading-list-shipping-eh-limit" name="shippingEhLimit" type="number" min="1" step="1" placeholder="100">
                   </label>
+                  <label class="wide-field">
+                    <span>LKW Kennzeichen</span>
+                    <textarea id="loading-list-trucks" name="trucks" rows="6" placeholder="PA-BW 123&#10;PA-BW 456"></textarea>
+                  </label>
+                  <p class="help-text wide-field">Ein LKW je Zeile. In der Ladeliste kann dann ein LKW ausgewählt und der Tour zugewiesen werden.</p>
                   <p class="help-text wide-field">Nach dieser Grenze wird in der Ladeliste eine rote Trennlinie angezeigt. Standard ist 100 Versand EH.</p>
                   <div class="form-actions wide-field">
                     <button class="primary" type="submit">Ladeliste speichern</button>
@@ -699,7 +708,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.14.14</footer>
+      <footer class="app-footer">Version 2026.07.14.15</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -936,6 +945,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260714-loading-list-trailer" type="module"></script>
+    <script src="/app.js?v=20260714-loading-list-truck" type="module"></script>
   </body>
 </html>

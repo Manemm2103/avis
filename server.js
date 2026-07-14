@@ -935,8 +935,9 @@ function effectiveMssqlConfig() {
 function normalizeOrder(row, origin = "mssql", canDelete = false) {
   const customerAddress = text(row.customerAddress ?? row.KUNDE_ANSCHRIFT ?? row.kunde_anschrift);
   const deliveryAddress = text(row.deliveryAddress ?? row.KAPA_LIEFERANSCHRIFT ?? row.kapa_lieferanschrift);
+  const deliveryCountryFromAddress = countryFromAddressPrefix(deliveryAddress);
   const deliveryParts = splitDeliveryAddress(deliveryAddress, {
-    country: row.deliveryCountry ?? row.KAPA_LIEFER_LAND ?? row.kapa_liefer_land ?? countryFromAddressPrefix(customerAddress),
+    country: row.deliveryCountry || row.KAPA_LIEFER_LAND || row.kapa_liefer_land || deliveryCountryFromAddress || countryFromAddressPrefix(customerAddress),
     postalCode: row.deliveryPostalCode ?? row.KAPA_LIEFER_PLZ ?? row.kapa_liefer_plz,
     street: row.deliveryStreet ?? row.KAPA_LIEFER_STRASSE ?? row.kapa_liefer_strasse,
     city: row.deliveryCity ?? row.KAPA_LIEFER_ORT ?? row.kapa_liefer_ort
@@ -1666,6 +1667,7 @@ function ptvCountryCode(country, postalCode = "") {
   const aliases = {
     D: "DE",
     A: "AT",
+    H: "HU",
     I: "IT"
   };
 
@@ -2328,7 +2330,7 @@ function splitDeliveryAddress(address, parts = {}) {
 
   if (provided.postalCode || provided.street || provided.city) {
     return {
-      country: provided.country || inferCountryFromPostalCode(provided.postalCode),
+      country: normalizeCountryCode(provided.country) || inferCountryFromPostalCode(provided.postalCode),
       postalCode: provided.postalCode,
       street: provided.street,
       city: provided.city
@@ -2336,7 +2338,7 @@ function splitDeliveryAddress(address, parts = {}) {
   }
 
   const value = text(address).replace(/\s+/g, " ");
-  const match = value.match(/^(?:(?<country>[A-Z]{2})[-\s]+)?(?<postalCode>\d{4,6})\s+(?<rest>.+)$/i);
+  const match = value.match(/^(?:(?<country>[A-Z]{1,3})[-\s]+)?(?<postalCode>\d{4,6})\s+(?<rest>.+)$/i);
 
   if (!match?.groups) {
     return {
@@ -2369,11 +2371,23 @@ function splitDeliveryAddress(address, parts = {}) {
   }
 
   return {
-    country: text(match.groups.country).toUpperCase() || provided.country || inferCountryFromPostalCode(postalCode),
+    country: normalizeCountryCode(match.groups.country) || normalizeCountryCode(provided.country) || inferCountryFromPostalCode(postalCode),
     postalCode,
     street,
     city
   };
+}
+
+function normalizeCountryCode(country) {
+  const value = text(country).toUpperCase();
+  const aliases = {
+    A: "AT",
+    D: "DE",
+    H: "HU",
+    I: "IT"
+  };
+
+  return aliases[value] || value;
 }
 
 function inferCountryFromPostalCode(postalCode) {
@@ -2391,8 +2405,8 @@ function inferCountryFromPostalCode(postalCode) {
 }
 
 function countryFromAddressPrefix(address) {
-  const match = text(address).match(/^([A-Z]{2})[-\s]/i);
-  return match ? match[1].toUpperCase() : "";
+  const match = text(address).match(/^([A-Z]{1,3})[-\s]/i);
+  return match ? normalizeCountryCode(match[1]) : "";
 }
 
 function number(value, fallback) {

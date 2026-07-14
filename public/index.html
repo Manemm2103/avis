@@ -521,6 +521,10 @@
                     <input id="ptv-stop-pause-minutes" name="stopPauseMinutes" type="number" min="0" step="1" placeholder="20">
                   </label>
                   <label>
+                    <span>Abfahrtszeit</span>
+                    <input id="ptv-departure-at" name="departureAt" type="datetime-local">
+                  </label>
+                  <label>
                     <span>Letzte Station Land</span>
                     <input id="ptv-plant-end-country" name="plantEndCountry" placeholder="DE">
                   </label>
@@ -536,7 +540,7 @@
                     <span>Letzte Station Straße</span>
                     <input id="ptv-plant-end-street" name="plantEndStreet" placeholder="Gewerbepark 7">
                   </label>
-                  <p class="help-text wide-field">Remote-Control-Test nutzt action=in_stationlist oder bei aktivem Haken action=routing. Erste und letzte Station sind die Firmenadresse.</p>
+                  <p class="help-text wide-field">Remote-Control-Test nutzt action=in_stationlist oder bei aktivem Haken action=routing. Erste und letzte Station sind die Firmenadresse. Die Abfahrtszeit wird beim PTV-Link als Unix timestamp übergeben.</p>
                   <div class="form-actions wide-field">
                     <button class="primary" type="submit">PTV speichern</button>
                   </div>
@@ -712,7 +716,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.14.16</footer>
+      <footer class="app-footer">Version 2026.07.14.17</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -949,6 +953,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260714-ptv-vehicle-id" type="module"></script>
+    <script src="/app.js?v=20260714-ptv-departure-time" type="module"></script>
   </body>
 </html>

@@ -77,6 +77,7 @@ Bayerwald Fenster und Türen`,
     plantEndCity: "Neukirchen v. W.",
     plantEndStreet: "Gewerbepark 7",
     stopPauseMinutes: 20,
+    departureAt: "",
     optimizeOnUpload: false,
     updatedAt: "",
     updatedBy: ""

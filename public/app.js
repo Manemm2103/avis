@@ -213,6 +213,7 @@ const elements = {
   ptvPlantStreet: document.querySelector("#ptv-plant-street"),
   ptvOptimizeOnUpload: document.querySelector("#ptv-optimize-on-upload"),
   ptvStopPauseMinutes: document.querySelector("#ptv-stop-pause-minutes"),
+  ptvDepartureAt: document.querySelector("#ptv-departure-at"),
   ptvPlantEndCountry: document.querySelector("#ptv-plant-end-country"),
   ptvPlantEndPostalCode: document.querySelector("#ptv-plant-end-postal-code"),
   ptvPlantEndCity: document.querySelector("#ptv-plant-end-city"),
@@ -1219,6 +1220,7 @@ async function loadPtvSettings() {
   elements.ptvPlantStreet.value = state.ptvSettings.plantStreet || "Gewerbepark 7";
   elements.ptvOptimizeOnUpload.checked = Boolean(state.ptvSettings.optimizeOnUpload);
   elements.ptvStopPauseMinutes.value = state.ptvSettings.stopPauseMinutes ?? 20;
+  elements.ptvDepartureAt.value = state.ptvSettings.departureAt || "";
   elements.ptvPlantEndCountry.value = state.ptvSettings.plantEndCountry || state.ptvSettings.plantCountry || "DE";
   elements.ptvPlantEndPostalCode.value = state.ptvSettings.plantEndPostalCode || state.ptvSettings.plantPostalCode || "94154";
   elements.ptvPlantEndCity.value = state.ptvSettings.plantEndCity || state.ptvSettings.plantCity || "Neukirchen v. W.";
@@ -3926,6 +3928,7 @@ async function savePtvSettings(event) {
       plantStreet: elements.ptvPlantStreet.value,
       optimizeOnUpload: elements.ptvOptimizeOnUpload.checked,
       stopPauseMinutes: elements.ptvStopPauseMinutes.value,
+      departureAt: elements.ptvDepartureAt.value,
       plantEndCountry: elements.ptvPlantEndCountry.value,
       plantEndPostalCode: elements.ptvPlantEndPostalCode.value,
       plantEndCity: elements.ptvPlantEndCity.value,

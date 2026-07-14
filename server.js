@@ -1484,6 +1484,7 @@ function sanitizePtvSettings(input) {
     plantEndCity: text(input.plantEndCity) || text(input.plantCity) || "Neukirchen v. W.",
     plantEndStreet: text(input.plantEndStreet) || text(input.plantStreet) || "Gewerbepark 7",
     stopPauseMinutes: Math.max(0, number(input.stopPauseMinutes, 20)),
+    departureAt: dateTimeLocalText(input.departureAt),
     optimizeOnUpload: Boolean(input.optimizeOnUpload)
   };
 }
@@ -1548,6 +1549,7 @@ function publicPtvSettings(settings) {
     plantEndCity: settings.plantEndCity || settings.plantCity || "Neukirchen v. W.",
     plantEndStreet: settings.plantEndStreet || settings.plantStreet || "Gewerbepark 7",
     stopPauseMinutes: Math.max(0, number(settings.stopPauseMinutes, 20)),
+    departureAt: settings.departureAt || "",
     optimizeOnUpload: Boolean(settings.optimizeOnUpload),
     updatedAt: settings.updatedAt || "",
     updatedBy: settings.updatedBy || ""
@@ -1642,6 +1644,11 @@ function buildPtvRemoteUrl(settings, orderNumbers, orders, exportEntry = null) {
 
   if (vehicle) {
     params.set("vehicle", vehicle);
+  }
+  const departureTimestamp = unixTimestampFromDateTimeLocal(settings.departureAt);
+
+  if (departureTimestamp) {
+    params.set("timestamp", String(departureTimestamp));
   }
   const exportUrl = ptvCallbackUrl(settings.exportUrl);
 
@@ -2561,6 +2568,31 @@ function dateText(value) {
   }
 
   return raw.slice(0, 10);
+}
+
+function dateTimeLocalText(value) {
+  const raw = text(value);
+
+  if (!raw) {
+    return "";
+  }
+
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  return match ? `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}${match[6] ? `:${match[6]}` : ""}` : "";
+}
+
+function unixTimestampFromDateTimeLocal(value) {
+  const match = dateTimeLocalText(value).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
+
+  if (!match) {
+    return 0;
+  }
+
+  const [, year, month, day, hour, minute, second = "0"] = match;
+  const date = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second));
+  const timestamp = Math.floor(date.getTime() / 1000);
+
+  return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
 function isoWeekText(value) {

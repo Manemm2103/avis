@@ -63,6 +63,7 @@
       <nav class="tabs" aria-label="Bereiche">
         <button class="tab is-active" id="tab-orders" type="button">Aufträge</button>
         <button class="tab" id="tab-ptv" type="button">PTV</button>
+        <button class="tab" id="tab-loading-list" type="button">Ladeliste</button>
         <button class="tab" id="tab-import" type="button">Import</button>
         <button class="tab" id="tab-masterdata" type="button">Stammdaten</button>
       </nav>
@@ -284,6 +285,38 @@
             </table>
           </div>
           </div>
+        </section>
+
+        <section id="loading-list-view" class="view" hidden>
+          <div class="page-heading">
+            <h2>Ladeliste</h2>
+          </div>
+
+          <div class="panel loading-list-controls">
+            <label class="wide-field">
+              <span>Optimierte Tour</span>
+              <select id="loading-list-export"></select>
+            </label>
+            <label>
+              <span>Auslieferungsdatum</span>
+              <input id="loading-list-delivery-date" type="date">
+            </label>
+            <label>
+              <span>Verladung</span>
+              <input id="loading-list-loading-text" type="text" placeholder="wird später ergänzt">
+            </label>
+            <label>
+              <span>Kennzeichen</span>
+              <input id="loading-list-license-plate" type="text" placeholder="wird später ergänzt">
+            </label>
+            <label class="checkbox-row">
+              <input id="loading-list-trailer" type="checkbox">
+              <span>MW Anh.</span>
+            </label>
+          </div>
+
+          <div class="loading-list-summary" id="loading-list-summary"></div>
+          <div class="loading-list-content" id="loading-list-content"></div>
         </section>
 
         <section id="import-view" class="view" hidden>
@@ -650,7 +683,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.14.12</footer>
+      <footer class="app-footer">Version 2026.07.14.13</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -887,6 +920,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260714-extra-order-info" type="module"></script>
+    <script src="/app.js?v=20260714-loading-list" type="module"></script>
   </body>
 </html>

@@ -42,6 +42,11 @@ const state = {
   ptvAssemblySearch: "",
   ptvAssemblyDate: "",
   ptvExpandedExportId: "",
+  loadingListExportId: "",
+  loadingListDeliveryDate: "",
+  loadingListLoadingText: "",
+  loadingListLicensePlate: "",
+  loadingListTrailer: false,
   ptvDeliveryDate: "",
   ptvDeliveryWeek: "",
   ptvTour: "",
@@ -72,12 +77,14 @@ const elements = {
   tabs: {
     orders: document.querySelector("#tab-orders"),
     ptv: document.querySelector("#tab-ptv"),
+    loadingList: document.querySelector("#tab-loading-list"),
     import: document.querySelector("#tab-import"),
     masterdata: document.querySelector("#tab-masterdata")
   },
   views: {
     orders: document.querySelector("#orders-view"),
     ptv: document.querySelector("#ptv-view"),
+    loadingList: document.querySelector("#loading-list-view"),
     import: document.querySelector("#import-view"),
     masterdata: document.querySelector("#masterdata-view")
   },
@@ -127,6 +134,13 @@ const elements = {
   ptvImportFile: document.querySelector("#ptv-import-file"),
   ptvBody: document.querySelector("#ptv-body"),
   ptvListBody: document.querySelector("#ptv-list-body"),
+  loadingListExport: document.querySelector("#loading-list-export"),
+  loadingListDeliveryDate: document.querySelector("#loading-list-delivery-date"),
+  loadingListLoadingText: document.querySelector("#loading-list-loading-text"),
+  loadingListLicensePlate: document.querySelector("#loading-list-license-plate"),
+  loadingListTrailer: document.querySelector("#loading-list-trailer"),
+  loadingListSummary: document.querySelector("#loading-list-summary"),
+  loadingListContent: document.querySelector("#loading-list-content"),
   demoNotice: document.querySelector("#demo-notice"),
   sourceErrorNotice: document.querySelector("#source-error-notice"),
   drawer: document.querySelector("#order-drawer"),
@@ -304,8 +318,31 @@ function bindEvents() {
   elements.brandHomeButton.addEventListener("click", goHomeAndRefresh);
   elements.tabs.orders.addEventListener("click", () => showView("orders"));
   elements.tabs.ptv.addEventListener("click", () => showView("ptv"));
+  elements.tabs.loadingList.addEventListener("click", () => showView("loadingList"));
   elements.tabs.import.addEventListener("click", () => showView("import"));
   elements.tabs.masterdata.addEventListener("click", () => showView("masterdata"));
+  elements.loadingListExport.addEventListener("change", () => {
+    state.loadingListExportId = elements.loadingListExport.value;
+    state.loadingListDeliveryDate = "";
+    applyLoadingListDefaultDate();
+    renderLoadingList();
+  });
+  elements.loadingListDeliveryDate.addEventListener("change", () => {
+    state.loadingListDeliveryDate = elements.loadingListDeliveryDate.value;
+    renderLoadingList();
+  });
+  elements.loadingListLoadingText.addEventListener("input", () => {
+    state.loadingListLoadingText = elements.loadingListLoadingText.value;
+    renderLoadingList();
+  });
+  elements.loadingListLicensePlate.addEventListener("input", () => {
+    state.loadingListLicensePlate = elements.loadingListLicensePlate.value;
+    renderLoadingList();
+  });
+  elements.loadingListTrailer.addEventListener("change", () => {
+    state.loadingListTrailer = elements.loadingListTrailer.checked;
+    renderLoadingList();
+  });
   elements.filterDate.addEventListener("change", () => {
     state.deliveryDate = elements.filterDate.value;
     state.deliveryWeek = "";
@@ -880,15 +917,18 @@ function showView(view) {
 
   const isOrders = view === "orders";
   const isPtv = view === "ptv";
+  const isLoadingList = view === "loadingList";
   const isImport = view === "import";
   const isMasterdata = view === "masterdata";
   state.currentView = view;
   elements.views.orders.hidden = !isOrders;
   elements.views.ptv.hidden = !isPtv;
+  elements.views.loadingList.hidden = !isLoadingList;
   elements.views.import.hidden = !isImport;
   elements.views.masterdata.hidden = !isMasterdata;
   elements.tabs.orders.classList.toggle("is-active", isOrders);
   elements.tabs.ptv.classList.toggle("is-active", isPtv);
+  elements.tabs.loadingList.classList.toggle("is-active", isLoadingList);
   elements.tabs.import.classList.toggle("is-active", isImport);
   elements.tabs.masterdata.classList.toggle("is-active", isMasterdata);
 
@@ -904,6 +944,11 @@ function showView(view) {
     refreshPtvData();
   } else {
     stopPtvAutoRefresh();
+  }
+
+  if (isLoadingList) {
+    renderLoadingList();
+    refreshPtvData();
   }
 
   if (!isMasterdata) {
@@ -1051,12 +1096,14 @@ async function loadPtvOrders() {
     reconcilePtvSelection();
     renderPtv();
     renderPtvExports();
+    renderLoadingList();
   } catch (error) {
     state.ptvOrders = [];
     updatePtvFilterWeeks();
     reconcilePtvSelection();
     renderPtv(sourceErrorMessage(error));
     renderPtvExports();
+    renderLoadingList(sourceErrorMessage(error));
   }
 }
 
@@ -1240,6 +1287,7 @@ async function loadPtvExports() {
   state.ptvExports = await api("/api/ptv/exports");
   renderPtvExportControls();
   renderPtvExports();
+  renderLoadingList();
 }
 
 function renderPtvCallbacks() {
@@ -1429,6 +1477,192 @@ function renderPtvExports() {
       </article>
     `;
   }).join("");
+}
+
+function renderLoadingList(errorMessage = "") {
+  if (!elements.loadingListContent) {
+    return;
+  }
+
+  const optimizedExports = state.ptvExports.filter(isPtvExportOptimized);
+
+  if (!optimizedExports.length) {
+    state.loadingListExportId = "";
+    elements.loadingListExport.innerHTML = `<option value="">Keine optimierte Tour vorhanden</option>`;
+    elements.loadingListSummary.innerHTML = "";
+    elements.loadingListContent.innerHTML = `<p class="help-text">Eine Ladeliste kann erst aus einer von PTV optimierten Tour erstellt werden.</p>`;
+    return;
+  }
+
+  if (!state.loadingListExportId || !optimizedExports.some((item) => item.id === state.loadingListExportId)) {
+    state.loadingListExportId = optimizedExports[0].id;
+    state.loadingListDeliveryDate = "";
+  }
+
+  elements.loadingListExport.innerHTML = optimizedExports.map((item) => {
+    const count = item.optimizedOrderNumbers?.length || item.orderNumbers?.length || 0;
+    return `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)} (${count} Aufträge)</option>`;
+  }).join("");
+  elements.loadingListExport.value = state.loadingListExportId;
+
+  applyLoadingListDefaultDate();
+  syncLoadingListControls();
+
+  if (errorMessage) {
+    elements.loadingListSummary.innerHTML = "";
+    elements.loadingListContent.innerHTML = `<p class="help-text is-error">${escapeHtml(errorMessage)}</p>`;
+    return;
+  }
+
+  const selectedExport = optimizedExports.find((item) => item.id === state.loadingListExportId);
+  const orders = selectedExport ? ptvExportOrders(selectedExport) : [];
+
+  if (!selectedExport || !orders.length) {
+    elements.loadingListSummary.innerHTML = "";
+    elements.loadingListContent.innerHTML = `<p class="help-text">Für diese optimierte Tour wurden keine Aufträge gefunden.</p>`;
+    return;
+  }
+
+  const loadingOrders = orders.slice().reverse();
+  const unloadingStops = groupLoadingListStops(loadingOrders);
+  const driverLabel = loadingListDriverLabel(orders);
+  const totalBlr = loadingOrders.reduce((sum, order) => sum + loadingListNumber(order.blrCount), 0);
+  const totalWeight = loadingOrders.reduce((sum, order) => sum + (Number(ptvWeightKg(order)) || 0), 0);
+
+  elements.loadingListSummary.innerHTML = `
+    <div class="loading-summary-card">
+      <span><strong>Tour</strong>${escapeHtml(selectedExport.name)}</span>
+      <span><strong>Fahrer</strong>${escapeHtml(driverLabel)}</span>
+      <span><strong>Auslieferungsdatum</strong>${escapeHtml(state.loadingListDeliveryDate ? formatDate(state.loadingListDeliveryDate) : "-")}</span>
+      <span><strong>Verladung</strong>${escapeHtml(state.loadingListLoadingText || "-")}</span>
+      <span><strong>Kennzeichen</strong>${escapeHtml(state.loadingListLicensePlate || "-")}</span>
+      <span><strong>MW Anh.</strong>${state.loadingListTrailer ? "Ja" : "Nein"}</span>
+      <span><strong>Entladestellen</strong>${unloadingStops.length}</span>
+      <span><strong>Aufträge</strong>${loadingOrders.length}</span>
+      <span><strong>Stück BLR</strong>${totalBlr || "-"}</span>
+      <span><strong>Gewicht</strong>${totalWeight ? `${totalWeight.toLocaleString("de-DE")} Kg` : "-"}</span>
+    </div>
+  `;
+
+  elements.loadingListContent.innerHTML = unloadingStops.map((stop, stopIndex) => `
+    <article class="loading-stop-card">
+      <header class="loading-stop-header">
+        <span class="sequence-pill">${stopIndex + 1}</span>
+        <div>
+          <strong>Entladestelle</strong>
+          <span>${escapeHtml(stop.address || "-")}</span>
+        </div>
+        <small>${stop.orders.length} ${stop.orders.length === 1 ? "Auftrag" : "Aufträge"}</small>
+      </header>
+      <div class="table-wrap loading-list-table-wrap">
+        <table class="orders-table loading-list-table">
+          <thead>
+            <tr>
+              <th>Ladefolge</th>
+              <th>Auftrag</th>
+              <th>Kunde</th>
+              <th>Kommission</th>
+              <th>Stück BLR</th>
+              <th>Stellplatz</th>
+              <th>Gewicht</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${stop.orders.map((order) => `
+              <tr>
+                <td>${loadingOrders.indexOf(order) + 1}</td>
+                <td><strong>${escapeHtml(order.orderNumber)}</strong></td>
+                <td>${escapeHtml(order.customerName || "-")}</td>
+                <td>${escapeHtml(order.commission || "-")}</td>
+                <td>${escapeHtml(order.blrCount || "-")}</td>
+                <td>${escapeHtml(order.eprodStorageLocation || "-")}</td>
+                <td>${escapeHtml(ptvWeightKg(order) ? `${ptvWeightKg(order)} Kg` : "-")}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </article>
+  `).join("");
+}
+
+function syncLoadingListControls() {
+  elements.loadingListDeliveryDate.value = state.loadingListDeliveryDate;
+  elements.loadingListLoadingText.value = state.loadingListLoadingText;
+  elements.loadingListLicensePlate.value = state.loadingListLicensePlate;
+  elements.loadingListTrailer.checked = state.loadingListTrailer;
+}
+
+function applyLoadingListDefaultDate() {
+  if (state.loadingListDeliveryDate) {
+    return;
+  }
+
+  const selectedExport = state.ptvExports.find((item) => item.id === state.loadingListExportId);
+  const firstDate = selectedExport
+    ? ptvExportOrders(selectedExport)
+      .map((order) => order.displayDeliveryDate || order.deliveryDate)
+      .find(Boolean)
+    : "";
+
+  state.loadingListDeliveryDate = firstDate || "";
+}
+
+function groupLoadingListStops(orders) {
+  const stops = [];
+  const stopMap = new Map();
+
+  for (const order of orders) {
+    const key = loadingListAddressKey(order);
+    let stop = stopMap.get(key);
+
+    if (!stop) {
+      stop = {
+        key,
+        address: loadingListAddressLabel(order),
+        orders: []
+      };
+      stopMap.set(key, stop);
+      stops.push(stop);
+    }
+
+    stop.orders.push(order);
+  }
+
+  return stops;
+}
+
+function loadingListAddressKey(order) {
+  return loadingListAddressLabel(order)
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function loadingListAddressLabel(order) {
+  return order.deliveryAddress
+    || [order.deliveryCountry, order.deliveryPostalCode, order.deliveryCity, order.deliveryStreet].filter(Boolean).join(" ")
+    || "-";
+}
+
+function loadingListDriverLabel(orders) {
+  const orderWithDriver = orders.find((order) => order.avis?.driverPhoneLabel || order.avis?.driverPhoneId);
+
+  if (!orderWithDriver) {
+    return "-";
+  }
+
+  if (orderWithDriver.avis?.driverPhoneLabel) {
+    return orderWithDriver.avis.driverPhoneLabel;
+  }
+
+  const driver = state.drivers.find((item) => item.id === orderWithDriver.avis.driverPhoneId);
+  return driver ? `${driver.label} (${driver.phone})` : "-";
+}
+
+function loadingListNumber(value) {
+  const number = Number(String(value || "").replace(",", "."));
+  return Number.isFinite(number) ? number : 0;
 }
 
 function renderMailTextmarks(textMarks) {

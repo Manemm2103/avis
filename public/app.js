@@ -16,6 +16,7 @@ const state = {
   tours: [],
   filterTours: [],
   filterWeeks: [],
+  ptvFilterWeeks: [],
   users: [],
   sqlSettings: null,
   ldapSettings: null,
@@ -38,6 +39,7 @@ const state = {
   ptvAssemblyDate: "",
   ptvExpandedExportId: "",
   ptvDeliveryDate: "",
+  ptvDeliveryWeek: "",
   ptvTour: "",
   ptvExportId: "",
   ptvListOrderNumbers: [],
@@ -100,6 +102,9 @@ const elements = {
   bulkRevoke: document.querySelector("#bulk-revoke"),
   bulkHint: document.querySelector("#bulk-hint"),
   ptvFilterDate: document.querySelector("#ptv-filter-date"),
+  ptvFilterWeekButton: document.querySelector("#ptv-filter-week-button"),
+  ptvFilterWeekPopover: document.querySelector("#ptv-filter-week-popover"),
+  ptvFilterWeekList: document.querySelector("#ptv-filter-week-list"),
   ptvAssembliesPage: document.querySelector("#ptv-assemblies-page"),
   ptvOrdersPage: document.querySelector("#ptv-orders-page"),
   ptvFilterTour: document.querySelector("#ptv-filter-tour"),
@@ -308,10 +313,15 @@ function bindEvents() {
     if (!elements.filterWeekPopover.hidden && !event.target.closest(".week-control")) {
       closeWeekPicker();
     }
+
+    if (!elements.ptvFilterWeekPopover.hidden && !event.target.closest(".week-control")) {
+      closePtvWeekPicker();
+    }
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       closeWeekPicker();
+      closePtvWeekPicker();
     }
   });
   elements.filterTour.addEventListener("change", () => {
@@ -332,10 +342,22 @@ function bindEvents() {
   elements.bulkTwoDayTour.addEventListener("change", renderBulkState);
   elements.ptvFilterDate.addEventListener("change", () => {
     state.ptvDeliveryDate = elements.ptvFilterDate.value;
+    state.ptvDeliveryWeek = "";
     state.ptvTour = "";
     elements.ptvFilterTour.value = "";
+    renderPtvWeekPicker();
     reconcilePtvSelection();
     renderPtv();
+  });
+  elements.ptvFilterWeekButton.addEventListener("click", () => togglePtvWeekPicker());
+  elements.ptvFilterWeekList.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-ptv-week]");
+
+    if (!button) {
+      return;
+    }
+
+    selectPtvWeekFilter(button.dataset.ptvWeek || "");
   });
   elements.ptvFilterTour.addEventListener("change", () => {
     state.ptvTour = elements.ptvFilterTour.value;
@@ -985,11 +1007,13 @@ async function loadPtvOrders() {
   try {
     const data = await api("/api/orders?status=all");
     state.ptvOrders = data.orders;
+    updatePtvFilterWeeks();
     reconcilePtvSelection();
     renderPtv();
     renderPtvExports();
   } catch (error) {
     state.ptvOrders = [];
+    updatePtvFilterWeeks();
     reconcilePtvSelection();
     renderPtv(sourceErrorMessage(error));
     renderPtvExports();
@@ -1668,6 +1692,10 @@ function ptvFilteredOrders() {
         return false;
       }
 
+      if (state.ptvDeliveryWeek && (order.displayDeliveryWeek || isoWeekValue(order.displayDeliveryDate || order.deliveryDate)) !== state.ptvDeliveryWeek) {
+        return false;
+      }
+
       if (state.ptvTour && (order.displayTour || order.tour) !== state.ptvTour) {
         return false;
       }
@@ -1954,6 +1982,7 @@ function renderTours() {
 function renderPtvTours() {
   const tours = [...new Set(state.ptvOrders
     .filter((order) => !state.ptvDeliveryDate || (order.displayDeliveryDate || order.deliveryDate) === state.ptvDeliveryDate)
+    .filter((order) => !state.ptvDeliveryWeek || (order.displayDeliveryWeek || isoWeekValue(order.displayDeliveryDate || order.deliveryDate)) === state.ptvDeliveryWeek)
     .map((order) => order.displayTour || order.tour)
     .filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, "de"));
@@ -1968,6 +1997,56 @@ function renderPtvTours() {
       <option value="${escapeHtml(tour)}" ${tour === state.ptvTour ? "selected" : ""}>${escapeHtml(tour)}</option>
     `)
   ].join("");
+}
+
+function renderPtvWeekPicker() {
+  elements.ptvFilterWeekButton.textContent = state.ptvDeliveryWeek ? formatWeek(state.ptvDeliveryWeek) : "Alle KW";
+  elements.ptvFilterWeekButton.classList.toggle("is-active", Boolean(state.ptvDeliveryWeek));
+
+  const weekButtons = [
+    `<button class="week-option ${state.ptvDeliveryWeek ? "" : "is-active"}" data-ptv-week="" type="button">Alle KW</button>`,
+    ...state.ptvFilterWeeks.map((week) => `
+      <button class="week-option ${week === state.ptvDeliveryWeek ? "is-active" : ""}" data-ptv-week="${escapeHtml(week)}" type="button">
+        <span>${escapeHtml(formatWeek(week))}</span>
+        <small>${escapeHtml(week.slice(0, 4))}</small>
+      </button>
+    `)
+  ];
+
+  elements.ptvFilterWeekList.innerHTML = weekButtons.join("");
+}
+
+function togglePtvWeekPicker() {
+  elements.ptvFilterWeekPopover.hidden = !elements.ptvFilterWeekPopover.hidden;
+}
+
+function closePtvWeekPicker() {
+  elements.ptvFilterWeekPopover.hidden = true;
+}
+
+function selectPtvWeekFilter(week) {
+  state.ptvDeliveryWeek = week;
+  state.ptvDeliveryDate = "";
+  state.ptvTour = "";
+  elements.ptvFilterDate.value = "";
+  elements.ptvFilterTour.value = "";
+  closePtvWeekPicker();
+  renderPtvWeekPicker();
+  reconcilePtvSelection();
+  renderPtv();
+}
+
+function updatePtvFilterWeeks() {
+  state.ptvFilterWeeks = [...new Set(state.ptvOrders
+    .map((order) => order.displayDeliveryWeek || isoWeekValue(order.displayDeliveryDate || order.deliveryDate))
+    .filter(Boolean))]
+    .sort();
+
+  if (state.ptvDeliveryWeek && !state.ptvFilterWeeks.includes(state.ptvDeliveryWeek)) {
+    state.ptvDeliveryWeek = "";
+  }
+
+  renderPtvWeekPicker();
 }
 
 function renderWeekPicker() {
@@ -2633,12 +2712,14 @@ function clearPtvFilters() {
   state.ptvOptimizationStatus = "exported";
   state.ptvSearch = "";
   state.ptvDeliveryDate = "";
+  state.ptvDeliveryWeek = "";
   state.ptvTour = "";
   state.ptvExportId = "";
   state.ptvAssemblySearch = "";
   state.ptvAssemblyDate = "";
   elements.ptvSearchInput.value = "";
   elements.ptvFilterDate.value = "";
+  renderPtvWeekPicker();
   elements.ptvAssemblySearch.value = "";
   elements.ptvAssemblyDate.value = "";
   document.querySelectorAll("[data-ptv-status]").forEach((button) => {

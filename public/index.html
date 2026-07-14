@@ -202,6 +202,13 @@
               <span>Liefertag</span>
               <input id="ptv-filter-date" type="date">
             </label>
+            <div class="filter-control week-control">
+              <span>KW</span>
+              <button class="week-toggle" id="ptv-filter-week-button" type="button">Alle KW</button>
+              <div class="week-popover" id="ptv-filter-week-popover" hidden>
+                <div class="week-grid" id="ptv-filter-week-list"></div>
+              </div>
+            </div>
             <label class="filter-control wide">
               <span>Tour</span>
               <select id="ptv-filter-tour">
@@ -621,7 +628,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.14.03</footer>
+      <footer class="app-footer">Version 2026.07.14.04</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -842,6 +849,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260714-ptv-default-notified" type="module"></script>
+    <script src="/app.js?v=20260714-ptv-week-filter" type="module"></script>
   </body>
 </html>

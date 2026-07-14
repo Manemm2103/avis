@@ -1473,7 +1473,7 @@ function renderPtvExports() {
         <div class="ptv-export-card-main">
           <strong>${escapeHtml(item.name)}</strong>
           <span class="sub-text">${escapeHtml(status)} - ${count} Aufträge - ${formatDateTime(item.updatedAt || item.createdAt)}</span>
-          ${item.loadingListTruckLabel ? `<span class="sub-text">LKW ${escapeHtml(item.loadingListTruckLabel)}${item.loadingListPtvVehicleId ? ` - vehicle ${escapeHtml(item.loadingListPtvVehicleId)}` : ""}</span>` : ""}
+          ${item.loadingListTruckLabel ? `<span class="sub-text">LKW ${escapeHtml(item.loadingListLicensePlate || item.loadingListTruckLabel)}</span>` : ""}
           <span class="sub-text">Zusammengestellt von ${escapeHtml(createdBy)} am ${formatDateTime(item.createdAt)}</span>
           ${optimized ? `<span class="sub-text">Optimiert von ${escapeHtml(optimizedBy)} am ${formatDateTime(optimizedAt)}</span>` : ""}
         </div>
@@ -1664,7 +1664,7 @@ function renderPtvTruckOptions() {
   const trucks = state.loadingListSettings?.trucks || [];
   elements.ptvExportTruck.innerHTML = [
     `<option value="">Kein Fahrzeug</option>`,
-    ...trucks.map((truck) => `<option value="${escapeHtml(truck.id)}">${escapeHtml(ptvTruckLabel(truck))}</option>`)
+    ...trucks.map((truck) => `<option value="${escapeHtml(truck.id)}">${escapeHtml(loadingListTruckLabel(truck))}</option>`)
   ].join("");
   elements.ptvExportTruck.value = trucks.some((truck) => truck.id === currentValue) ? currentValue : "";
 }
@@ -1696,11 +1696,6 @@ async function assignLoadingListTruck() {
 
 function loadingListTruckLabel(truck) {
   return truck.licensePlate || truck.label || "";
-}
-
-function ptvTruckLabel(truck) {
-  const base = loadingListTruckLabel(truck);
-  return truck.ptvVehicleId ? `${base} / PTV ${truck.ptvVehicleId}` : base;
 }
 
 function selectedPtvTruckPayload() {

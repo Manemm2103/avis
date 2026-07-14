@@ -30,7 +30,7 @@ const state = {
   masterdataPage: "drivers",
   bulkSelectedOrderNumbers: new Set(),
   bulkLastSelectedOrderNumber: "",
-  ptvStatus: "open",
+  ptvStatus: "notified",
   ptvPage: "assemblies",
   ptvOptimizationStatus: "exported",
   ptvSearch: "",
@@ -2629,7 +2629,7 @@ async function importCsvOrders(event) {
 }
 
 function clearPtvFilters() {
-  state.ptvStatus = "open";
+  state.ptvStatus = "notified";
   state.ptvOptimizationStatus = "exported";
   state.ptvSearch = "";
   state.ptvDeliveryDate = "";

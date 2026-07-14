@@ -194,9 +194,9 @@
           <div id="ptv-orders-page" hidden>
             <div class="toolbar">
             <div class="segmented" role="group" aria-label="PTV Avis Status">
-              <button class="segment is-active" data-ptv-status="open" type="button">Nicht avisiert</button>
+              <button class="segment" data-ptv-status="open" type="button">Nicht avisiert</button>
               <button class="segment" data-ptv-status="all" type="button">Alle</button>
-              <button class="segment" data-ptv-status="notified" type="button">Avisiert</button>
+              <button class="segment is-active" data-ptv-status="notified" type="button">Avisiert</button>
             </div>
             <label class="filter-control">
               <span>Liefertag</span>
@@ -621,7 +621,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.14.02</footer>
+      <footer class="app-footer">Version 2026.07.14.03</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -842,6 +842,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260714-ptv-export-name-reset" type="module"></script>
+    <script src="/app.js?v=20260714-ptv-default-notified" type="module"></script>
   </body>
 </html>

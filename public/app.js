@@ -1457,7 +1457,9 @@ function renderMailJobs() {
     }))
     .filter((job) => !query || job.items.length || mailJobMatches(job, query));
   const logs = state.mailLogs.filter((entry) => mailLogMatches(entry, query));
-  const activeItems = jobs.flatMap((job) => (job.items || []).map((item) => ({ ...item, job })));
+  const activeItems = jobs.flatMap((job) => (job.items || [])
+    .filter((item) => isActiveMailJobItem(item))
+    .map((item) => ({ ...item, job })));
 
   if (!activeItems.length && !logs.length) {
     elements.mailJobsList.innerHTML = `<p class="help-text">Keine E-Mails für diesen Filter vorhanden.</p>`;
@@ -1534,6 +1536,10 @@ function mailJobItemMatches(item, query) {
     item.message,
     ...(item.recipients || [])
   ].some((value) => String(value || "").toLowerCase().includes(query));
+}
+
+function isActiveMailJobItem(item) {
+  return ["queued", "waiting", "sending", "failed"].includes(item.status);
 }
 
 function mailLogMatches(entry, query) {

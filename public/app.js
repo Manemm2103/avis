@@ -1563,6 +1563,7 @@ function renderLoadingList(errorMessage = "") {
   const totalShippingEh = loadingOrders.reduce((sum, order) => sum + loadingListNumber(order.shippingEh), 0);
   const selectedCount = state.loadingListSelectedOrderNumbers.size;
   const selectedOrders = loadingOrders.filter((order) => state.loadingListSelectedOrderNumbers.has(order.orderNumber));
+  const selectedShippingEh = selectedOrders.reduce((sum, order) => sum + loadingListNumber(order.shippingEh), 0);
 
   elements.loadingListSummary.innerHTML = `
     <div class="loading-summary-card">
@@ -1571,7 +1572,7 @@ function renderLoadingList(errorMessage = "") {
       <span><strong>Auslieferungsdatum</strong>${escapeHtml(state.loadingListDeliveryDate ? formatDate(state.loadingListDeliveryDate) : "-")}</span>
       <span><strong>Verladung</strong>${escapeHtml(state.loadingListLoadingText ? formatDate(state.loadingListLoadingText) : "-")}</span>
       <span><strong>LKW</strong>${escapeHtml(selectedExport.loadingListTruckLabel || "-")}</span>
-      <span><strong>Auswahl</strong>${selectedCount ? `${selectedCount} markiert` : "keine"}</span>
+      <span><strong>Auswahl</strong>${selectedCount ? `${selectedCount} markiert (${selectedShippingEh.toLocaleString("de-DE")} Versand EH)` : "keine"}</span>
       <span><strong>Entladestellen</strong>${unloadingStops.length}</span>
       <span><strong>Aufträge</strong>${loadingOrders.length}</span>
       <span><strong>Stück BLR</strong>${totalBlr || "-"}</span>

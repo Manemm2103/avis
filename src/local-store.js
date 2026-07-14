@@ -81,6 +81,11 @@ Bayerwald Fenster und Türen`,
     updatedAt: "",
     updatedBy: ""
   },
+  loadingListSettings: {
+    shippingEhLimit: 100,
+    updatedAt: "",
+    updatedBy: ""
+  },
   ptvCallbacks: [],
   ptvExports: []
 };
@@ -137,6 +142,10 @@ export class LocalStore {
     this.state.ptvSettings = {
       ...structuredClone(EMPTY_STATE.ptvSettings),
       ...(this.state.ptvSettings || {})
+    };
+    this.state.loadingListSettings = {
+      ...structuredClone(EMPTY_STATE.loadingListSettings),
+      ...(this.state.loadingListSettings || {})
     };
     this.state.ptvCallbacks ||= [];
     this.state.ptvExports ||= [];
@@ -696,6 +705,25 @@ export class LocalStore {
 
     await this.save();
     return this.getPtvSettings();
+  }
+
+  getLoadingListSettings() {
+    return {
+      ...structuredClone(EMPTY_STATE.loadingListSettings),
+      ...(this.state.loadingListSettings || {})
+    };
+  }
+
+  async updateLoadingListSettings(input, actor) {
+    this.state.loadingListSettings = {
+      ...this.getLoadingListSettings(),
+      ...input,
+      updatedAt: new Date().toISOString(),
+      updatedBy: actor?.displayName || actor?.username || ""
+    };
+
+    await this.save();
+    return this.getLoadingListSettings();
   }
 
   listPtvCallbacks() {

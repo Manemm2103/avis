@@ -25,6 +25,9 @@ const state = {
   mailLogs: [],
   mailJobsSearch: "",
   ptvSettings: null,
+  loadingListSettings: {
+    shippingEhLimit: 100
+  },
   ptvCallbacks: [],
   ptvCallbackSearch: "",
   ptvExports: [],
@@ -47,6 +50,8 @@ const state = {
   loadingListLoadingText: "",
   loadingListLicensePlate: "",
   loadingListTrailer: false,
+  loadingListSelectedOrderNumbers: new Set(),
+  loadingListLastSelectedOrderNumber: "",
   ptvDeliveryDate: "",
   ptvDeliveryWeek: "",
   ptvTour: "",
@@ -139,8 +144,11 @@ const elements = {
   loadingListLoadingText: document.querySelector("#loading-list-loading-text"),
   loadingListLicensePlate: document.querySelector("#loading-list-license-plate"),
   loadingListTrailer: document.querySelector("#loading-list-trailer"),
+  loadingListClearSelection: document.querySelector("#loading-list-clear-selection"),
   loadingListSummary: document.querySelector("#loading-list-summary"),
   loadingListContent: document.querySelector("#loading-list-content"),
+  loadingListSettingsForm: document.querySelector("#loading-list-settings-form"),
+  loadingListShippingEhLimit: document.querySelector("#loading-list-shipping-eh-limit"),
   demoNotice: document.querySelector("#demo-notice"),
   sourceErrorNotice: document.querySelector("#source-error-notice"),
   drawer: document.querySelector("#order-drawer"),
@@ -341,8 +349,11 @@ function bindEvents() {
   });
   elements.loadingListTrailer.addEventListener("change", () => {
     state.loadingListTrailer = elements.loadingListTrailer.checked;
-    renderLoadingList();
+    applyLoadingListTrailerMark(elements.loadingListTrailer.checked);
   });
+  elements.loadingListClearSelection.addEventListener("click", clearLoadingListSelection);
+  elements.loadingListContent.addEventListener("click", handleLoadingListClick);
+  elements.loadingListSettingsForm.addEventListener("submit", saveLoadingListSettings);
   elements.filterDate.addEventListener("change", () => {
     state.deliveryDate = elements.filterDate.value;
     state.deliveryWeek = "";
@@ -786,6 +797,7 @@ async function enterApp() {
   configureRoleUi();
   await loadDrivers();
   await loadTours();
+  await loadLoadingListSettings();
   if (isAdmin()) {
     resetUserForm();
     await loadMailSettings();
@@ -1037,7 +1049,7 @@ function canSeeMasterdataPage(page) {
     return false;
   }
 
-  return ["auth", "sql"].includes(page) ? isFullAdmin() : ["drivers", "mail", "ptv", "users"].includes(page);
+  return ["auth", "sql"].includes(page) ? isFullAdmin() : ["drivers", "mail", "ptv", "loadingList", "users"].includes(page);
 }
 
 function isAdmin() {
@@ -1210,6 +1222,12 @@ async function loadPtvSettings() {
   elements.ptvPlantEndCity.value = state.ptvSettings.plantEndCity || state.ptvSettings.plantCity || "Neukirchen v. W.";
   elements.ptvPlantEndStreet.value = state.ptvSettings.plantEndStreet || state.ptvSettings.plantStreet || "Gewerbepark 7";
   await loadPtvCallbacks();
+}
+
+async function loadLoadingListSettings() {
+  state.loadingListSettings = await api("/api/loading-list-settings");
+  elements.loadingListShippingEhLimit.value = state.loadingListSettings.shippingEhLimit ?? 100;
+  renderLoadingList();
 }
 
 async function refreshPtvData() {
@@ -1523,11 +1541,15 @@ function renderLoadingList(errorMessage = "") {
     return;
   }
 
-  const loadingOrders = orders.slice().reverse();
+  const loadingOrders = orders.slice();
+  reconcileLoadingListSelection(loadingOrders);
   const unloadingStops = groupLoadingListStops(loadingOrders);
   const driverLabel = loadingListDriverLabel(orders);
   const totalBlr = loadingOrders.reduce((sum, order) => sum + loadingListNumber(order.blrCount), 0);
   const totalWeight = loadingOrders.reduce((sum, order) => sum + (Number(ptvWeightKg(order)) || 0), 0);
+  const totalShippingEh = loadingOrders.reduce((sum, order) => sum + loadingListNumber(order.shippingEh), 0);
+  const selectedCount = state.loadingListSelectedOrderNumbers.size;
+  const selectedOrders = loadingOrders.filter((order) => state.loadingListSelectedOrderNumbers.has(order.orderNumber));
 
   elements.loadingListSummary.innerHTML = `
     <div class="loading-summary-card">
@@ -1536,13 +1558,17 @@ function renderLoadingList(errorMessage = "") {
       <span><strong>Auslieferungsdatum</strong>${escapeHtml(state.loadingListDeliveryDate ? formatDate(state.loadingListDeliveryDate) : "-")}</span>
       <span><strong>Verladung</strong>${escapeHtml(state.loadingListLoadingText || "-")}</span>
       <span><strong>Kennzeichen</strong>${escapeHtml(state.loadingListLicensePlate || "-")}</span>
-      <span><strong>MW Anh.</strong>${state.loadingListTrailer ? "Ja" : "Nein"}</span>
+      <span><strong>Auswahl</strong>${selectedCount ? `${selectedCount} markiert` : "keine"}</span>
       <span><strong>Entladestellen</strong>${unloadingStops.length}</span>
       <span><strong>Aufträge</strong>${loadingOrders.length}</span>
       <span><strong>Stück BLR</strong>${totalBlr || "-"}</span>
       <span><strong>Gewicht</strong>${totalWeight ? `${totalWeight.toLocaleString("de-DE")} Kg` : "-"}</span>
+      <span><strong>Versand EH</strong>${totalShippingEh ? totalShippingEh.toLocaleString("de-DE") : "-"}</span>
     </div>
   `;
+  elements.loadingListClearSelection.hidden = selectedCount === 0;
+  state.loadingListTrailer = selectedOrders.length > 0 && selectedOrders.every((order) => order.avis?.mwTrailer);
+  elements.loadingListTrailer.checked = state.loadingListTrailer;
 
   elements.loadingListContent.innerHTML = unloadingStops.map((stop, stopIndex) => `
     <article class="loading-stop-card">
@@ -1563,22 +1589,33 @@ function renderLoadingList(errorMessage = "") {
               <th>Kunde</th>
               <th>Kommission</th>
               <th>Stück BLR</th>
+              <th>Versand EH</th>
               <th>Stellplatz</th>
               <th>Gewicht</th>
+              <th>MW Anh.</th>
             </tr>
           </thead>
           <tbody>
-            ${stop.orders.map((order) => `
-              <tr>
+            ${stop.orders.map((order) => {
+              const sequence = loadingOrders.indexOf(order) + 1;
+              const selected = state.loadingListSelectedOrderNumbers.has(order.orderNumber);
+              const marker = loadingListCapacityMarkerAfter(loadingOrders, sequence - 1);
+
+              return `
+              <tr class="${selected ? "is-selected" : ""}" data-loading-list-order-number="${escapeHtml(order.orderNumber)}" aria-selected="${selected ? "true" : "false"}">
                 <td>${loadingOrders.indexOf(order) + 1}</td>
                 <td><strong>${escapeHtml(order.orderNumber)}</strong></td>
                 <td>${escapeHtml(order.customerName || "-")}</td>
                 <td>${escapeHtml(order.commission || "-")}</td>
                 <td>${escapeHtml(order.blrCount || "-")}</td>
+                <td>${escapeHtml(order.shippingEh || "-")}</td>
                 <td>${escapeHtml(order.eprodStorageLocation || "-")}</td>
                 <td>${escapeHtml(ptvWeightKg(order) ? `${ptvWeightKg(order)} Kg` : "-")}</td>
+                <td>${order.avis?.mwTrailer ? `<span class="ptv-tag is-trailer">MW Anh.</span>` : ""}</td>
               </tr>
-            `).join("")}
+              ${marker ? `<tr class="loading-capacity-marker"><td colspan="9"><span>${escapeHtml(marker)}</span></td></tr>` : ""}
+            `;
+            }).join("")}
           </tbody>
         </table>
       </div>
@@ -1663,6 +1700,106 @@ function loadingListDriverLabel(orders) {
 function loadingListNumber(value) {
   const number = Number(String(value || "").replace(",", "."));
   return Number.isFinite(number) ? number : 0;
+}
+
+function currentLoadingListOrders() {
+  const selectedExport = state.ptvExports.find((item) => item.id === state.loadingListExportId);
+  return selectedExport ? ptvExportOrders(selectedExport) : [];
+}
+
+function reconcileLoadingListSelection(orders) {
+  const visible = new Set(orders.map((order) => order.orderNumber));
+  state.loadingListSelectedOrderNumbers = new Set([...state.loadingListSelectedOrderNumbers].filter((orderNumber) => visible.has(orderNumber)));
+
+  if (state.loadingListLastSelectedOrderNumber && !visible.has(state.loadingListLastSelectedOrderNumber)) {
+    state.loadingListLastSelectedOrderNumber = "";
+  }
+}
+
+function handleLoadingListClick(event) {
+  const row = event.target.closest("[data-loading-list-order-number]");
+
+  if (!row) {
+    return;
+  }
+
+  const orderNumber = row.dataset.loadingListOrderNumber;
+  const visible = currentLoadingListOrders().map((order) => order.orderNumber);
+
+  if (event.shiftKey && state.loadingListLastSelectedOrderNumber && visible.includes(state.loadingListLastSelectedOrderNumber)) {
+    const start = visible.indexOf(state.loadingListLastSelectedOrderNumber);
+    const end = visible.indexOf(orderNumber);
+    const [from, to] = start < end ? [start, end] : [end, start];
+
+    for (const item of visible.slice(from, to + 1)) {
+      state.loadingListSelectedOrderNumbers.add(item);
+    }
+  } else if (event.ctrlKey || event.metaKey) {
+    if (state.loadingListSelectedOrderNumbers.has(orderNumber)) {
+      state.loadingListSelectedOrderNumbers.delete(orderNumber);
+    } else {
+      state.loadingListSelectedOrderNumbers.add(orderNumber);
+    }
+    state.loadingListLastSelectedOrderNumber = orderNumber;
+  } else {
+    state.loadingListSelectedOrderNumbers = new Set([orderNumber]);
+    state.loadingListLastSelectedOrderNumber = orderNumber;
+  }
+
+  renderLoadingList();
+}
+
+function clearLoadingListSelection() {
+  state.loadingListSelectedOrderNumbers.clear();
+  state.loadingListLastSelectedOrderNumber = "";
+  renderLoadingList();
+}
+
+async function applyLoadingListTrailerMark(value) {
+  const orderNumbers = [...state.loadingListSelectedOrderNumbers];
+
+  if (!orderNumbers.length) {
+    state.loadingListTrailer = false;
+    elements.loadingListTrailer.checked = false;
+    showToast("Bitte erst Aufträge in der Ladeliste markieren.");
+    return;
+  }
+
+  const action = value ? "als MW Anh. markieren" : "MW Anh. entfernen";
+  const confirmed = await requestConfirm(`Sollen ${orderNumbers.length} markierte Aufträge wirklich ${action} werden?`);
+
+  if (!confirmed) {
+    state.loadingListTrailer = false;
+    elements.loadingListTrailer.checked = false;
+    return;
+  }
+
+  await api("/api/orders/bulk", {
+    method: "PATCH",
+    body: JSON.stringify({
+      orderNumbers,
+      mwTrailer: Boolean(value)
+    })
+  });
+
+  state.loadingListTrailer = false;
+  elements.loadingListTrailer.checked = false;
+  await loadPtvOrders();
+  showToast(value ? "MW Anh. gesetzt." : "MW Anh. entfernt.");
+}
+
+function loadingListCapacityMarkerAfter(orders, index) {
+  const limit = Math.max(1, loadingListNumber(state.loadingListSettings?.shippingEhLimit) || 100);
+  const before = orders.slice(0, index).reduce((sum, order) => sum + loadingListNumber(order.shippingEh), 0);
+  const after = before + loadingListNumber(orders[index]?.shippingEh);
+  const crossedLimit = Math.floor(before / limit) < Math.floor(after / limit);
+
+  if (!crossedLimit) {
+    return "";
+  }
+
+  const marker = Math.floor(after / limit) * limit;
+  return `Grenze ${marker.toLocaleString("de-DE")} Versand EH`;
 }
 
 function renderMailTextmarks(textMarks) {
@@ -3704,6 +3841,25 @@ async function savePtvSettings(event) {
 
   await loadPtvSettings();
   showToast("PTV-Einstellungen gespeichert.");
+}
+
+async function saveLoadingListSettings(event) {
+  event.preventDefault();
+
+  if (!isAdmin()) {
+    showToast("Nur Admins und Abteilungsleiter dürfen Ladelisten-Stammdaten speichern.");
+    return;
+  }
+
+  await api("/api/loading-list-settings", {
+    method: "PATCH",
+    body: JSON.stringify({
+      shippingEhLimit: elements.loadingListShippingEhLimit.value
+    })
+  });
+
+  await loadLoadingListSettings();
+  showToast("Ladeliste gespeichert.");
 }
 
 async function saveLdapSettings(event) {

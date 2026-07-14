@@ -214,6 +214,22 @@ app.patch("/api/ptv-settings", requireAdmin, async (request, response) => {
   }
 });
 
+app.get("/api/loading-list-settings", (request, response) => {
+  response.json(publicLoadingListSettings(store.getLoadingListSettings()));
+});
+
+app.patch("/api/loading-list-settings", requireAdmin, async (request, response) => {
+  try {
+    const settings = await store.updateLoadingListSettings(sanitizeLoadingListSettings(request.body), request.user);
+    response.json(publicLoadingListSettings(settings));
+  } catch (error) {
+    response.status(400).json({
+      error: "LOADING_LIST_SETTINGS_SAVE_FAILED",
+      message: error.message
+    });
+  }
+});
+
 app.get("/api/ptv/callbacks", requireAdmin, (request, response) => {
   response.json(store.listPtvCallbacks());
 });
@@ -1006,6 +1022,7 @@ function mergeOrder(order, avis, driverMap) {
       driverPhoneName: driver?.label || "",
       driverPhoneNumber: driver?.phone || "",
       twoDayTour: Boolean(avis?.twoDayTour),
+      mwTrailer: Boolean(avis?.mwTrailer),
       notified: Boolean(avis?.notified),
       notifiedAt: avis?.notifiedAt || "",
       notifiedBy: avis?.notifiedBy || "",
@@ -1236,6 +1253,10 @@ function sanitizeAvisUpdate(input) {
     update.twoDayTour = Boolean(input.twoDayTour);
   }
 
+  if (Object.hasOwn(input, "mwTrailer")) {
+    update.mwTrailer = Boolean(input.mwTrailer);
+  }
+
   if (Object.hasOwn(input, "notified")) {
     update.notified = Boolean(input.notified);
   }
@@ -1269,6 +1290,10 @@ function sanitizeBulkAvisUpdate(input) {
 
   if (input.twoDayTour === true) {
     values.twoDayTour = true;
+  }
+
+  if (Object.hasOwn(input, "mwTrailer")) {
+    values.mwTrailer = Boolean(input.mwTrailer);
   }
 
   if (input.notified === true) {
@@ -1449,6 +1474,12 @@ function sanitizePtvSettings(input) {
   };
 }
 
+function sanitizeLoadingListSettings(input) {
+  return {
+    shippingEhLimit: Math.max(1, number(input.shippingEhLimit, 100))
+  };
+}
+
 function publicMailSettings(settings, fullAdmin) {
   const result = {
     subject: settings.subject || "",
@@ -1494,6 +1525,14 @@ function publicPtvSettings(settings) {
     plantEndStreet: settings.plantEndStreet || settings.plantStreet || "Gewerbepark 7",
     stopPauseMinutes: Math.max(0, number(settings.stopPauseMinutes, 20)),
     optimizeOnUpload: Boolean(settings.optimizeOnUpload),
+    updatedAt: settings.updatedAt || "",
+    updatedBy: settings.updatedBy || ""
+  };
+}
+
+function publicLoadingListSettings(settings) {
+  return {
+    shippingEhLimit: Math.max(1, number(settings.shippingEhLimit, 100)),
     updatedAt: settings.updatedAt || "",
     updatedBy: settings.updatedBy || ""
   };

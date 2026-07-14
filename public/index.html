@@ -311,8 +311,9 @@
             </label>
             <label class="checkbox-row">
               <input id="loading-list-trailer" type="checkbox">
-              <span>MW Anh.</span>
+              <span>MW Anh. für Auswahl</span>
             </label>
+            <button class="secondary" id="loading-list-clear-selection" type="button" hidden>Auswahl aufheben</button>
           </div>
 
           <div class="loading-list-summary" id="loading-list-summary"></div>
@@ -342,6 +343,7 @@
               <button class="masterdata-nav-button is-active" data-masterdata-tab="drivers" type="button">Fahrertelefon</button>
               <button class="masterdata-nav-button" data-masterdata-tab="mail" type="button">E-Mail</button>
               <button class="masterdata-nav-button" data-masterdata-tab="ptv" type="button">PTV</button>
+              <button class="masterdata-nav-button" data-masterdata-tab="loadingList" type="button">Ladeliste</button>
               <button class="masterdata-nav-button" data-masterdata-tab="auth" type="button">Authentifizierung</button>
               <button class="masterdata-nav-button" data-masterdata-tab="sql" type="button">SQL-Abfragen</button>
               <button class="masterdata-nav-button" data-masterdata-tab="users" type="button">Benutzer</button>
@@ -546,6 +548,20 @@
                 </div>
               </div>
 
+              <div class="masterdata-section masterdata-panel" id="loading-list-settings-section" data-masterdata-panel="loadingList" hidden>
+                <h2>Ladeliste</h2>
+                <form id="loading-list-settings-form" class="panel compact-grid">
+                  <label>
+                    <span>Grenze Versand EH</span>
+                    <input id="loading-list-shipping-eh-limit" name="shippingEhLimit" type="number" min="1" step="1" placeholder="100">
+                  </label>
+                  <p class="help-text wide-field">Nach dieser Grenze wird in der Ladeliste eine rote Trennlinie angezeigt. Standard ist 100 Versand EH.</p>
+                  <div class="form-actions wide-field">
+                    <button class="primary" type="submit">Ladeliste speichern</button>
+                  </div>
+                </form>
+              </div>
+
               <div class="masterdata-section masterdata-panel" id="ldap-settings-section" data-masterdata-panel="auth" hidden>
                 <h2>Authentifizierung</h2>
                 <form id="ldap-settings-form" class="panel compact-grid">
@@ -683,7 +699,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.14.13</footer>
+      <footer class="app-footer">Version 2026.07.14.14</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -920,6 +936,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260714-loading-list" type="module"></script>
+    <script src="/app.js?v=20260714-loading-list-trailer" type="module"></script>
   </body>
 </html>

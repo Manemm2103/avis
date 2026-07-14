@@ -802,6 +802,28 @@ select:disabled {
   width: 130px;
 }
 
+.loading-capacity-marker td {
+  padding: 0;
+  border-bottom: 0;
+}
+
+.loading-capacity-marker span {
+  display: block;
+  margin: 8px 0;
+  padding: 6px 12px;
+  border-top: 4px solid #dc2626;
+  color: #b91c1c;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.ptv-tag.is-trailer {
+  border-color: #dc2626;
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 .tag-list {
   display: flex;
   flex-wrap: wrap;

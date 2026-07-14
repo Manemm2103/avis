@@ -49,7 +49,6 @@ const state = {
   loadingListDeliveryDate: "",
   loadingListLoadingText: "",
   loadingListTruckId: "",
-  loadingListLicensePlate: "",
   loadingListTrailer: false,
   loadingListSelectedOrderNumbers: new Set(),
   loadingListLastSelectedOrderNumber: "",
@@ -145,7 +144,6 @@ const elements = {
   loadingListDeliveryDate: document.querySelector("#loading-list-delivery-date"),
   loadingListLoadingText: document.querySelector("#loading-list-loading-text"),
   loadingListTruck: document.querySelector("#loading-list-truck"),
-  loadingListLicensePlate: document.querySelector("#loading-list-license-plate"),
   loadingListTrailer: document.querySelector("#loading-list-trailer"),
   loadingListClearSelection: document.querySelector("#loading-list-clear-selection"),
   loadingListSummary: document.querySelector("#loading-list-summary"),
@@ -1553,7 +1551,6 @@ function renderLoadingList(errorMessage = "") {
   }
 
   state.loadingListTruckId = selectedExport.loadingListTruckId || "";
-  state.loadingListLicensePlate = selectedExport.loadingListLicensePlate || "";
   renderLoadingListTruckOptions();
   syncLoadingListControls();
 
@@ -1572,9 +1569,8 @@ function renderLoadingList(errorMessage = "") {
       <span><strong>Tour</strong>${escapeHtml(selectedExport.name)}</span>
       <span><strong>Fahrer</strong>${escapeHtml(driverLabel)}</span>
       <span><strong>Auslieferungsdatum</strong>${escapeHtml(state.loadingListDeliveryDate ? formatDate(state.loadingListDeliveryDate) : "-")}</span>
-      <span><strong>Verladung</strong>${escapeHtml(state.loadingListLoadingText || "-")}</span>
+      <span><strong>Verladung</strong>${escapeHtml(state.loadingListLoadingText ? formatDate(state.loadingListLoadingText) : "-")}</span>
       <span><strong>LKW</strong>${escapeHtml(selectedExport.loadingListTruckLabel || "-")}</span>
-      <span><strong>Kennzeichen</strong>${escapeHtml(state.loadingListLicensePlate || "-")}</span>
       <span><strong>Auswahl</strong>${selectedCount ? `${selectedCount} markiert` : "keine"}</span>
       <span><strong>Entladestellen</strong>${unloadingStops.length}</span>
       <span><strong>Aufträge</strong>${loadingOrders.length}</span>
@@ -1644,7 +1640,6 @@ function syncLoadingListControls() {
   elements.loadingListDeliveryDate.value = state.loadingListDeliveryDate;
   elements.loadingListLoadingText.value = state.loadingListLoadingText;
   elements.loadingListTruck.value = state.loadingListTruckId;
-  elements.loadingListLicensePlate.value = state.loadingListLicensePlate;
   elements.loadingListTrailer.checked = state.loadingListTrailer;
 }
 
@@ -1658,7 +1653,6 @@ function renderLoadingListTruckOptions() {
 
   if (state.loadingListTruckId && !trucks.some((truck) => truck.id === state.loadingListTruckId)) {
     state.loadingListTruckId = "";
-    state.loadingListLicensePlate = "";
   }
 
   elements.loadingListTruck.value = state.loadingListTruckId;
@@ -1699,7 +1693,6 @@ async function assignLoadingListTruck() {
   });
 
   state.loadingListTruckId = payload.truckId;
-  state.loadingListLicensePlate = payload.licensePlate;
   await loadPtvExports();
   showToast(payload.licensePlate ? `LKW ${payload.licensePlate} zugewiesen.` : "LKW-Zuweisung entfernt.");
 }

@@ -2986,7 +2986,7 @@ async function exportPtvCsv() {
 
   downloadCsv(rows, `ptv-avis-${todayIso()}.csv`);
   state.ptvExportId = exportEntry.id;
-  clearPtvExportName();
+  resetPtvPlanningForm();
   await loadPtvExports();
   await loadPtvOrders();
   showToast(`${orders.length} Aufträge für die Tourzusammenstellung exportiert: ${exportEntry.name}.`);
@@ -3030,13 +3030,13 @@ async function openPtvRemoteControl() {
 
     if (remoteWindow) {
       remoteWindow.location.href = result.url;
-      clearPtvExportName();
+      resetPtvPlanningForm();
       await loadPtvExports();
       await loadPtvOrders();
       return;
     }
 
-    clearPtvExportName();
+    resetPtvPlanningForm();
     window.location.href = result.url;
   } catch (error) {
     if (remoteWindow) {
@@ -3122,6 +3122,24 @@ function ptvExportName() {
 
 function clearPtvExportName() {
   elements.ptvExportName.value = "";
+}
+
+function resetPtvPlanningForm() {
+  clearPtvExportName();
+  state.ptvSearch = "";
+  state.ptvDeliveryDate = "";
+  state.ptvDeliveryWeek = "";
+  state.ptvTour = "";
+  state.ptvExportId = "";
+  state.ptvListOrderNumbers = [];
+  state.ptvSelectedOrderNumbers.clear();
+  state.ptvLastSelectedOrderNumber = "";
+  elements.ptvSearchInput.value = "";
+  elements.ptvFilterDate.value = "";
+  elements.ptvFilterTour.value = "";
+  renderPtvWeekPicker();
+  reconcilePtvSelection();
+  renderPtv();
 }
 
 async function importPtvSequence(event) {

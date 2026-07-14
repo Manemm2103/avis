@@ -239,6 +239,10 @@ const elements = {
     shippingEh: document.querySelector("#drawer-shipping-eh"),
     elementWeight: document.querySelector("#drawer-element-weight"),
     blrCount: document.querySelector("#drawer-blr-count"),
+    handles: document.querySelector("#drawer-handles"),
+    maxWidth: document.querySelector("#drawer-max-width"),
+    maxHeight: document.querySelector("#drawer-max-height"),
+    shippingUnits: document.querySelector("#drawer-shipping-units"),
     eprodStorageLocationLabel: document.querySelector("#drawer-eprod-storage-location-label"),
     eprodStorageLocation: document.querySelector("#drawer-eprod-storage-location"),
     deliveryDate: document.querySelector("#edit-delivery-date-display"),
@@ -1934,7 +1938,11 @@ function ptvFilteredOrders() {
         order.deliveryAddress,
         order.deliveryPostalCode,
         order.deliveryCity,
-        order.deliveryStreet
+        order.deliveryStreet,
+        order.handles,
+        order.maxWidth,
+        order.maxHeight,
+        order.shippingUnits
       ].join(" ").toLowerCase().includes(query);
     })
     .map((order, index) => ({ order, index }))
@@ -2501,6 +2509,10 @@ function openDrawer(orderNumber) {
   elements.drawerFields.shippingEh.textContent = order.shippingEh || "-";
   elements.drawerFields.elementWeight.textContent = formatElementWeight(order.elementWeight);
   elements.drawerFields.blrCount.textContent = order.blrCount || "-";
+  elements.drawerFields.handles.textContent = order.handles || "-";
+  elements.drawerFields.maxWidth.textContent = order.maxWidth || "-";
+  elements.drawerFields.maxHeight.textContent = order.maxHeight || "-";
+  elements.drawerFields.shippingUnits.textContent = order.shippingUnits || "-";
   const deliveryDate = order.displayDeliveryDate || order.deliveryDate || "";
   const canEditLocalFields = Boolean(order.canDelete);
   elements.drawerFields.eprodStorageLocationLabel.textContent = canEditLocalFields ? "Stellplatz" : "E-Prod Lagerplatz";
@@ -3281,7 +3293,11 @@ function downloadSampleCsv() {
       "VERSAND_EH",
       "GEWICHT_ELEMENTE",
       "ANZ_BLR",
-      "EPROD_LAGERPLATZ"
+      "EPROD_LAGERPLATZ",
+      "GRIFFE",
+      "MAXBREITE",
+      "MAXHOEHE",
+      "VERSANDEINHEITEN"
     ],
     [
       "E2699999",
@@ -3301,7 +3317,11 @@ function downloadSampleCsv() {
       "12",
       "1248",
       "3",
-      "A-01-02"
+      "A-01-02",
+      "Hebeschiebegriff",
+      "2400",
+      "2200",
+      "12"
     ]
   ];
   const csv = rows.map((row) => row.map(escapeCsvCell).join(";")).join("\r\n");
@@ -3618,7 +3638,11 @@ function mapCsvOrder(row) {
     shippingEh: readCsvValue(row, "versandeh", "versand_eh", "shippingeh"),
     elementWeight: readCsvValue(row, "gewichtelemente", "gewicht_elemente", "elementweight"),
     blrCount: readCsvValue(row, "anzblr", "anz_blr", "blrcount"),
-    eprodStorageLocation: readCsvValue(row, "eprodlagerplatz", "eprod_lagerplatz", "eprodstoragelocation")
+    eprodStorageLocation: readCsvValue(row, "eprodlagerplatz", "eprod_lagerplatz", "eprodstoragelocation"),
+    handles: readCsvValue(row, "griffe", "handles"),
+    maxWidth: readCsvValue(row, "maxbreite", "max_width", "maxwidth"),
+    maxHeight: readCsvValue(row, "maxhoehe", "maxhöhe", "max_height", "maxheight"),
+    shippingUnits: readCsvValue(row, "versandeinheiten", "shippingunits", "shipping_units")
   };
 }
 
@@ -3722,7 +3746,11 @@ function ptvExportSearchText(item) {
       order.deliveryPostalCode,
       order.deliveryCity,
       order.deliveryStreet,
-      order.displayTour || order.tour
+      order.displayTour || order.tour,
+      order.handles,
+      order.maxWidth,
+      order.maxHeight,
+      order.shippingUnits
     ])
   ].join(" ").toLowerCase();
 }

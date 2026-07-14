@@ -962,6 +962,10 @@ function normalizeOrder(row, origin = "mssql", canDelete = false) {
     elementWeight: text(row.elementWeight ?? row.GEWICHT_ELEMENTE ?? row.gewicht_elemente),
     blrCount: text(row.blrCount ?? row.ANZ_BLR ?? row.anz_blr),
     eprodStorageLocation: text(row.eprodStorageLocation ?? row.EPROD_LAGERPLATZ ?? row.eprod_lagerplatz),
+    handles: text(row.handles ?? row.GRIFFE ?? row.griffe),
+    maxWidth: text(row.maxWidth ?? row.MAXBREITE ?? row.maxbreite),
+    maxHeight: text(row.maxHeight ?? row.MAXHOEHE ?? row.maxhoehe),
+    shippingUnits: text(row.shippingUnits ?? row.VERSANDEINHEITEN ?? row.versandeinheiten),
     origin,
     canDelete
   };
@@ -1201,6 +1205,10 @@ function orderMatchesSearch(order, search) {
     order.elementWeight,
     order.blrCount,
     order.eprodStorageLocation,
+    order.handles,
+    order.maxWidth,
+    order.maxHeight,
+    order.shippingUnits,
     order.avis.twoDayTour ? "2-Tagestour" : ""
   ].some((value) => String(value || "").toLowerCase().includes(search));
 }
@@ -2176,6 +2184,10 @@ function sanitizeLocalOrder(input, origin) {
     elementWeight: text(input.elementWeight ?? input.GEWICHT_ELEMENTE),
     blrCount: text(input.blrCount ?? input.ANZ_BLR),
     eprodStorageLocation: text(input.eprodStorageLocation ?? input.EPROD_LAGERPLATZ),
+    handles: text(input.handles ?? input.GRIFFE),
+    maxWidth: text(input.maxWidth ?? input.MAXBREITE),
+    maxHeight: text(input.maxHeight ?? input.MAXHOEHE),
+    shippingUnits: text(input.shippingUnits ?? input.VERSANDEINHEITEN),
     origin
   };
 }

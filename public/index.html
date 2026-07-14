@@ -295,7 +295,7 @@
               <span>CSV importieren</span>
               <input id="csv-file" name="csvFile" type="file" accept=".csv,text/csv">
             </label>
-            <p class="help-text">Unterstützt Spalten wie ABNUMMER, KDNR, KUNDE, KOMMISSION, KAPA_LIEFERANSCHRIFT, KAPA_LIEFER_LAND, KAPA_LIEFER_PLZ, KAPA_LIEFER_STRASSE, KAPA_LIEFER_ORT, LIEFERTERMIN, KAPA_TOUR, KAPA_TELEFON, KAPA_EMAIL, VERSAND_EH, GEWICHT_ELEMENTE, ANZ_BLR und EPROD_LAGERPLATZ.</p>
+            <p class="help-text">Unterstützt Spalten wie ABNUMMER, KDNR, KUNDE, KOMMISSION, KAPA_LIEFERANSCHRIFT, KAPA_LIEFER_LAND, KAPA_LIEFER_PLZ, KAPA_LIEFER_STRASSE, KAPA_LIEFER_ORT, LIEFERTERMIN, KAPA_TOUR, KAPA_TELEFON, KAPA_EMAIL, VERSAND_EH, GEWICHT_ELEMENTE, ANZ_BLR, EPROD_LAGERPLATZ, GRIFFE, MAXBREITE, MAXHOEHE und VERSANDEINHEITEN.</p>
             <div class="import-actions">
               <button class="secondary" id="sample-csv-button" type="button">Beispiel-Export herunterladen</button>
               <button class="primary" type="submit">CSV importieren</button>
@@ -650,7 +650,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.14.11</footer>
+      <footer class="app-footer">Version 2026.07.14.12</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -711,6 +711,22 @@
           <div>
             <span class="label">Anz. BLR</span>
             <strong id="drawer-blr-count">-</strong>
+          </div>
+          <div>
+            <span class="label">Griffe</span>
+            <strong id="drawer-handles">-</strong>
+          </div>
+          <div>
+            <span class="label">Max. Breite</span>
+            <strong id="drawer-max-width">-</strong>
+          </div>
+          <div>
+            <span class="label">Max. Höhe</span>
+            <strong id="drawer-max-height">-</strong>
+          </div>
+          <div>
+            <span class="label">Versandeinheiten</span>
+            <strong id="drawer-shipping-units">-</strong>
           </div>
           <div>
             <span class="label" id="drawer-eprod-storage-location-label">E-Prod Lagerplatz</span>
@@ -871,6 +887,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260714-hu-delivery-address" type="module"></script>
+    <script src="/app.js?v=20260714-extra-order-info" type="module"></script>
   </body>
 </html>

@@ -133,11 +133,9 @@ const elements = {
   ptvSubline: document.querySelector("#ptv-subline"),
   ptvClearSelection: document.querySelector("#ptv-clear-selection"),
   ptvOpenRemote: document.querySelector("#ptv-open-remote"),
-  ptvExport: document.querySelector("#ptv-export"),
   ptvExportName: document.querySelector("#ptv-export-name"),
   ptvExportTruck: document.querySelector("#ptv-export-truck"),
   ptvExportList: document.querySelector("#ptv-export-list"),
-  ptvImportFile: document.querySelector("#ptv-import-file"),
   ptvBody: document.querySelector("#ptv-body"),
   ptvListBody: document.querySelector("#ptv-list-body"),
   loadingListExport: document.querySelector("#loading-list-export"),
@@ -442,9 +440,7 @@ function bindEvents() {
   elements.ptvClearFilters.addEventListener("click", clearPtvFilters);
   elements.ptvClearSelection.addEventListener("click", clearPtvSelection);
   elements.ptvOpenRemote.addEventListener("click", openPtvRemoteControl);
-  elements.ptvExport.addEventListener("click", exportPtvCsv);
   elements.ptvExportTruck.addEventListener("change", () => renderPtv());
-  elements.ptvImportFile.addEventListener("change", importPtvSequence);
   document.querySelectorAll("[data-ptv-page]").forEach((button) => {
     button.addEventListener("click", () => showPtvPage(button.dataset.ptvPage || "assemblies"));
   });
@@ -2138,7 +2134,6 @@ function renderPtv(errorMessage = "") {
     : "noch keine PTV-Auswahlliste erstellt";
   elements.ptvClearSelection.hidden = selectedCount === 0;
   elements.ptvOpenRemote.disabled = selectedCount === 0;
-  elements.ptvExport.disabled = selectedCount === 0;
 
   if (errorMessage) {
     elements.ptvBody.innerHTML = `<tr><td class="empty is-error" colspan="7">${escapeHtml(errorMessage)}</td></tr>`;
@@ -3435,39 +3430,6 @@ function clearPtvFilters() {
   renderPtvExports();
 }
 
-async function exportPtvCsv() {
-  const orders = ptvTargetOrders();
-
-  if (orders.length === 0) {
-    showToast("Keine Aufträge für die Tourzusammenstellung gefunden.");
-    return;
-  }
-
-  let exportEntry;
-
-  try {
-    exportEntry = await createPtvExportRecord(orders.map((order) => order.orderNumber));
-  } catch (error) {
-    showToast(error.message || "Tourzusammenstellung konnte nicht erstellt werden.");
-    return;
-  }
-
-  const totalWeightTons = orders.reduce((sum, order) => sum + ptvWeightTonsNumber(order), 0);
-  const plant = ptvPlantSettings();
-  const rows = [
-    ptvPlantRow(orders.length, totalWeightTons, plant),
-    ...orders.map((order) => ptvOrderRow(order, plant)),
-    ptvPlantEndRow(plant)
-  ];
-
-  downloadCsv(rows, `ptv-avis-${todayIso()}.csv`);
-  state.ptvExportId = exportEntry.id;
-  resetPtvPlanningForm();
-  await loadPtvExports();
-  await loadPtvOrders();
-  showToast(`${orders.length} Aufträge für die Tourzusammenstellung exportiert: ${exportEntry.name}.`);
-}
-
 async function openPtvRemoteControl() {
   const orderNumbers = selectedPtvOrderNumbers();
 
@@ -3619,37 +3581,6 @@ function resetPtvPlanningForm() {
   renderPtvWeekPicker();
   reconcilePtvSelection();
   renderPtv();
-}
-
-async function importPtvSequence(event) {
-  const [file] = event.target.files || [];
-
-  if (!file) {
-    return;
-  }
-
-  try {
-    const content = await file.text();
-    const orderNumbers = extractPtvOrderNumbers(content);
-
-    if (orderNumbers.length === 0) {
-      showToast("Keine AVIS-Auftragsnummern in der PTV-Datei gefunden.");
-      return;
-    }
-
-    const confirmed = await requestConfirm(`Soll die PTV-Reihenfolge für ${orderNumbers.length} Aufträge gespeichert werden?`);
-
-    if (!confirmed) {
-      return;
-    }
-
-    state.ptvListOrderNumbers = orderNumbers;
-    state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
-    await savePtvSequence(orderNumbers);
-    showToast("PTV-Reihenfolge importiert.");
-  } finally {
-    elements.ptvImportFile.value = "";
-  }
 }
 
 async function movePtvOrder(draggedOrderNumber, targetOrderNumber) {

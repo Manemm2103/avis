@@ -887,6 +887,11 @@ function showPtvPage(page) {
   state.ptvPage = page === "orders" ? "orders" : "assemblies";
   elements.ptvAssembliesPage.hidden = state.ptvPage !== "assemblies";
   elements.ptvOrdersPage.hidden = state.ptvPage !== "orders";
+
+  if (state.ptvPage === "orders" && state.ptvExpandedExportId) {
+    clearPtvExportName();
+  }
+
   document.querySelectorAll("[data-ptv-page]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.ptvPage === state.ptvPage);
   });
@@ -1828,7 +1833,6 @@ function togglePtvExportDetails(id) {
 
   if (state.ptvExpandedExportId) {
     state.ptvExportId = entry.id;
-    elements.ptvExportName.value = entry.name || "";
     state.ptvListOrderNumbers = [...(entry.optimizedOrderNumbers?.length ? entry.optimizedOrderNumbers : entry.orderNumbers || [])];
     state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
     state.ptvLastSelectedOrderNumber = "";

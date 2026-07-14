@@ -613,13 +613,17 @@ async function sendAvisMailsForOrders(orderNumbers, avisOverrides = new Map(), a
 
   const orderMap = new Map(orders.map((order) => [order.orderNumber, order]));
   const settings = store.getMailSettings();
+  const sendDelayMs = Math.max(0, number(settings.sendDelaySeconds, 0)) * 1000;
   const results = [];
 
-  for (const orderNumber of orderNumbers) {
+  for (const [index, orderNumber] of orderNumbers.entries()) {
     const order = orderMap.get(orderNumber);
 
     if (!order) {
       results.push(skippedMailResult(`Auftrag ${orderNumber} wurde für den Mailversand nicht gefunden.`));
+      if (sendDelayMs > 0 && index < orderNumbers.length - 1) {
+        await sleep(sendDelayMs);
+      }
       continue;
     }
 
@@ -639,9 +643,17 @@ async function sendAvisMailsForOrders(orderNumbers, avisOverrides = new Map(), a
     }
 
     results.push(result);
+
+    if (sendDelayMs > 0 && index < orderNumbers.length - 1) {
+      await sleep(sendDelayMs);
+    }
   }
 
   return summarizeMailResults(results);
+}
+
+function sleep(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 async function loadTours() {
@@ -1169,6 +1181,10 @@ function sanitizeMailSettings(input, fullAdmin) {
     settings.smtpPort = number(input.smtpPort, 587);
   }
 
+  if (Object.hasOwn(input, "sendDelaySeconds")) {
+    settings.sendDelaySeconds = Math.max(0, number(input.sendDelaySeconds, 0));
+  }
+
   if (Object.hasOwn(input, "smtpSecure")) {
     settings.smtpSecure = Boolean(input.smtpSecure);
   }
@@ -1221,6 +1237,7 @@ function publicMailSettings(settings, fullAdmin) {
     smtpPort: settings.smtpPort || 587,
     smtpSecure: Boolean(settings.smtpSecure),
     smtpVerifyCertificate: Boolean(settings.smtpVerifyCertificate),
+    sendDelaySeconds: Math.max(0, number(settings.sendDelaySeconds, 0)),
     smtpUser: settings.smtpUser || "",
     smtpPassword: settings.smtpPassword || "",
     fromName: settings.fromName || "",

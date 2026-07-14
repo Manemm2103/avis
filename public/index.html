@@ -373,6 +373,11 @@
                     <span>SMTP Port</span>
                     <input id="mail-smtp-port" name="smtpPort" type="number" min="1" max="65535" value="587">
                   </label>
+                  <label class="mail-admin-only">
+                    <span>Wartezeit zwischen Avis-Mails (Sek.)</span>
+                    <input id="mail-send-delay-seconds" name="sendDelaySeconds" type="number" min="0" step="1" value="0">
+                  </label>
+                  <p class="help-text mail-admin-only wide-field">Beispiel: Bei 30 Mails in 5 Minuten bitte 10 Sekunden einstellen.</p>
                   <label class="checkbox mail-admin-only wide-field">
                     <input id="mail-smtp-secure" name="smtpSecure" type="checkbox">
                     <span>SMTP SSL/TLS aktiv</span>
@@ -628,7 +633,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.14.05</footer>
+      <footer class="app-footer">Version 2026.07.14.06</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -849,6 +854,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260714-ptv-name-isolated" type="module"></script>
+    <script src="/app.js?v=20260714-mail-send-delay" type="module"></script>
   </body>
 </html>

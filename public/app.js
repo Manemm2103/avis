@@ -158,6 +158,7 @@ const elements = {
   mailAdminOnly: document.querySelectorAll(".mail-admin-only"),
   mailSmtpHost: document.querySelector("#mail-smtp-host"),
   mailSmtpPort: document.querySelector("#mail-smtp-port"),
+  mailSendDelaySeconds: document.querySelector("#mail-send-delay-seconds"),
   mailSmtpSecure: document.querySelector("#mail-smtp-secure"),
   mailSmtpVerifyCertificate: document.querySelector("#mail-smtp-verify-certificate"),
   mailSmtpUser: document.querySelector("#mail-smtp-user"),
@@ -1086,6 +1087,7 @@ async function loadMailSettings() {
   if (isFullAdmin()) {
     elements.mailSmtpHost.value = state.mailSettings.smtpHost || "";
     elements.mailSmtpPort.value = state.mailSettings.smtpPort || 587;
+    elements.mailSendDelaySeconds.value = state.mailSettings.sendDelaySeconds || 0;
     elements.mailSmtpSecure.checked = Boolean(state.mailSettings.smtpSecure);
     elements.mailSmtpVerifyCertificate.value = state.mailSettings.smtpVerifyCertificate ? "yes" : "no";
     elements.mailSmtpUser.value = state.mailSettings.smtpUser || "";
@@ -3154,6 +3156,7 @@ async function saveMailSettings(event) {
     Object.assign(body, {
       smtpHost: elements.mailSmtpHost.value,
       smtpPort: elements.mailSmtpPort.value,
+      sendDelaySeconds: elements.mailSendDelaySeconds.value,
       smtpSecure: elements.mailSmtpSecure.checked,
       smtpVerifyCertificate: elements.mailSmtpVerifyCertificate.value === "yes",
       smtpUser: elements.mailSmtpUser.value,

@@ -530,6 +530,15 @@ export class LocalStore {
     return entry;
   }
 
+  listAvisMailLogs() {
+    return Object.entries(this.state.avisByOrder || {})
+      .flatMap(([orderNumber, avis]) => (avis.mailLog || []).map((entry) => ({
+        ...entry,
+        orderNumber
+      })))
+      .sort((a, b) => String(b.sentAt || "").localeCompare(String(a.sentAt || "")));
+  }
+
   async listDriverPhones() {
     return [...this.state.driverPhones].sort((a, b) => a.label.localeCompare(b.label, "de"));
   }

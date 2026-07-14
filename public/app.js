@@ -21,8 +21,12 @@ const state = {
   sqlSettings: null,
   ldapSettings: null,
   mailSettings: null,
+  mailJobs: [],
+  mailLogs: [],
+  mailJobsSearch: "",
   ptvSettings: null,
   ptvCallbacks: [],
+  ptvCallbackSearch: "",
   ptvExports: [],
   sort: {
     key: "",
@@ -47,6 +51,7 @@ const state = {
   ptvLastSelectedOrderNumber: "",
   ptvDraggedOrderNumber: "",
   ptvAutoRefreshTimer: null,
+  mailJobsAutoRefreshTimer: null,
   ptvRefreshInFlight: false,
   selectedOrder: null,
   notifySelectedOrder: false,
@@ -169,6 +174,9 @@ const elements = {
   mailDemoMode: document.querySelector("#mail-demo-mode"),
   mailDemoRecipients: document.querySelector("#mail-demo-recipients"),
   mailDemoRecipientsRow: document.querySelector("#mail-demo-recipients-row"),
+  mailJobsRefresh: document.querySelector("#mail-jobs-refresh"),
+  mailJobsSearch: document.querySelector("#mail-jobs-search"),
+  mailJobsList: document.querySelector("#mail-jobs-list"),
   ptvSettingsForm: document.querySelector("#ptv-settings-form"),
   ptvLogin: document.querySelector("#ptv-login"),
   ptvPassword: document.querySelector("#ptv-password"),
@@ -184,6 +192,7 @@ const elements = {
   ptvPlantEndCity: document.querySelector("#ptv-plant-end-city"),
   ptvPlantEndStreet: document.querySelector("#ptv-plant-end-street"),
   ptvCallbackRefresh: document.querySelector("#ptv-callback-refresh"),
+  ptvCallbackSearch: document.querySelector("#ptv-callback-search"),
   ptvCallbacks: document.querySelector("#ptv-callbacks"),
   ldapSection: document.querySelector("#ldap-settings-section"),
   ldapSettingsForm: document.querySelector("#ldap-settings-form"),
@@ -470,8 +479,17 @@ function bindEvents() {
   elements.csvImportForm.addEventListener("submit", importCsvOrders);
   elements.sampleCsvButton.addEventListener("click", downloadSampleCsv);
   elements.mailSettingsForm.addEventListener("submit", saveMailSettings);
+  elements.mailJobsRefresh.addEventListener("click", () => loadMailJobs());
+  elements.mailJobsSearch.addEventListener("input", debounce(() => {
+    state.mailJobsSearch = elements.mailJobsSearch.value;
+    renderMailJobs();
+  }, 150));
   elements.ptvSettingsForm.addEventListener("submit", savePtvSettings);
   elements.ptvCallbackRefresh.addEventListener("click", () => refreshPtvData());
+  elements.ptvCallbackSearch.addEventListener("input", debounce(() => {
+    state.ptvCallbackSearch = elements.ptvCallbackSearch.value;
+    renderPtvCallbacks();
+  }, 150));
   window.addEventListener("focus", () => {
     if (state.currentView === "ptv") {
       refreshPtvData();
@@ -730,6 +748,7 @@ async function enterApp() {
   if (isAdmin()) {
     resetUserForm();
     await loadMailSettings();
+    await loadMailJobs();
     await loadPtvSettings();
     await loadUsers();
   }
@@ -882,6 +901,10 @@ function showView(view) {
   } else {
     stopPtvAutoRefresh();
   }
+
+  if (!isMasterdata) {
+    stopMailJobsAutoRefresh();
+  }
 }
 
 function showPtvPage(page) {
@@ -946,6 +969,13 @@ function showMasterdataPage(page) {
   }
 
   configureMasterdataTabs();
+
+  if (state.masterdataPage === "mail") {
+    loadMailJobs();
+    startMailJobsAutoRefresh();
+  } else {
+    stopMailJobsAutoRefresh();
+  }
 }
 
 function firstVisibleMasterdataPage() {
@@ -1102,6 +1132,17 @@ async function loadMailSettings() {
   renderMailDemoState();
 }
 
+async function loadMailJobs() {
+  if (!isAdmin()) {
+    return;
+  }
+
+  const data = await api("/api/mail-jobs");
+  state.mailJobs = data.jobs || [];
+  state.mailLogs = data.logs || [];
+  renderMailJobs();
+}
+
 async function loadPtvSettings() {
   state.ptvSettings = await api("/api/ptv-settings");
   elements.ptvLogin.value = state.ptvSettings.login || "";
@@ -1161,6 +1202,27 @@ function stopPtvAutoRefresh() {
   state.ptvAutoRefreshTimer = null;
 }
 
+function startMailJobsAutoRefresh() {
+  if (state.mailJobsAutoRefreshTimer) {
+    return;
+  }
+
+  state.mailJobsAutoRefreshTimer = window.setInterval(() => {
+    if (state.currentView === "masterdata" && state.masterdataPage === "mail" && !document.hidden) {
+      loadMailJobs();
+    }
+  }, 5000);
+}
+
+function stopMailJobsAutoRefresh() {
+  if (!state.mailJobsAutoRefreshTimer) {
+    return;
+  }
+
+  window.clearInterval(state.mailJobsAutoRefreshTimer);
+  state.mailJobsAutoRefreshTimer = null;
+}
+
 async function loadPtvCallbacks() {
   if (!isAdmin()) {
     return;
@@ -1186,7 +1248,27 @@ function renderPtvCallbacks() {
     return;
   }
 
-  elements.ptvCallbacks.innerHTML = state.ptvCallbacks.map((entry) => `
+  const query = state.ptvCallbackSearch.trim().toLowerCase();
+  const callbacks = state.ptvCallbacks.filter((entry) => {
+    if (!query) {
+      return true;
+    }
+
+    return [
+      entry.ticketid,
+      entry.status,
+      entry.message,
+      entry.dataPreview,
+      ...(entry.orderNumbers || [])
+    ].some((value) => String(value || "").toLowerCase().includes(query));
+  });
+
+  if (!callbacks.length) {
+    elements.ptvCallbacks.innerHTML = `<p class="help-text">Keine PTV-Rückgabe für diesen Filter vorhanden.</p>`;
+    return;
+  }
+
+  elements.ptvCallbacks.innerHTML = callbacks.map((entry) => `
     <details class="ptv-callback-entry">
       <summary>
         <strong>${formatDateTime(entry.at)}</strong>
@@ -1360,6 +1442,124 @@ function renderMailDemoState() {
   }
 
   elements.mailDemoRecipientsRow.hidden = !isFullAdmin() || !elements.mailDemoMode.checked;
+}
+
+function renderMailJobs() {
+  if (!elements.mailJobsList) {
+    return;
+  }
+
+  const query = state.mailJobsSearch.trim().toLowerCase();
+  const jobs = state.mailJobs
+    .map((job) => ({
+      ...job,
+      items: (job.items || []).filter((item) => mailJobItemMatches(item, query))
+    }))
+    .filter((job) => !query || job.items.length || mailJobMatches(job, query));
+  const logs = state.mailLogs.filter((entry) => mailLogMatches(entry, query));
+  const activeItems = jobs.flatMap((job) => (job.items || []).map((item) => ({ ...item, job })));
+
+  if (!activeItems.length && !logs.length) {
+    elements.mailJobsList.innerHTML = `<p class="help-text">Keine E-Mails für diesen Filter vorhanden.</p>`;
+    return;
+  }
+
+  const activeHtml = activeItems.length ? `
+    <h4>Warteschlange und Jobs</h4>
+    ${activeItems.map((item) => `
+      <details class="ptv-callback-entry" open>
+        <summary>
+          <strong>${escapeHtml(item.orderNumber)}</strong>
+          <span>${escapeHtml(mailJobStatusLabel(item.status))}</span>
+          <small>${escapeHtml((item.recipients || []).join("; ") || "-")}</small>
+        </summary>
+        <div class="mail-log-meta">
+          <span><strong>Job</strong>${escapeHtml(item.job.id)}</span>
+          <span><strong>Kunde</strong>${escapeHtml(item.customerName || "-")}</span>
+          <span><strong>Kommission</strong>${escapeHtml(item.commission || "-")}</span>
+          <span><strong>Wartet bis</strong>${formatDateTime(item.waitUntil)}</span>
+          <span><strong>Hinweis</strong>${escapeHtml(item.message || item.job.message || "-")}</span>
+        </div>
+      </details>
+    `).join("")}
+  ` : "";
+
+  const logHtml = logs.length ? `
+    <h4>Gesendete E-Mails</h4>
+    ${logs.map((entry) => `
+      <details class="mail-log-entry">
+        <summary>
+          <span>${escapeHtml(entry.orderNumber)}</span>
+          <span>${escapeHtml((entry.recipients || []).join("; ") || "-")}</span>
+          <small>${formatDateTime(entry.sentAt)}</small>
+        </summary>
+        <div class="mail-log-meta">
+          <span><strong>Kunde</strong>${escapeHtml(entry.customerName || "-")}</span>
+          <span><strong>Kommission</strong>${escapeHtml(entry.commission || "-")}</span>
+          <span><strong>Betreff</strong>${escapeHtml(entry.subject || "-")}</span>
+          <span><strong>Status</strong>${escapeHtml(entry.status || "-")}</span>
+        </div>
+        <pre class="mail-log-body">${escapeHtml(entry.body || "")}</pre>
+      </details>
+    `).join("")}
+  ` : "";
+
+  elements.mailJobsList.innerHTML = `${activeHtml}${logHtml}`;
+}
+
+function mailJobMatches(job, query) {
+  if (!query) {
+    return true;
+  }
+
+  return [
+    job.id,
+    job.status,
+    job.createdBy,
+    job.message
+  ].some((value) => String(value || "").toLowerCase().includes(query));
+}
+
+function mailJobItemMatches(item, query) {
+  if (!query) {
+    return true;
+  }
+
+  return [
+    item.orderNumber,
+    item.status,
+    item.customerName,
+    item.commission,
+    item.subject,
+    item.message,
+    ...(item.recipients || [])
+  ].some((value) => String(value || "").toLowerCase().includes(query));
+}
+
+function mailLogMatches(entry, query) {
+  if (!query) {
+    return true;
+  }
+
+  return [
+    entry.orderNumber,
+    entry.customerName,
+    entry.commission,
+    entry.subject,
+    entry.status,
+    ...(entry.recipients || [])
+  ].some((value) => String(value || "").toLowerCase().includes(query));
+}
+
+function mailJobStatusLabel(status) {
+  return {
+    queued: "Warteschlange",
+    waiting: "Wartet",
+    sending: "Sendet",
+    sent: "Gesendet",
+    skipped: "Übersprungen",
+    failed: "Fehler"
+  }[status] || status || "-";
 }
 
 function insertMailToken(token) {
@@ -2436,6 +2636,9 @@ async function saveSelectedOrder(event) {
     closeDrawer();
     await loadOrders();
     await loadPtvOrders();
+    if (notifyAction && isAdmin()) {
+      await loadMailJobs();
+    }
     showToast(`${notifyAction ? "Auftrag avisiert" : "Auftrag gespeichert"}.${mailToastSuffix(result.mail)}`);
   } finally {
     state.notifySelectedOrder = false;
@@ -2492,6 +2695,9 @@ async function applyBulk(notified) {
 
   await loadOrders();
   await loadPtvOrders();
+  if (notified && isAdmin()) {
+    await loadMailJobs();
+  }
   showToast(notified ? `${result.updated} Aufträge avisiert.${mailToastSuffix(result.mail)}` : `${result.updated} Aufträge gespeichert.`);
 }
 
@@ -2546,6 +2752,10 @@ function mailToastSuffix(mail) {
       return "";
     }
 
+    if ((mail.items || []).some((item) => item.queued)) {
+      return mail.total === 1 ? " Mailjob gestartet." : ` Mailjob für ${mail.total} E-Mails gestartet.`;
+    }
+
     if (mail.failed > 0) {
       return ` Mailfehler: ${mail.messages[0] || "Versand fehlgeschlagen."}${mailHintSuffix(mail.items)}`;
     }
@@ -2563,6 +2773,10 @@ function mailToastSuffix(mail) {
 
   if (mail.failed) {
     return ` Mailfehler: ${mail.message || "Versand fehlgeschlagen."}${mailHintSuffix([mail])}`;
+  }
+
+  if (mail.queued) {
+    return " Mailjob gestartet.";
   }
 
   if (mail.sent) {

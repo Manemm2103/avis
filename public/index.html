@@ -423,6 +423,19 @@
                     <button class="primary" type="submit">E-Mail Avis speichern</button>
                   </div>
                 </form>
+                <div class="panel wide-field">
+                  <div class="section-title-row">
+                    <h3>E-Mail Versandstatus</h3>
+                    <button class="secondary small" id="mail-jobs-refresh" type="button">Aktualisieren</button>
+                  </div>
+                  <label class="search">
+                    <span>Suchen</span>
+                    <input id="mail-jobs-search" type="search" autocomplete="off" placeholder="Empfänger, Auftrag, Kommission, Kunde">
+                  </label>
+                  <div class="ptv-callback-list" id="mail-jobs-list">
+                    <p class="help-text">Noch keine Mailjobs geladen.</p>
+                  </div>
+                </div>
               </div>
 
               <div class="masterdata-section masterdata-panel" id="ptv-settings-section" data-masterdata-panel="ptv" hidden>
@@ -490,6 +503,10 @@
                     <h3>PTV Rückgaben</h3>
                     <button class="secondary small" id="ptv-callback-refresh" type="button">Aktualisieren</button>
                   </div>
+                  <label class="search">
+                    <span>Suchen</span>
+                    <input id="ptv-callback-search" type="search" autocomplete="off" placeholder="AB-Nummer, Ticket, Hinweis">
+                  </label>
                   <div class="ptv-callback-list" id="ptv-callbacks">
                     <p class="help-text">Noch keine Rückgabe geladen.</p>
                   </div>
@@ -633,7 +650,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.14.06</footer>
+      <footer class="app-footer">Version 2026.07.14.07</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -854,6 +871,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260714-mail-send-delay" type="module"></script>
+    <script src="/app.js?v=20260714-mail-jobs" type="module"></script>
   </body>
 </html>

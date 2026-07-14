@@ -15,6 +15,8 @@ import { fetchOrdersFromMssql, fetchToursFromMssql, isMssqlConfigured } from "./
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const mailJobs = [];
+let mailJobProcessorRunning = false;
 
 const config = loadConfig();
 const store = new LocalStore(config.dataFile);
@@ -171,6 +173,17 @@ app.patch("/api/ldap-settings", requireFullAdmin, async (request, response) => {
 
 app.get("/api/mail-settings", requireAdmin, (request, response) => {
   response.json(publicMailSettings(store.getMailSettings(), isFullAdminRole(request.user)));
+});
+
+app.get("/api/mail-jobs", requireAdmin, async (request, response) => {
+  try {
+    response.json(await mailJobsOverview());
+  } catch (error) {
+    response.status(400).json({
+      error: "MAIL_JOBS_FAILED",
+      message: error.message
+    });
+  }
 });
 
 app.patch("/api/mail-settings", requireAdmin, async (request, response) => {
@@ -594,7 +607,14 @@ async function loadMergedOrders(sourceOrders, avisOverrides = new Map()) {
 
 async function sendAvisMailForOrder(orderNumber, avisOverride, actor) {
   const results = await sendAvisMailsForOrders([orderNumber], new Map([[orderNumber, avisOverride]]), actor);
-  return results.items[0] || skippedMailResult("Auftrag wurde für den Mailversand nicht gefunden.");
+  return results.items[0] || {
+    status: "queued",
+    queued: true,
+    sent: false,
+    skipped: false,
+    failed: false,
+    message: "Mailjob gestartet."
+  };
 }
 
 async function sendAvisMailsForOrders(orderNumbers, avisOverrides = new Map(), actor = null) {
@@ -602,54 +622,256 @@ async function sendAvisMailsForOrders(orderNumbers, avisOverrides = new Map(), a
     return summarizeMailResults([]);
   }
 
+  return enqueueAvisMailJob(orderNumbers, actor);
+}
+
+function enqueueAvisMailJob(orderNumbers, actor = null) {
+  const uniqueOrderNumbers = [...new Set(orderNumbers.map((orderNumber) => String(orderNumber || "").trim()).filter(Boolean))];
+  const now = new Date().toISOString();
+  const job = {
+    id: crypto.randomUUID(),
+    status: "queued",
+    createdAt: now,
+    startedAt: "",
+    finishedAt: "",
+    createdBy: actor?.displayName || actor?.username || "Unbekannt",
+    createdByUserId: actor?.id || "",
+    total: uniqueOrderNumbers.length,
+    sent: 0,
+    skipped: 0,
+    failed: 0,
+    currentOrderNumber: "",
+    message: "Mailjob wartet auf Verarbeitung.",
+    items: uniqueOrderNumbers.map((orderNumber) => ({
+      id: crypto.randomUUID(),
+      orderNumber,
+      status: "queued",
+      queuedAt: now,
+      startedAt: "",
+      finishedAt: "",
+      waitUntil: "",
+      recipients: [],
+      subject: "",
+      message: "",
+      customerName: "",
+      commission: "",
+      sent: false,
+      skipped: false,
+      failed: false
+    }))
+  };
+
+  mailJobs.unshift(job);
+  processMailJobs().catch((error) => {
+    logEvent("error", "avis-mail-job-processor-failed", { message: error.message });
+  });
+
+  return summarizeMailResults(job.items.map((item) => ({
+    status: "queued",
+    queued: true,
+    sent: false,
+    skipped: false,
+    failed: false,
+    recipients: [],
+    message: `Auftrag ${item.orderNumber}: Mailjob gestartet.`
+  })));
+}
+
+async function processMailJobs() {
+  if (mailJobProcessorRunning) {
+    return;
+  }
+
+  mailJobProcessorRunning = true;
+
+  try {
+    for (const job of mailJobs.slice().reverse()) {
+      if (!["queued", "running"].includes(job.status)) {
+        continue;
+      }
+
+      await processMailJob(job);
+    }
+  } finally {
+    mailJobProcessorRunning = false;
+  }
+
+  if (mailJobs.some((job) => ["queued", "running"].includes(job.status))) {
+    setTimeout(() => {
+      processMailJobs().catch((error) => {
+        logEvent("error", "avis-mail-job-processor-failed", { message: error.message });
+      });
+    }, 0);
+  }
+}
+
+async function processMailJob(job) {
+  job.status = "running";
+  job.startedAt ||= new Date().toISOString();
+  job.message = "Mailjob wird verarbeitet.";
+
   let orders = [];
 
   try {
     const source = await loadSourceOrders();
-    orders = await loadMergedOrders(source.orders, avisOverrides);
+    orders = await loadMergedOrders(source.orders);
   } catch (error) {
-    return summarizeMailResults(orderNumbers.map((orderNumber) => failedMailResult(`Auftrag ${orderNumber}: ${error.message}`)));
+    job.status = "failed";
+    job.finishedAt = new Date().toISOString();
+    job.failed = job.items.length;
+    job.message = error.message;
+    job.items.forEach((item) => {
+      item.status = "failed";
+      item.failed = true;
+      item.message = `Auftrag ${item.orderNumber}: ${error.message}`;
+      item.finishedAt = job.finishedAt;
+    });
+    return;
   }
 
   const orderMap = new Map(orders.map((order) => [order.orderNumber, order]));
   const settings = store.getMailSettings();
   const sendDelayMs = Math.max(0, number(settings.sendDelaySeconds, 0)) * 1000;
-  const results = [];
+  const actor = {
+    id: job.createdByUserId,
+    username: job.createdBy,
+    displayName: job.createdBy
+  };
 
-  for (const [index, orderNumber] of orderNumbers.entries()) {
-    const order = orderMap.get(orderNumber);
+  for (const [index, item] of job.items.entries()) {
+    if (!["queued", "waiting"].includes(item.status)) {
+      continue;
+    }
+
+    if (index > 0 && sendDelayMs > 0) {
+      item.status = "waiting";
+      item.waitUntil = new Date(Date.now() + sendDelayMs).toISOString();
+      job.currentOrderNumber = item.orderNumber;
+      job.message = `Wartet bis ${item.waitUntil} vor der nächsten Mail.`;
+      await sleep(sendDelayMs);
+    }
+
+    const order = orderMap.get(item.orderNumber);
+    item.status = "sending";
+    item.startedAt = new Date().toISOString();
+    item.waitUntil = "";
+    item.customerName = order?.customerName || "";
+    item.commission = order?.commission || "";
+    job.currentOrderNumber = item.orderNumber;
 
     if (!order) {
-      results.push(skippedMailResult(`Auftrag ${orderNumber} wurde für den Mailversand nicht gefunden.`));
-      if (sendDelayMs > 0 && index < orderNumbers.length - 1) {
-        await sleep(sendDelayMs);
-      }
+      Object.assign(item, skippedMailResult(`Auftrag ${item.orderNumber} wurde für den Mailversand nicht gefunden.`), {
+        status: "skipped",
+        finishedAt: new Date().toISOString()
+      });
+      updateMailJobCounts(job);
       continue;
     }
 
     const result = await sendAvisMail(order, settings);
-    logAvisMailResult(orderNumber, settings, result);
+    logAvisMailResult(item.orderNumber, settings, result);
+    Object.assign(item, result, {
+      status: result.sent ? "sent" : result.failed ? "failed" : "skipped",
+      finishedAt: new Date().toISOString(),
+      recipients: result.recipients || [],
+      subject: result.subject || "",
+      customerName: order.customerName || "",
+      commission: order.commission || ""
+    });
 
     if (result.sent) {
       try {
-        result.mailLogId = (await store.appendAvisMail(orderNumber, result, actor)).id;
+        item.mailLogId = (await store.appendAvisMail(item.orderNumber, result, actor)).id;
       } catch (error) {
-        result.mailLogError = error.message;
+        item.mailLogError = error.message;
         logEvent("error", "avis-mail-log-save-failed", {
-          orderNumber,
+          orderNumber: item.orderNumber,
           message: error.message
         });
       }
     }
 
-    results.push(result);
-
-    if (sendDelayMs > 0 && index < orderNumbers.length - 1) {
-      await sleep(sendDelayMs);
-    }
+    updateMailJobCounts(job);
   }
 
-  return summarizeMailResults(results);
+  updateMailJobCounts(job);
+  job.status = job.failed > 0 ? "finished_with_errors" : "finished";
+  job.finishedAt = new Date().toISOString();
+  job.currentOrderNumber = "";
+  job.message = job.failed > 0 ? "Mailjob mit Fehlern abgeschlossen." : "Mailjob abgeschlossen.";
+}
+
+function updateMailJobCounts(job) {
+  job.sent = job.items.filter((item) => item.sent).length;
+  job.skipped = job.items.filter((item) => item.skipped).length;
+  job.failed = job.items.filter((item) => item.failed).length;
+}
+
+async function mailJobsOverview() {
+  const source = await loadSourceOrders();
+  const orders = await loadMergedOrders(source.orders);
+  const orderMap = new Map(orders.map((order) => [order.orderNumber, order]));
+
+  return {
+    jobs: mailJobs.map((job) => publicMailJob(job, orderMap)),
+    logs: store.listAvisMailLogs().map((entry) => publicMailLogEntry(entry, orderMap)).slice(0, 500)
+  };
+}
+
+function publicMailJob(job, orderMap) {
+  return {
+    id: job.id,
+    status: job.status,
+    createdAt: job.createdAt,
+    startedAt: job.startedAt,
+    finishedAt: job.finishedAt,
+    createdBy: job.createdBy,
+    total: job.total,
+    sent: job.sent,
+    skipped: job.skipped,
+    failed: job.failed,
+    currentOrderNumber: job.currentOrderNumber,
+    message: job.message,
+    items: job.items.map((item) => {
+      const order = orderMap.get(item.orderNumber);
+
+      return {
+        id: item.id,
+        orderNumber: item.orderNumber,
+        status: item.status,
+        queuedAt: item.queuedAt,
+        startedAt: item.startedAt,
+        finishedAt: item.finishedAt,
+        waitUntil: item.waitUntil,
+        recipients: item.recipients || [],
+        subject: item.subject || "",
+        message: item.message || "",
+        customerName: item.customerName || order?.customerName || "",
+        commission: item.commission || order?.commission || "",
+        sent: Boolean(item.sent),
+        skipped: Boolean(item.skipped),
+        failed: Boolean(item.failed)
+      };
+    })
+  };
+}
+
+function publicMailLogEntry(entry, orderMap) {
+  const order = orderMap.get(entry.orderNumber);
+
+  return {
+    id: entry.id,
+    orderNumber: entry.orderNumber,
+    sentAt: entry.sentAt || "",
+    recipients: entry.recipients || [],
+    subject: entry.subject || "",
+    body: entry.body || "",
+    status: entry.status || "sent",
+    demoMode: Boolean(entry.demoMode),
+    by: entry.by || "",
+    customerName: order?.customerName || "",
+    commission: order?.commission || ""
+  };
 }
 
 function sleep(milliseconds) {

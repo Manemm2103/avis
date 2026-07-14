@@ -1571,7 +1571,7 @@ function renderLoadingList(errorMessage = "") {
       <span><strong>Fahrer</strong>${escapeHtml(driverLabel)}</span>
       <span><strong>Auslieferungsdatum</strong>${escapeHtml(state.loadingListDeliveryDate ? formatDate(state.loadingListDeliveryDate) : "-")}</span>
       <span><strong>Verladung</strong>${escapeHtml(state.loadingListLoadingText ? formatDate(state.loadingListLoadingText) : "-")}</span>
-      <span><strong>LKW</strong>${escapeHtml(selectedExport.loadingListTruckLabel || "-")}</span>
+      <span><strong>LKW</strong>${escapeHtml(selectedExport.loadingListLicensePlate || selectedExport.loadingListTruckLabel || "-")}</span>
       <span><strong>Auswahl</strong>${selectedCount ? `${selectedCount} markiert (${selectedShippingEh.toLocaleString("de-DE")} Versand EH)` : "keine"}</span>
       <span><strong>Entladestellen</strong>${unloadingStops.length}</span>
       <span><strong>Aufträge</strong>${loadingOrders.length}</span>
@@ -1668,7 +1668,7 @@ function renderPtvTruckOptions() {
   const trucks = state.loadingListSettings?.trucks || [];
   elements.ptvExportTruck.innerHTML = [
     `<option value="">Kein Fahrzeug</option>`,
-    ...trucks.map((truck) => `<option value="${escapeHtml(truck.id)}">${escapeHtml(loadingListTruckLabel(truck))}</option>`)
+    ...trucks.map((truck) => `<option value="${escapeHtml(truck.id)}">${escapeHtml(ptvTruckLabel(truck))}</option>`)
   ].join("");
   elements.ptvExportTruck.value = trucks.some((truck) => truck.id === currentValue) ? currentValue : "";
 }
@@ -1699,11 +1699,12 @@ async function assignLoadingListTruck() {
 }
 
 function loadingListTruckLabel(truck) {
-  const label = truck.label || "";
-  const licensePlate = truck.licensePlate || "";
-  const vehicleId = truck.ptvVehicleId ? ` / PTV ${truck.ptvVehicleId}` : "";
-  const base = label && label !== licensePlate ? `${label} (${licensePlate})` : licensePlate || label;
-  return `${base}${vehicleId}`;
+  return truck.licensePlate || truck.label || "";
+}
+
+function ptvTruckLabel(truck) {
+  const base = loadingListTruckLabel(truck);
+  return truck.ptvVehicleId ? `${base} / PTV ${truck.ptvVehicleId}` : base;
 }
 
 function selectedPtvTruckPayload() {

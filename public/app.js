@@ -1390,12 +1390,17 @@ function renderPtvExports() {
     const status = optimized ? "Tour optimiert" : "Nicht optimiert";
     const expanded = state.ptvExpandedExportId === item.id;
     const orders = ptvExportOrders(item);
+    const createdBy = item.createdBy || "-";
+    const optimizedBy = item.optimizedBy || item.updatedBy || "-";
+    const optimizedAt = item.optimizedAt || item.updatedAt || "";
 
     return `
       <article class="ptv-export-card ${expanded ? "is-expanded" : ""}" data-ptv-export-card="${escapeHtml(item.id)}">
         <div class="ptv-export-card-main">
           <strong>${escapeHtml(item.name)}</strong>
           <span class="sub-text">${escapeHtml(status)} - ${count} Aufträge - ${formatDateTime(item.updatedAt || item.createdAt)}</span>
+          <span class="sub-text">Zusammengestellt von ${escapeHtml(createdBy)} am ${formatDateTime(item.createdAt)}</span>
+          ${optimized ? `<span class="sub-text">Optimiert von ${escapeHtml(optimizedBy)} am ${formatDateTime(optimizedAt)}</span>` : ""}
         </div>
         <div class="row-actions">
           ${optimized ? "" : `<button class="secondary small" data-ptv-send-export="${escapeHtml(item.id)}" type="button">An PTV übergeben</button>`}
@@ -3702,7 +3707,11 @@ function ptvExportSearchText(item) {
   return [
     item.name,
     item.createdAt,
+    item.createdBy,
     item.updatedAt,
+    item.updatedBy,
+    item.optimizedAt,
+    item.optimizedBy,
     ...ptvExportOrders(item).flatMap((order) => [
       order.orderNumber,
       order.customerNumber,

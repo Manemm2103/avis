@@ -789,8 +789,10 @@ export class LocalStore {
     exportEntry.status = "ptv_optimiert";
     exportEntry.optimizedOrderNumbers = uniqueOrderNumbers(orderNumbers);
     exportEntry.routeInfos = routeInfosByOrderNumber || {};
-    exportEntry.updatedAt = new Date().toISOString();
-    exportEntry.updatedBy = actor?.displayName || actor?.username || "PTV Rückgabe";
+    exportEntry.optimizedAt = new Date().toISOString();
+    exportEntry.optimizedBy = actor?.displayName || actor?.username || "PTV Rückgabe";
+    exportEntry.updatedAt = exportEntry.optimizedAt;
+    exportEntry.updatedBy = exportEntry.optimizedBy;
 
     await this.applyPtvExportTags(exportEntry, actor, true);
     await this.save();

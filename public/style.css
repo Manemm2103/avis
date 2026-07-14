@@ -234,6 +234,40 @@ h2 {
   font-weight: 700;
 }
 
+.theme-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-strong);
+}
+
+.theme-button {
+  min-height: 28px;
+  min-width: 30px;
+  padding: 3px 7px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.theme-button:hover,
+.theme-button:focus-visible {
+  color: var(--text);
+  border-color: var(--line);
+}
+
+.theme-button.is-active {
+  color: #fff;
+  background: var(--accent);
+}
+
 .tabs {
   display: flex;
   gap: 8px;

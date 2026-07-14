@@ -50,6 +50,11 @@
           </div>
           <div class="user-chip">
             <span id="current-user">-</span>
+            <div class="theme-switch" aria-label="Design umschalten">
+              <button class="theme-button" data-theme-choice="light" type="button" title="Hell">☀</button>
+              <button class="theme-button" data-theme-choice="dark" type="button" title="Dunkel">☾</button>
+              <button class="theme-button" data-theme-choice="system" type="button" title="System">System</button>
+            </div>
             <button class="secondary small" id="logout-button" type="button">Abmelden</button>
           </div>
         </div>
@@ -165,8 +170,8 @@
           <div id="ptv-assemblies-page">
             <div class="toolbar">
               <div class="segmented" role="group" aria-label="Tour Optimierung">
-                <button class="segment is-active" data-ptv-optimization="all" type="button">Alle Touren</button>
-                <button class="segment" data-ptv-optimization="exported" type="button">Nicht optimiert</button>
+                <button class="segment" data-ptv-optimization="all" type="button">Alle Touren</button>
+                <button class="segment is-active" data-ptv-optimization="exported" type="button">Nicht optimiert</button>
                 <button class="segment" data-ptv-optimization="optimized" type="button">Tour optimiert</button>
               </div>
               <label class="filter-control wide">
@@ -602,6 +607,7 @@
                           <th>Name</th>
                           <th>Rolle</th>
                           <th>Aktiv</th>
+                          <th>Letzter Login</th>
                           <th></th>
                         </tr>
                       </thead>
@@ -615,7 +621,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.13.17</footer>
+      <footer class="app-footer">Version 2026.07.14.01</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -836,6 +842,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260713-ptv-plant-no-pause" type="module"></script>
+    <script src="/app.js?v=20260714-user-login-theme-ptv" type="module"></script>
   </body>
 </html>

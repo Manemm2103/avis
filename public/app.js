@@ -32,7 +32,7 @@ const state = {
   bulkLastSelectedOrderNumber: "",
   ptvStatus: "open",
   ptvPage: "assemblies",
-  ptvOptimizationStatus: "all",
+  ptvOptimizationStatus: "exported",
   ptvSearch: "",
   ptvAssemblySearch: "",
   ptvAssemblyDate: "",
@@ -61,6 +61,7 @@ const elements = {
   brandHomeButton: document.querySelector("#brand-home-button"),
   currentUser: document.querySelector("#current-user"),
   logoutButton: document.querySelector("#logout-button"),
+  themeButtons: document.querySelectorAll("[data-theme-choice]"),
   tabs: {
     orders: document.querySelector("#tab-orders"),
     ptv: document.querySelector("#tab-ptv"),
@@ -276,6 +277,9 @@ function bindEvents() {
   elements.loginTheme.addEventListener("change", () => {
     state.loginThemeTouched = true;
     updateTheme(elements.loginTheme.value);
+  });
+  elements.themeButtons.forEach((button) => {
+    button.addEventListener("click", () => updateTheme(button.dataset.themeChoice, { persistProfile: true }));
   });
   elements.logoutButton.addEventListener("click", logout);
   elements.brandHomeButton.addEventListener("click", goHomeAndRefresh);
@@ -782,12 +786,17 @@ function applyTheme(theme) {
   state.theme = nextTheme;
   document.documentElement.dataset.theme = nextTheme;
   localStorage.setItem("avisTheme", nextTheme);
+  syncThemeControl();
 }
 
 function syncThemeControl() {
   if (elements.loginTheme) {
     elements.loginTheme.value = state.currentUser?.theme || state.theme || "light";
   }
+
+  elements.themeButtons.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.themeChoice === state.theme);
+  });
 }
 
 function readStoredTheme() {
@@ -2059,7 +2068,7 @@ function renderDrivers() {
 
 function renderUsers() {
   if (state.users.length === 0) {
-    elements.usersBody.innerHTML = `<tr><td class="empty" colspan="5">Noch keine Benutzer angelegt.</td></tr>`;
+    elements.usersBody.innerHTML = `<tr><td class="empty" colspan="6">Noch keine Benutzer angelegt.</td></tr>`;
     return;
   }
 
@@ -2069,6 +2078,7 @@ function renderUsers() {
       <td>${escapeHtml(user.displayName)}</td>
       <td>${escapeHtml(roleLabel(user.role))}</td>
       <td>${user.active ? "Ja" : "Nein"}</td>
+      <td>${user.lastLoginAt ? escapeHtml(formatDateTime(user.lastLoginAt)) : "-"}</td>
       <td>
         ${canEditUser(user) ? `<button class="secondary small" data-edit-user="${escapeHtml(user.id)}" type="button">Bearbeiten</button>` : ""}
         ${canEditUser(user) && user.active ? `<button class="secondary small" data-deactivate-user="${escapeHtml(user.id)}" type="button">Deaktivieren</button>` : ""}
@@ -2620,7 +2630,7 @@ async function importCsvOrders(event) {
 
 function clearPtvFilters() {
   state.ptvStatus = "open";
-  state.ptvOptimizationStatus = "all";
+  state.ptvOptimizationStatus = "exported";
   state.ptvSearch = "";
   state.ptvDeliveryDate = "";
   state.ptvTour = "";

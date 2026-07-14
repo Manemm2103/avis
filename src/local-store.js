@@ -306,7 +306,8 @@ export class LocalStore {
   }
 
   async createSessionForUserId(userId) {
-    const user = this.state.users.find((item) => item.id === userId && item.active);
+    const index = this.state.users.findIndex((item) => item.id === userId && item.active);
+    const user = index === -1 ? null : this.state.users[index];
 
     if (!user) {
       throw new Error("Benutzer nicht gefunden oder inaktiv.");
@@ -314,6 +315,8 @@ export class LocalStore {
 
     const token = crypto.randomBytes(32).toString("hex");
     const now = new Date().toISOString();
+    user.lastLoginAt = now;
+    user.updatedAt = user.updatedAt || now;
 
     this.state.sessions[token] = {
       userId: user.id,
@@ -1041,6 +1044,7 @@ function publicUser(user) {
     active: user.active !== false,
     authProvider: user.authProvider || "local",
     theme: normalizeTheme(user.theme),
+    lastLoginAt: user.lastLoginAt || "",
     createdAt: user.createdAt || "",
     updatedAt: user.updatedAt || ""
   };

@@ -328,6 +328,7 @@ export class LocalStore {
     const token = crypto.randomBytes(32).toString("hex");
     const now = new Date().toISOString();
     user.lastLoginAt = now;
+    user.lastActiveAt = now;
     user.updatedAt = user.updatedAt || now;
 
     this.state.sessions[token] = {
@@ -423,6 +424,32 @@ export class LocalStore {
       session,
       user: publicUser(user)
     };
+  }
+
+  async touchSession(token) {
+    const session = this.state.sessions[token];
+
+    if (!session) {
+      return null;
+    }
+
+    const user = this.state.users.find((item) => item.id === session.userId && item.active);
+
+    if (!user) {
+      return null;
+    }
+
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const lastActiveTime = user.lastActiveAt ? new Date(user.lastActiveAt).getTime() : 0;
+    session.lastSeenAt = nowIso;
+
+    if (!lastActiveTime || now.getTime() - lastActiveTime > 60_000) {
+      user.lastActiveAt = nowIso;
+      await this.save();
+    }
+
+    return publicUser(user);
   }
 
   async logout(token) {
@@ -1109,6 +1136,7 @@ function publicUser(user) {
     authProvider: user.authProvider || "local",
     theme: normalizeTheme(user.theme),
     lastLoginAt: user.lastLoginAt || "",
+    lastActiveAt: user.lastActiveAt || user.lastLoginAt || "",
     createdAt: user.createdAt || "",
     updatedAt: user.updatedAt || ""
   };

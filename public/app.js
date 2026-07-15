@@ -2831,7 +2831,7 @@ function renderUsers() {
       <td>${escapeHtml(user.displayName)}</td>
       <td>${escapeHtml(roleLabel(user.role))}</td>
       <td>${user.active ? "Ja" : "Nein"}</td>
-      <td>${user.lastLoginAt ? escapeHtml(formatDateTime(user.lastLoginAt)) : "-"}</td>
+      <td>${user.lastActiveAt || user.lastLoginAt ? escapeHtml(formatDateTime(user.lastActiveAt || user.lastLoginAt)) : "-"}</td>
       <td>
         ${canEditUser(user) ? `<button class="secondary small" data-edit-user="${escapeHtml(user.id)}" type="button">Bearbeiten</button>` : ""}
         ${canEditUser(user) && user.active ? `<button class="secondary small" data-deactivate-user="${escapeHtml(user.id)}" type="button">Deaktivieren</button>` : ""}

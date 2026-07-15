@@ -2390,7 +2390,15 @@ function requireAuth(request, response, next) {
 
   request.token = token;
   request.user = session.user;
-  next();
+  store.touchSession(token)
+    .then((user) => {
+      if (user) {
+        request.user = user;
+      }
+
+      next();
+    })
+    .catch(next);
 }
 
 function requireAdmin(request, response, next) {

@@ -919,19 +919,10 @@ async function goHomeAndRefresh() {
   closeManualOrderModal();
   closeWeekPicker();
   clearBulkSelection();
-  setStatusFilter("open");
-  state.search = "";
-  state.deliveryDate = "";
-  state.deliveryWeek = "";
-  state.tour = "";
-  state.driverPhoneId = "";
-  elements.searchInput.value = "";
-  elements.filterDate.value = "";
-  renderWeekPicker();
-  elements.filterTour.value = "";
-  elements.filterDriver.value = "";
-  showView("orders");
-  await loadOrders();
+  clearPtvSelection();
+  clearPtvFilters();
+  openPtvOrderSelection();
+  await loadPtvOrders();
 }
 
 function showView(view) {

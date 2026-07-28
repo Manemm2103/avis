@@ -263,7 +263,7 @@ app.post("/api/ptv/exports", async (request, response) => {
       orderNumbers,
       ...sanitizePtvExportLoadingList(request.body)
     }, request.user);
-    await assignPtvExportDriver(request.body, orderNumbers, request.user);
+    await assignPtvExportAvisValues(request.body, orderNumbers, request.user);
     response.status(201).json(entry);
   } catch (error) {
     response.status(400).json({
@@ -342,7 +342,7 @@ app.post("/api/ptv/remote-url", async (request, response) => {
       orderNumbers,
       ...sanitizePtvExportLoadingList(request.body)
     }, request.user);
-    await assignPtvExportDriver(request.body, orderNumbers, request.user);
+    await assignPtvExportAvisValues(request.body, orderNumbers, request.user);
     const settings = store.getPtvSettings();
     const source = await loadSourceOrders();
     const orders = await loadMergedOrders(source.orders);
@@ -379,15 +379,24 @@ app.post("/api/ptv/exports/:id/remote-url", async (request, response) => {
   }
 });
 
-async function assignPtvExportDriver(input, orderNumbers, actor) {
+async function assignPtvExportAvisValues(input, orderNumbers, actor) {
   const driverPhoneId = text(input.driverPhoneId);
+  const update = {};
 
-  if (!driverPhoneId) {
+  if (driverPhoneId) {
+    update.driverPhoneId = driverPhoneId;
+  }
+
+  if (input.twoDayTour === true) {
+    update.twoDayTour = true;
+  }
+
+  if (Object.keys(update).length === 0) {
     return;
   }
 
   for (const orderNumber of orderNumbers) {
-    await store.updateAvis(orderNumber, { driverPhoneId }, actor);
+    await store.updateAvis(orderNumber, update, actor);
   }
 }
 
@@ -1634,7 +1643,8 @@ function sanitizePtvExportLoadingList(input) {
     ptvVehicleId: text(input.ptvVehicleId),
     driverPhoneId: text(input.driverPhoneId),
     driverPhoneLabel: text(input.driverPhoneLabel),
-    driverPhoneNumber: text(input.driverPhoneNumber)
+    driverPhoneNumber: text(input.driverPhoneNumber),
+    twoDayTour: Boolean(input.twoDayTour)
   };
 }
 

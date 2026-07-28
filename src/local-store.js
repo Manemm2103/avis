@@ -875,6 +875,7 @@ export class LocalStore {
       driverPhoneId: String(input.driverPhoneId || "").trim(),
       driverPhoneLabel: String(input.driverPhoneLabel || "").trim(),
       driverPhoneNumber: String(input.driverPhoneNumber || "").trim(),
+      twoDayTour: Boolean(input.twoDayTour),
       createdAt: now,
       createdBy: actor?.displayName || actor?.username || "",
       updatedAt: now,

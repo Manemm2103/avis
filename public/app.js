@@ -138,6 +138,7 @@ const elements = {
   ptvOpenRemote: document.querySelector("#ptv-open-remote"),
   ptvExportName: document.querySelector("#ptv-export-name"),
   ptvExportTruck: document.querySelector("#ptv-export-truck"),
+  ptvExportDriver: document.querySelector("#ptv-export-driver"),
   ptvExportList: document.querySelector("#ptv-export-list"),
   ptvBody: document.querySelector("#ptv-body"),
   ptvListBody: document.querySelector("#ptv-list-body"),
@@ -451,6 +452,7 @@ function bindEvents() {
   elements.ptvClearSelection.addEventListener("click", clearPtvSelection);
   elements.ptvOpenRemote.addEventListener("click", openPtvRemoteControl);
   elements.ptvExportTruck.addEventListener("change", () => renderPtv());
+  elements.ptvExportDriver.addEventListener("change", () => renderPtv());
   document.querySelectorAll("[data-ptv-page]").forEach((button) => {
     button.addEventListener("click", () => showPtvPage(button.dataset.ptvPage || "assemblies"));
   });
@@ -1148,6 +1150,7 @@ async function loadDrivers() {
   renderDriverOptions(elements.drawerFields.driver);
   renderDriverOptions(elements.bulkDriver);
   renderDriverOptions(elements.manualDriver);
+  renderDriverOptions(elements.ptvExportDriver, "", "Kein Fahrertelefon");
 }
 
 async function loadTours() {
@@ -1506,6 +1509,7 @@ function renderPtvExports() {
           <strong>${escapeHtml(item.name)}</strong>
           <span class="sub-text">${escapeHtml(status)} - ${count} Aufträge - ${formatDateTime(item.updatedAt || item.createdAt)}</span>
           ${item.loadingListTruckLabel ? `<span class="sub-text">LKW ${escapeHtml(item.loadingListLicensePlate || item.loadingListTruckLabel)}</span>` : ""}
+          ${item.driverPhoneLabel ? `<span class="sub-text">Fahrer ${escapeHtml(item.driverPhoneLabel)}${item.driverPhoneNumber ? ` - ${escapeHtml(item.driverPhoneNumber)}` : ""}</span>` : ""}
           <span class="sub-text">Zusammengestellt von ${escapeHtml(createdBy)} am ${formatDateTime(item.createdAt)}</span>
           ${optimized ? `<span class="sub-text">Optimiert von ${escapeHtml(optimizedBy)} am ${formatDateTime(optimizedAt)}</span>` : ""}
         </div>
@@ -1744,6 +1748,16 @@ function selectedPtvTruckPayload() {
     truckLabel: truck ? loadingListTruckLabel(truck) : "",
     licensePlate: truck?.licensePlate || "",
     ptvVehicleId: truck?.ptvVehicleId || ""
+  };
+}
+
+function selectedPtvDriverPayload() {
+  const driver = state.drivers.find((item) => item.id === elements.ptvExportDriver.value);
+
+  return {
+    driverPhoneId: driver?.id || "",
+    driverPhoneLabel: driver?.label || "",
+    driverPhoneNumber: driver?.phone || ""
   };
 }
 
@@ -2608,6 +2622,8 @@ function loadPtvExport(id) {
 
   state.ptvExportId = entry.id;
   elements.ptvExportName.value = entry.name || "";
+  elements.ptvExportTruck.value = entry.loadingListTruckId || "";
+  elements.ptvExportDriver.value = entry.driverPhoneId || "";
   state.ptvListOrderNumbers = [...(entry.optimizedOrderNumbers?.length ? entry.optimizedOrderNumbers : entry.orderNumbers || [])];
   state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
   state.ptvLastSelectedOrderNumber = "";
@@ -2626,6 +2642,9 @@ function togglePtvExportDetails(id) {
 
   if (state.ptvExpandedExportId) {
     state.ptvExportId = entry.id;
+    elements.ptvExportName.value = entry.name || "";
+    elements.ptvExportTruck.value = entry.loadingListTruckId || "";
+    elements.ptvExportDriver.value = entry.driverPhoneId || "";
     state.ptvListOrderNumbers = [...(entry.optimizedOrderNumbers?.length ? entry.optimizedOrderNumbers : entry.orderNumbers || [])];
     state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
     state.ptvLastSelectedOrderNumber = "";
@@ -3020,10 +3039,10 @@ function renderDriverFilterOptions() {
   elements.filterDriver.value = state.driverPhoneId;
 }
 
-function renderDriverOptions(target, selectedId = "") {
+function renderDriverOptions(target, selectedId = "", emptyLabel = "Bitte auswählen") {
   const activeDrivers = state.drivers.filter((driver) => driver.active || driver.id === selectedId);
   target.innerHTML = [
-    `<option value="">Bitte auswählen</option>`,
+    `<option value="">${escapeHtml(emptyLabel)}</option>`,
     ...activeDrivers.map((driver) => `
       <option value="${escapeHtml(driver.id)}" ${driver.id === selectedId ? "selected" : ""}>
         ${escapeHtml(driver.label)} - ${escapeHtml(driver.phone)}
@@ -3598,7 +3617,8 @@ async function openPtvRemoteControl() {
       body: JSON.stringify({
         orderNumbers,
         exportName: ptvExportName(),
-        ...selectedPtvTruckPayload()
+        ...selectedPtvTruckPayload(),
+        ...selectedPtvDriverPayload()
       })
     });
 
@@ -3693,7 +3713,8 @@ async function createPtvExportRecord(orderNumbers) {
     body: JSON.stringify({
       name: ptvExportName(),
       orderNumbers,
-      ...selectedPtvTruckPayload()
+      ...selectedPtvTruckPayload(),
+      ...selectedPtvDriverPayload()
     })
   });
 }
@@ -3719,6 +3740,7 @@ function resetPtvPlanningForm() {
   state.ptvLastSelectedOrderNumber = "";
   elements.ptvSearchInput.value = "";
   elements.ptvExportTruck.value = "";
+  elements.ptvExportDriver.value = "";
   elements.ptvFilterDate.value = "";
   elements.ptvFilterTour.value = "";
   renderPtvWeekPicker();

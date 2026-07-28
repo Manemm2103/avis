@@ -257,11 +257,13 @@ app.get("/api/ptv/exports", (request, response) => {
 
 app.post("/api/ptv/exports", async (request, response) => {
   try {
+    const orderNumbers = sanitizeOrderNumbers(request.body.orderNumbers);
     const entry = await store.createPtvExport({
       name: text(request.body.name),
-      orderNumbers: sanitizeOrderNumbers(request.body.orderNumbers),
+      orderNumbers,
       ...sanitizePtvExportLoadingList(request.body)
     }, request.user);
+    await assignPtvExportDriver(request.body, orderNumbers, request.user);
     response.status(201).json(entry);
   } catch (error) {
     response.status(400).json({
@@ -340,6 +342,7 @@ app.post("/api/ptv/remote-url", async (request, response) => {
       orderNumbers,
       ...sanitizePtvExportLoadingList(request.body)
     }, request.user);
+    await assignPtvExportDriver(request.body, orderNumbers, request.user);
     const settings = store.getPtvSettings();
     const source = await loadSourceOrders();
     const orders = await loadMergedOrders(source.orders);
@@ -375,6 +378,18 @@ app.post("/api/ptv/exports/:id/remote-url", async (request, response) => {
     });
   }
 });
+
+async function assignPtvExportDriver(input, orderNumbers, actor) {
+  const driverPhoneId = text(input.driverPhoneId);
+
+  if (!driverPhoneId) {
+    return;
+  }
+
+  for (const orderNumber of orderNumbers) {
+    await store.updateAvis(orderNumber, { driverPhoneId }, actor);
+  }
+}
 
 app.patch("/api/orders/bulk", async (request, response) => {
   try {
@@ -1616,7 +1631,10 @@ function sanitizePtvExportLoadingList(input) {
     truckId: text(input.truckId),
     truckLabel: text(input.truckLabel),
     licensePlate: text(input.licensePlate),
-    ptvVehicleId: text(input.ptvVehicleId)
+    ptvVehicleId: text(input.ptvVehicleId),
+    driverPhoneId: text(input.driverPhoneId),
+    driverPhoneLabel: text(input.driverPhoneLabel),
+    driverPhoneNumber: text(input.driverPhoneNumber)
   };
 }
 

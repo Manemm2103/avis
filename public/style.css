@@ -719,9 +719,17 @@ select:disabled {
 }
 
 .loading-list-controls {
-  grid-template-columns: minmax(260px, 2fr) repeat(4, minmax(140px, 1fr));
+  grid-template-columns: minmax(260px, 2fr) repeat(5, minmax(140px, 1fr));
   align-items: end;
   margin-bottom: 12px;
+}
+
+.loading-list-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .loading-list-summary {

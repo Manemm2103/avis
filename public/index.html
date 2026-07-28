@@ -318,13 +318,19 @@
               <span>LKW</span>
               <select id="loading-list-truck"></select>
             </label>
+            <label>
+              <span>Fahrertelefon</span>
+              <select id="loading-list-driver"></select>
+            </label>
             <label class="checkbox-row">
               <input id="loading-list-trailer" type="checkbox">
               <span>MW Anh. für Auswahl</span>
             </label>
-            <button class="secondary" id="loading-list-clear-selection" type="button" hidden>Auswahl aufheben</button>
-            <button class="primary" id="loading-list-notify" type="button">Ladeliste avisieren</button>
-            <button class="secondary danger" id="loading-list-remove-orders" type="button" hidden>Aus Ladeliste entnehmen</button>
+            <div class="loading-list-actions">
+              <button class="secondary" id="loading-list-clear-selection" type="button" hidden>Auswahl aufheben</button>
+              <button class="primary" id="loading-list-notify" type="button">Ladeliste avisieren</button>
+              <button class="secondary danger" id="loading-list-remove-orders" type="button" hidden>Aufträge aus Ladeliste entfernen</button>
+            </div>
           </div>
 
           <div class="loading-list-summary" id="loading-list-summary"></div>
@@ -745,7 +751,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.28.08</footer>
+      <footer class="app-footer">Version 2026.07.28.09</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -982,6 +988,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260728-ptv-edit-order" type="module"></script>
+    <script src="/app.js?v=20260728-loading-list-driver" type="module"></script>
   </body>
 </html>

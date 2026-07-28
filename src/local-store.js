@@ -806,10 +806,23 @@ export class LocalStore {
       throw new Error("Tourzusammenstellung nicht gefunden.");
     }
 
-    exportEntry.loadingListTruckId = String(input.truckId || "").trim();
-    exportEntry.loadingListTruckLabel = String(input.truckLabel || "").trim();
-    exportEntry.loadingListLicensePlate = String(input.licensePlate || "").trim();
-    exportEntry.loadingListPtvVehicleId = String(input.ptvVehicleId || "").trim();
+    if (input.hasTruckId) {
+      exportEntry.loadingListTruckId = String(input.truckId || "").trim();
+      exportEntry.loadingListTruckLabel = String(input.truckLabel || "").trim();
+      exportEntry.loadingListLicensePlate = String(input.licensePlate || "").trim();
+      exportEntry.loadingListPtvVehicleId = String(input.ptvVehicleId || "").trim();
+    }
+
+    if (input.hasDriverPhoneId) {
+      exportEntry.driverPhoneId = String(input.driverPhoneId || "").trim();
+      exportEntry.driverPhoneLabel = String(input.driverPhoneLabel || "").trim();
+      exportEntry.driverPhoneNumber = String(input.driverPhoneNumber || "").trim();
+    }
+
+    if (input.hasTwoDayTour) {
+      exportEntry.twoDayTour = Boolean(input.twoDayTour);
+    }
+
     exportEntry.updatedAt = new Date().toISOString();
     exportEntry.updatedBy = actor?.displayName || actor?.username || "";
 

@@ -441,7 +441,20 @@ app.patch("/api/orders/bulk", async (request, response) => {
 
 app.patch("/api/ptv/exports/:id/loading-list", async (request, response) => {
   try {
-    response.json(await store.updatePtvExportLoadingList(request.params.id, sanitizePtvExportLoadingList(request.body), request.user));
+    const input = sanitizePtvExportLoadingList(request.body);
+    const exportEntry = await store.updatePtvExportLoadingList(request.params.id, input, request.user);
+
+    if (input.hasDriverPhoneId) {
+      const orderNumbers = exportEntry.optimizedOrderNumbers?.length
+        ? exportEntry.optimizedOrderNumbers
+        : exportEntry.orderNumbers || [];
+
+      for (const orderNumber of orderNumbers) {
+        await store.updateAvis(orderNumber, { driverPhoneId: input.driverPhoneId }, request.user);
+      }
+    }
+
+    response.json(exportEntry);
   } catch (error) {
     response.status(400).json({
       error: "PTV_EXPORT_LOADING_LIST_SAVE_FAILED",
@@ -1637,13 +1650,16 @@ function sanitizeLoadingListSettings(input) {
 
 function sanitizePtvExportLoadingList(input) {
   return {
+    hasTruckId: Object.hasOwn(input, "truckId"),
     truckId: text(input.truckId),
     truckLabel: text(input.truckLabel),
     licensePlate: text(input.licensePlate),
     ptvVehicleId: text(input.ptvVehicleId),
+    hasDriverPhoneId: Object.hasOwn(input, "driverPhoneId"),
     driverPhoneId: text(input.driverPhoneId),
     driverPhoneLabel: text(input.driverPhoneLabel),
     driverPhoneNumber: text(input.driverPhoneNumber),
+    hasTwoDayTour: Object.hasOwn(input, "twoDayTour"),
     twoDayTour: Boolean(input.twoDayTour)
   };
 }

@@ -52,6 +52,7 @@ const state = {
   loadingListDeliveryDate: "",
   loadingListLoadingText: "",
   loadingListTruckId: "",
+  loadingListDriverId: "",
   loadingListTrailer: false,
   loadingListSelectedOrderNumbers: new Set(),
   loadingListLastSelectedOrderNumber: "",
@@ -147,6 +148,7 @@ const elements = {
   loadingListDeliveryDate: document.querySelector("#loading-list-delivery-date"),
   loadingListLoadingText: document.querySelector("#loading-list-loading-text"),
   loadingListTruck: document.querySelector("#loading-list-truck"),
+  loadingListDriver: document.querySelector("#loading-list-driver"),
   loadingListTrailer: document.querySelector("#loading-list-trailer"),
   loadingListClearSelection: document.querySelector("#loading-list-clear-selection"),
   loadingListNotify: document.querySelector("#loading-list-notify"),
@@ -355,6 +357,7 @@ function bindEvents() {
     renderLoadingList();
   });
   elements.loadingListTruck.addEventListener("change", assignLoadingListTruck);
+  elements.loadingListDriver.addEventListener("change", assignLoadingListDriver);
   elements.loadingListTrailer.addEventListener("change", () => {
     state.loadingListTrailer = elements.loadingListTrailer.checked;
     applyLoadingListTrailerMark(elements.loadingListTrailer.checked);
@@ -1160,6 +1163,7 @@ async function loadDrivers() {
   renderDriverOptions(elements.bulkDriver);
   renderDriverOptions(elements.manualDriver);
   renderDriverOptions(elements.ptvExportDriver, "", "Kein Fahrertelefon");
+  renderDriverOptions(elements.loadingListDriver, state.loadingListDriverId, "Kein Fahrertelefon");
 }
 
 async function loadTours() {
@@ -1597,7 +1601,9 @@ function renderLoadingList(errorMessage = "") {
   }
 
   state.loadingListTruckId = selectedExport.loadingListTruckId || "";
+  state.loadingListDriverId = selectedExport.driverPhoneId || "";
   renderLoadingListTruckOptions();
+  renderDriverOptions(elements.loadingListDriver, state.loadingListDriverId, "Kein Fahrertelefon");
   syncLoadingListControls();
 
   const loadingOrders = orders.slice();
@@ -1629,6 +1635,9 @@ function renderLoadingList(errorMessage = "") {
   elements.loadingListClearSelection.hidden = selectedCount === 0;
   elements.loadingListNotify.disabled = loadingOrders.length === 0;
   elements.loadingListRemoveOrders.hidden = selectedCount === 0;
+  elements.loadingListRemoveOrders.textContent = selectedCount === 1
+    ? "Auftrag aus Ladeliste entfernen"
+    : "Aufträge aus Ladeliste entfernen";
   state.loadingListTrailer = selectedOrders.length > 0 && selectedOrders.every((order) => order.avis?.mwTrailer);
   elements.loadingListTrailer.checked = state.loadingListTrailer;
 
@@ -1689,6 +1698,7 @@ function syncLoadingListControls() {
   elements.loadingListDeliveryDate.value = state.loadingListDeliveryDate;
   elements.loadingListLoadingText.value = state.loadingListLoadingText;
   elements.loadingListTruck.value = state.loadingListTruckId;
+  elements.loadingListDriver.value = state.loadingListDriverId;
   elements.loadingListTrailer.checked = state.loadingListTrailer;
 }
 
@@ -1744,6 +1754,34 @@ async function assignLoadingListTruck() {
   state.loadingListTruckId = payload.truckId;
   await loadPtvExports();
   showToast(payload.licensePlate ? `LKW ${payload.licensePlate} zugewiesen.` : "LKW-Zuweisung entfernt.");
+}
+
+async function assignLoadingListDriver() {
+  const selectedExport = state.ptvExports.find((item) => item.id === state.loadingListExportId);
+
+  if (!selectedExport) {
+    return;
+  }
+
+  const driver = state.drivers.find((item) => item.id === elements.loadingListDriver.value);
+  const payload = {
+    driverPhoneId: driver?.id || "",
+    driverPhoneLabel: driver?.label || "",
+    driverPhoneNumber: driver?.phone || ""
+  };
+
+  await api(`/api/ptv/exports/${encodeURIComponent(selectedExport.id)}/loading-list`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+
+  state.loadingListDriverId = payload.driverPhoneId;
+  await Promise.all([
+    loadPtvExports(),
+    loadPtvOrders(),
+    loadOrders()
+  ]);
+  showToast(payload.driverPhoneId ? `Fahrer ${driver.label} zugewiesen.` : "Fahrer-Zuweisung entfernt.");
 }
 
 function loadingListTruckLabel(truck) {

@@ -1,7 +1,7 @@
 const state = {
   token: "",
   currentUser: null,
-  currentView: "orders",
+  currentView: "ptv",
   theme: "light",
   loginThemeTouched: false,
   status: "open",
@@ -147,6 +147,8 @@ const elements = {
   loadingListTruck: document.querySelector("#loading-list-truck"),
   loadingListTrailer: document.querySelector("#loading-list-trailer"),
   loadingListClearSelection: document.querySelector("#loading-list-clear-selection"),
+  loadingListNotify: document.querySelector("#loading-list-notify"),
+  loadingListRemoveOrders: document.querySelector("#loading-list-remove-orders"),
   loadingListSummary: document.querySelector("#loading-list-summary"),
   loadingListContent: document.querySelector("#loading-list-content"),
   loadingListSettingsForm: document.querySelector("#loading-list-settings-form"),
@@ -356,6 +358,8 @@ function bindEvents() {
     applyLoadingListTrailerMark(elements.loadingListTrailer.checked);
   });
   elements.loadingListClearSelection.addEventListener("click", clearLoadingListSelection);
+  elements.loadingListNotify.addEventListener("click", notifyLoadingList);
+  elements.loadingListRemoveOrders.addEventListener("click", removeSelectedOrdersFromLoadingList);
   elements.loadingListContent.addEventListener("click", handleLoadingListClick);
   elements.loadingListSettingsForm.addEventListener("submit", saveLoadingListSettings);
   elements.filterDate.addEventListener("change", () => {
@@ -818,6 +822,7 @@ async function enterApp() {
   await loadPtvExports();
   await loadOrders();
   await loadPtvOrders();
+  showView("ptv");
 }
 
 function setStatusFilter(status) {
@@ -1506,7 +1511,7 @@ function renderPtvExports() {
                   <strong>${escapeHtml(order.orderNumber)}</strong>
                   <span>${escapeHtml(order.customerName || "-")}</span>
                   <span>${escapeHtml([order.deliveryPostalCode, order.deliveryCity, order.deliveryStreet].filter(Boolean).join(" ") || "-")}</span>
-                  ${optimized ? `<span></span>` : `<button class="secondary danger small" data-ptv-export-id="${escapeHtml(item.id)}" data-ptv-remove-export-order="${escapeHtml(order.orderNumber)}" type="button">Entfernen</button>`}
+                  <button class="secondary danger small" data-ptv-export-id="${escapeHtml(item.id)}" data-ptv-remove-export-order="${escapeHtml(order.orderNumber)}" type="button">${optimized ? "Aus Tour nehmen" : "Entfernen"}</button>
                   <span class="ptv-route-info">${escapeHtml(ptvRouteInfoLine(order, item))}</span>
                 </div>
               `).join("")}
@@ -1530,6 +1535,8 @@ function renderLoadingList(errorMessage = "") {
     elements.loadingListExport.innerHTML = `<option value="">Keine optimierte Tour vorhanden</option>`;
     elements.loadingListSummary.innerHTML = "";
     elements.loadingListContent.innerHTML = `<p class="help-text">Eine Ladeliste kann erst aus einer von PTV optimierten Tour erstellt werden.</p>`;
+    elements.loadingListNotify.disabled = true;
+    elements.loadingListRemoveOrders.hidden = true;
     return;
   }
 
@@ -1559,6 +1566,8 @@ function renderLoadingList(errorMessage = "") {
   if (!selectedExport || !orders.length) {
     elements.loadingListSummary.innerHTML = "";
     elements.loadingListContent.innerHTML = `<p class="help-text">Für diese optimierte Tour wurden keine Aufträge gefunden.</p>`;
+    elements.loadingListNotify.disabled = true;
+    elements.loadingListRemoveOrders.hidden = true;
     return;
   }
 
@@ -1593,6 +1602,8 @@ function renderLoadingList(errorMessage = "") {
     </div>
   `;
   elements.loadingListClearSelection.hidden = selectedCount === 0;
+  elements.loadingListNotify.disabled = loadingOrders.length === 0;
+  elements.loadingListRemoveOrders.hidden = selectedCount === 0;
   state.loadingListTrailer = selectedOrders.length > 0 && selectedOrders.every((order) => order.avis?.mwTrailer);
   elements.loadingListTrailer.checked = state.loadingListTrailer;
 
@@ -1854,6 +1865,81 @@ function clearLoadingListSelection() {
   state.loadingListSelectedOrderNumbers.clear();
   state.loadingListLastSelectedOrderNumber = "";
   renderLoadingList();
+}
+
+async function notifyLoadingList() {
+  const orders = currentLoadingListOrders();
+  const selected = orders.filter((order) => state.loadingListSelectedOrderNumbers.has(order.orderNumber));
+  const targetOrders = selected.length ? selected : orders;
+
+  if (!targetOrders.length) {
+    showToast("Keine Aufträge in der Ladeliste.");
+    return;
+  }
+
+  const missingDriver = targetOrders.filter((order) => !order.avis?.driverPhoneId);
+
+  if (missingDriver.length > 0) {
+    showToast(`Fahrertelefon fehlt bei ${missingDriver.length} Auftrag/Aufträgen.`);
+    return;
+  }
+
+  const label = selected.length
+    ? `${selected.length} markierte Aufträge`
+    : `alle ${targetOrders.length} Aufträge dieser Ladeliste`;
+  const confirmed = await requestConfirm(`Sollen ${label} jetzt avisiert werden? Gleiche Empfänger an gleicher Entladestelle werden in einer E-Mail gebündelt.`);
+
+  if (!confirmed) {
+    showToast("Avisierung abgebrochen.");
+    return;
+  }
+
+  const result = await api("/api/orders/bulk", {
+    method: "PATCH",
+    body: JSON.stringify({
+      orderNumbers: targetOrders.map((order) => order.orderNumber),
+      notified: true
+    })
+  });
+
+  await loadOrders();
+  await loadPtvOrders();
+  if (isAdmin()) {
+    await loadMailJobs();
+  }
+  showToast(`${result.updated} Aufträge avisiert.${mailToastSuffix(result.mail)}`);
+}
+
+async function removeSelectedOrdersFromLoadingList() {
+  const selectedExport = state.ptvExports.find((item) => item.id === state.loadingListExportId);
+  const orderNumbers = [...state.loadingListSelectedOrderNumbers];
+
+  if (!selectedExport || orderNumbers.length === 0) {
+    showToast("Bitte erst Aufträge in der Ladeliste markieren.");
+    return;
+  }
+
+  const confirmed = await requestConfirm(`Sollen ${orderNumbers.length} markierte Aufträge aus der Ladeliste entnommen werden? Die Tour wird danach wieder als nicht optimiert geführt und kann erneut an PTV übergeben werden.`);
+
+  if (!confirmed) {
+    showToast("Entnehmen abgebrochen.");
+    return;
+  }
+
+  for (const orderNumber of orderNumbers) {
+    await api(`/api/ptv/exports/${encodeURIComponent(selectedExport.id)}/orders/${encodeURIComponent(orderNumber)}`, {
+      method: "DELETE"
+    });
+  }
+
+  clearLoadingListSelection();
+  state.ptvOptimizationStatus = "exported";
+  document.querySelectorAll("[data-ptv-optimization]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.ptvOptimization === state.ptvOptimizationStatus);
+  });
+  await loadPtvExports();
+  await loadPtvOrders();
+  showToast("Aufträge entnommen. Die Tour steht wieder bei Nicht optimiert.");
 }
 
 async function applyLoadingListTrailerMark(value) {
@@ -3274,7 +3360,7 @@ function mailToastSuffix(mail) {
     }
 
     if ((mail.items || []).some((item) => item.queued)) {
-      return mail.total === 1 ? " Mailjob gestartet." : ` Mailjob für ${mail.total} E-Mails gestartet.`;
+      return mail.total === 1 ? " Mailjob gestartet." : ` Mailjob für ${mail.total} Aufträge gestartet.`;
     }
 
     if (mail.failed > 0) {

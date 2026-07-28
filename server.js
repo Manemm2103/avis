@@ -389,6 +389,9 @@ app.patch("/api/orders/bulk", async (request, response) => {
 
     for (const orderNumber of update.orderNumbers) {
       const currentAvis = store.getAvis(orderNumber);
+      if (update.values.notified === true && !update.values.driverPhoneId && !currentAvis?.driverPhoneId) {
+        throw new Error(`Fahrertelefon fehlt bei Auftrag ${orderNumber}.`);
+      }
       const shouldSendMail = update.values.notified === true && !currentAvis?.notified;
       const savedAvis = await store.updateAvis(orderNumber, update.values, request.user);
 
@@ -788,7 +791,7 @@ async function processMailJob(job) {
   };
 
   for (const [index, item] of job.items.entries()) {
-    if (!["queued", "waiting"].includes(item.status)) {
+    if (item.groupHandled || !["queued", "waiting"].includes(item.status)) {
       continue;
     }
 
@@ -817,26 +820,34 @@ async function processMailJob(job) {
       continue;
     }
 
-    const result = await sendAvisMail(order, settings);
-    logAvisMailResult(item.orderNumber, settings, result);
-    Object.assign(item, result, {
-      status: result.sent ? "sent" : result.failed ? "failed" : "skipped",
-      finishedAt: new Date().toISOString(),
-      recipients: result.recipients || [],
-      subject: result.subject || "",
-      customerName: order.customerName || "",
-      commission: order.commission || ""
-    });
+    const group = collectAvisMailGroup(job.items, item, order, orderMap, settings);
+    const result = await sendAvisMail(createAvisMailGroupOrder(group.orders), settings);
+    const finishedAt = new Date().toISOString();
 
-    if (result.sent) {
-      try {
-        item.mailLogId = (await store.appendAvisMail(item.orderNumber, result, actor)).id;
-      } catch (error) {
-        item.mailLogError = error.message;
-        logEvent("error", "avis-mail-log-save-failed", {
-          orderNumber: item.orderNumber,
-          message: error.message
-        });
+    for (const [groupIndex, groupItem] of group.items.entries()) {
+      const groupOrder = group.orders[groupIndex];
+
+      groupItem.groupHandled = true;
+      logAvisMailResult(groupItem.orderNumber, settings, result);
+      Object.assign(groupItem, result, {
+        status: result.sent ? "sent" : result.failed ? "failed" : "skipped",
+        finishedAt,
+        recipients: result.recipients || [],
+        subject: result.subject || "",
+        customerName: groupOrder.customerName || "",
+        commission: groupOrder.commission || ""
+      });
+
+      if (result.sent) {
+        try {
+          groupItem.mailLogId = (await store.appendAvisMail(groupItem.orderNumber, result, actor)).id;
+        } catch (error) {
+          groupItem.mailLogError = error.message;
+          logEvent("error", "avis-mail-log-save-failed", {
+            orderNumber: groupItem.orderNumber,
+            message: error.message
+          });
+        }
       }
     }
 
@@ -848,6 +859,81 @@ async function processMailJob(job) {
   job.finishedAt = new Date().toISOString();
   job.currentOrderNumber = "";
   job.message = job.failed > 0 ? "Mailjob mit Fehlern abgeschlossen." : "Mailjob abgeschlossen.";
+}
+
+function collectAvisMailGroup(items, currentItem, currentOrder, orderMap, settings) {
+  const key = avisMailGroupKey(currentOrder, settings);
+  const group = {
+    items: [currentItem],
+    orders: [currentOrder]
+  };
+
+  for (const candidate of items) {
+    if (
+      candidate === currentItem
+      || candidate.groupHandled
+      || !["queued", "waiting"].includes(candidate.status)
+    ) {
+      continue;
+    }
+
+    const candidateOrder = orderMap.get(candidate.orderNumber);
+
+    if (!candidateOrder || avisMailGroupKey(candidateOrder, settings) !== key) {
+      continue;
+    }
+
+    candidate.status = "sending";
+    candidate.startedAt = currentItem.startedAt;
+    candidate.waitUntil = "";
+    candidate.customerName = candidateOrder.customerName || "";
+    candidate.commission = candidateOrder.commission || "";
+    group.items.push(candidate);
+    group.orders.push(candidateOrder);
+  }
+
+  return group;
+}
+
+function avisMailGroupKey(order, settings) {
+  const recipients = settings.demoMode
+    ? splitMailRecipients(settings.demoRecipients)
+    : splitMailRecipients(order.sourceEmail);
+  const address = text(order.deliveryAddress || [order.deliveryCountry, order.deliveryPostalCode, order.deliveryCity, order.deliveryStreet].filter(Boolean).join(" "));
+
+  return [
+    recipients.join(";").toLowerCase(),
+    address.replace(/\s+/g, " ").trim().toLowerCase()
+  ].join("|");
+}
+
+function splitMailRecipients(value) {
+  return [...new Set(String(value || "")
+    .split(/[;,]/)
+    .map((item) => item.trim())
+    .filter((item) => item && item.includes("@")))];
+}
+
+function createAvisMailGroupOrder(orders) {
+  if (orders.length <= 1) {
+    return orders[0];
+  }
+
+  const first = orders[0];
+  const joinUnique = (values, separator = "\n") => [...new Set(values.map((value) => text(value)).filter(Boolean))].join(separator);
+
+  return {
+    ...first,
+    orderNumber: orders.map((order) => order.orderNumber).filter(Boolean).join(", "),
+    groupedOrderNumbers: orders.map((order) => order.orderNumber).filter(Boolean),
+    commission: joinUnique(orders.map((order) => order.commission)),
+    customerName: joinUnique(orders.map((order) => order.customerName), ", ") || first.customerName,
+    sourceEmail: first.sourceEmail,
+    avis: {
+      ...(first.avis || {}),
+      customerInfo: joinUnique(orders.map((order) => order.avis?.customerInfo), "\n\n") || first.avis?.customerInfo || ""
+    }
+  };
 }
 
 function updateMailJobCounts(job) {
@@ -1330,10 +1416,6 @@ function sanitizeBulkAvisUpdate(input) {
   }
 
   if (input.notified === true) {
-    if (!driverPhoneId) {
-      throw new Error("Fahrertelefon fehlt.");
-    }
-
     values.notified = true;
   } else if (input.notified === false) {
     values.notified = false;

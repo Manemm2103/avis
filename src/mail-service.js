@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 
 export const MAIL_TEXT_MARKS = [
   ["{{auftrag}}", "Auftragsnummer"],
+  ["{{auftraege}}", "Eine oder mehrere Auftragsnummern"],
   ["{{auftragsnummer}}", "Auftragsnummer"],
   ["{{kunde}}", "Kundenname"],
   ["{{kundennummer}}", "Kundennummer"],
@@ -180,6 +181,7 @@ function mailValues(order = {}) {
 
   return {
     auftrag: order.orderNumber || "",
+    auftraege: order.orderNumber || "",
     auftragsnummer: order.orderNumber || "",
     kunde: order.customerName || "",
     kundennummer: order.customerNumber || "",

@@ -962,10 +962,6 @@ export class LocalStore {
       throw new Error("Auftrag fehlt.");
     }
 
-    if (isOptimizedPtvExport(exportEntry)) {
-      throw new Error("Aus bereits optimierten Touren können keine einzelnen Aufträge entfernt werden.");
-    }
-
     const beforeCount = new Set([
       ...(exportEntry.orderNumbers || []),
       ...(exportEntry.optimizedOrderNumbers || [])
@@ -988,6 +984,15 @@ export class LocalStore {
 
     exportEntry.updatedAt = new Date().toISOString();
     exportEntry.updatedBy = actor?.displayName || actor?.username || "";
+    if (isOptimizedPtvExport(exportEntry)) {
+      exportEntry.status = "exportiert";
+      exportEntry.orderNumbers = exportEntry.optimizedOrderNumbers.length ? [...exportEntry.optimizedOrderNumbers] : [...exportEntry.orderNumbers];
+      exportEntry.optimizedOrderNumbers = [];
+      exportEntry.routeInfos = {};
+      exportEntry.optimizedAt = "";
+      exportEntry.optimizedBy = "";
+      await this.applyPtvExportTags(exportEntry, actor, false);
+    }
     this.removePtvExportTagFromOrder(normalizedOrderNumber, id);
     this.reindexPtvExportRoute(exportEntry, actor);
 
@@ -1057,7 +1062,7 @@ export class LocalStore {
         name: exportEntry.name,
         status: optimized ? "Tour optimiert" : "Tourzusammenstellung",
         exportedAt: exportEntry.createdAt,
-        optimizedAt: optimized ? now : exportTags[tagIndex]?.optimizedAt || ""
+        optimizedAt: optimized ? now : ""
       };
 
       if (tagIndex === -1) {

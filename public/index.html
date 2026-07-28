@@ -61,15 +61,15 @@
       </header>
 
       <nav class="tabs" aria-label="Bereiche">
-        <button class="tab is-active" id="tab-orders" type="button">Aufträge</button>
-        <button class="tab" id="tab-ptv" type="button">PTV</button>
+        <button class="tab is-active" id="tab-ptv" type="button">Tourzusammenstellung</button>
         <button class="tab" id="tab-loading-list" type="button">Ladeliste</button>
+        <button class="tab" id="tab-orders" type="button">Avis</button>
         <button class="tab" id="tab-import" type="button">Import</button>
         <button class="tab" id="tab-masterdata" type="button">Stammdaten</button>
       </nav>
 
       <main>
-        <section id="orders-view" class="view">
+        <section id="orders-view" class="view" hidden>
           <div class="toolbar">
             <div class="segmented" role="group" aria-label="Avis Status">
               <button class="segment" data-status="all" type="button">Alle</button>
@@ -160,7 +160,7 @@
           </div>
         </section>
 
-        <section id="ptv-view" class="view" hidden>
+        <section id="ptv-view" class="view">
           <div class="page-heading">
             <h2>Tourzusammenstellung</h2>
           </div>
@@ -314,6 +314,8 @@
               <span>MW Anh. für Auswahl</span>
             </label>
             <button class="secondary" id="loading-list-clear-selection" type="button" hidden>Auswahl aufheben</button>
+            <button class="primary" id="loading-list-notify" type="button">Ladeliste avisieren</button>
+            <button class="secondary danger" id="loading-list-remove-orders" type="button" hidden>Aus Ladeliste entnehmen</button>
           </div>
 
           <div class="loading-list-summary" id="loading-list-summary"></div>
@@ -734,7 +736,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.07.28.01</footer>
+      <footer class="app-footer">Version 2026.07.28.02</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -971,6 +973,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20260728-self-pickup-tours" type="module"></script>
+    <script src="/app.js?v=20260728-workflow-loading-list-avis" type="module"></script>
   </body>
 </html>

@@ -655,6 +655,14 @@ function bindEvents() {
   });
 
   elements.ptvBody.addEventListener("click", (event) => {
+    const editButton = event.target.closest("[data-ptv-edit-order]");
+
+    if (editButton) {
+      event.stopPropagation();
+      openDrawer(editButton.dataset.ptvEditOrder);
+      return;
+    }
+
     const row = event.target.closest("[data-ptv-order-number]");
 
     if (!row) {
@@ -665,6 +673,14 @@ function bindEvents() {
   });
 
   elements.ptvListBody.addEventListener("click", (event) => {
+    const editButton = event.target.closest("[data-ptv-edit-order]");
+
+    if (editButton) {
+      event.stopPropagation();
+      openDrawer(editButton.dataset.ptvEditOrder);
+      return;
+    }
+
     const removeButton = event.target.closest("[data-ptv-remove]");
 
     if (!removeButton) {
@@ -2265,13 +2281,13 @@ function renderPtv(errorMessage = "") {
   elements.ptvOpenRemote.disabled = selectedCount === 0;
 
   if (errorMessage) {
-    elements.ptvBody.innerHTML = `<tr><td class="empty is-error" colspan="7">${escapeHtml(errorMessage)}</td></tr>`;
+    elements.ptvBody.innerHTML = `<tr><td class="empty is-error" colspan="8">${escapeHtml(errorMessage)}</td></tr>`;
     elements.ptvListBody.innerHTML = `<tr><td class="empty is-error" colspan="7">${escapeHtml(errorMessage)}</td></tr>`;
     return;
   }
 
   if (orders.length === 0) {
-    elements.ptvBody.innerHTML = `<tr><td class="empty" colspan="7">Keine Aufträge für PTV gefunden.</td></tr>`;
+    elements.ptvBody.innerHTML = `<tr><td class="empty" colspan="8">Keine Aufträge für PTV gefunden.</td></tr>`;
   } else {
     elements.ptvBody.innerHTML = orders.map((order) => {
       const selected = state.ptvSelectedOrderNumbers.has(order.orderNumber);
@@ -2297,6 +2313,9 @@ function renderPtv(errorMessage = "") {
             <span class="sub-text">${escapeHtml(order.deliveryStreet || "")}</span>
           </td>
           <td>${formatElementWeight(order.elementWeight)}</td>
+          <td>
+            <button class="secondary small" data-ptv-edit-order="${escapeHtml(order.orderNumber)}" type="button">Bearbeiten</button>
+          </td>
         </tr>
       `;
     }).join("");
@@ -2329,7 +2348,12 @@ function renderPtv(errorMessage = "") {
         <span class="main-text">${escapeHtml(ptvAddressLine(order) || "-")}</span>
         <span class="sub-text">${escapeHtml(order.deliveryStreet || "")}</span>
       </td>
-      <td><button class="secondary danger small" data-ptv-remove="${escapeHtml(order.orderNumber)}" type="button">Entfernen</button></td>
+      <td>
+        <div class="button-row compact-actions">
+          <button class="secondary small" data-ptv-edit-order="${escapeHtml(order.orderNumber)}" type="button">Bearbeiten</button>
+          <button class="secondary danger small" data-ptv-remove="${escapeHtml(order.orderNumber)}" type="button">Entfernen</button>
+        </div>
+      </td>
     </tr>
   `).join("");
 }

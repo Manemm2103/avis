@@ -490,6 +490,12 @@ select:disabled {
   font-size: 13px;
 }
 
+.compact-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .notice {
   margin: 0 0 12px;
   padding: 10px 12px;

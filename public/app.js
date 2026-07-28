@@ -41,7 +41,7 @@ const state = {
   masterdataPage: "drivers",
   bulkSelectedOrderNumbers: new Set(),
   bulkLastSelectedOrderNumber: "",
-  ptvStatus: "notified",
+  ptvStatus: "none",
   ptvPage: "assemblies",
   ptvOptimizationStatus: "exported",
   ptvSearch: "",
@@ -589,7 +589,7 @@ function bindEvents() {
 
   document.querySelectorAll("[data-ptv-status]").forEach((button) => {
     button.addEventListener("click", () => {
-      state.ptvStatus = button.dataset.ptvStatus || "open";
+      state.ptvStatus = button.dataset.ptvStatus || "none";
       document.querySelectorAll("[data-ptv-status]").forEach((item) => {
         item.classList.toggle("is-active", item.dataset.ptvStatus === state.ptvStatus);
       });
@@ -2461,11 +2461,13 @@ function ptvFilteredOrders() {
 
   return state.ptvOrders
     .filter((order) => {
-      if (state.ptvStatus === "open" && order.avis.notified) {
+      const planningState = ptvOptimizationState(order);
+
+      if (state.ptvStatus === "none" && planningState !== "none") {
         return false;
       }
 
-      if (state.ptvStatus === "notified" && !order.avis.notified) {
+      if (state.ptvStatus === "planned" && planningState === "none") {
         return false;
       }
 
@@ -3535,7 +3537,7 @@ async function importCsvOrders(event) {
 }
 
 function clearPtvFilters() {
-  state.ptvStatus = "notified";
+  state.ptvStatus = "none";
   state.ptvOptimizationStatus = "exported";
   state.ptvSearch = "";
   state.ptvDeliveryDate = "";

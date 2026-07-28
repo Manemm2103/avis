@@ -42,7 +42,7 @@ const state = {
   bulkSelectedOrderNumbers: new Set(),
   bulkLastSelectedOrderNumber: "",
   ptvStatus: "none",
-  ptvPage: "assemblies",
+  ptvPage: "orders",
   ptvOptimizationStatus: "exported",
   ptvSearch: "",
   ptvAssemblySearch: "",
@@ -334,7 +334,7 @@ function bindEvents() {
   elements.logoutButton.addEventListener("click", logout);
   elements.brandHomeButton.addEventListener("click", goHomeAndRefresh);
   elements.tabs.orders.addEventListener("click", () => showView("orders"));
-  elements.tabs.ptv.addEventListener("click", () => showView("ptv"));
+  elements.tabs.ptv.addEventListener("click", () => openPtvOrderSelection());
   elements.tabs.loadingList.addEventListener("click", () => showView("loadingList"));
   elements.tabs.import.addEventListener("click", () => showView("import"));
   elements.tabs.masterdata.addEventListener("click", () => showView("masterdata"));
@@ -590,9 +590,7 @@ function bindEvents() {
   document.querySelectorAll("[data-ptv-status]").forEach((button) => {
     button.addEventListener("click", () => {
       state.ptvStatus = button.dataset.ptvStatus || "none";
-      document.querySelectorAll("[data-ptv-status]").forEach((item) => {
-        item.classList.toggle("is-active", item.dataset.ptvStatus === state.ptvStatus);
-      });
+      syncPtvStatusButtons();
       reconcilePtvSelection();
       renderPtv();
       renderPtvExports();
@@ -978,6 +976,13 @@ function showView(view) {
   }
 }
 
+function openPtvOrderSelection() {
+  state.ptvPage = "orders";
+  state.ptvStatus = "none";
+  syncPtvStatusButtons();
+  showView("ptv");
+}
+
 function showPtvPage(page) {
   state.ptvPage = page === "orders" ? "orders" : "assemblies";
   elements.ptvAssembliesPage.hidden = state.ptvPage !== "assemblies";
@@ -994,6 +999,12 @@ function showPtvPage(page) {
   if (state.currentView === "ptv") {
     refreshPtvData();
   }
+}
+
+function syncPtvStatusButtons() {
+  document.querySelectorAll("[data-ptv-status]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.ptvStatus === state.ptvStatus);
+  });
 }
 
 function configureRoleUi() {

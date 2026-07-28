@@ -838,6 +838,11 @@ select:disabled {
   color: #991b1b;
 }
 
+.ptv-tag.is-two-day {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .tag-list {
   display: flex;
   flex-wrap: wrap;

@@ -1616,12 +1616,13 @@ function renderLoadingList(errorMessage = "") {
   const selectedCount = state.loadingListSelectedOrderNumbers.size;
   const selectedOrders = loadingOrders.filter((order) => state.loadingListSelectedOrderNumbers.has(order.orderNumber));
   const selectedShippingEh = selectedOrders.reduce((sum, order) => sum + loadingListNumber(order.shippingEh), 0);
+  const twoDayTour = loadingListIsTwoDayTour(selectedExport, loadingOrders);
 
   elements.loadingListSummary.innerHTML = `
     <div class="loading-summary-card">
       <span><strong>Tour</strong>${escapeHtml(selectedExport.name)}</span>
       <span><strong>Fahrer</strong>${escapeHtml(driverLabel)}</span>
-      <span><strong>Auslieferungsdatum</strong>${escapeHtml(state.loadingListDeliveryDate ? formatDate(state.loadingListDeliveryDate) : "-")}</span>
+      <span><strong>Auslieferungsdatum</strong>${escapeHtml(state.loadingListDeliveryDate ? formatDeliveryDateRange(state.loadingListDeliveryDate, twoDayTour) : "-")}${twoDayTour ? `<small class="two-day-text">2-Tagestour</small>` : ""}</span>
       <span><strong>Verladung</strong>${escapeHtml(state.loadingListLoadingText ? formatDate(state.loadingListLoadingText) : "-")}</span>
       <span><strong>LKW</strong>${escapeHtml(selectedExport.loadingListLicensePlate || selectedExport.loadingListTruckLabel || "-")}</span>
       <span><strong>Auswahl</strong>${selectedCount ? `${selectedCount} markiert (${selectedShippingEh.toLocaleString("de-DE")} Versand EH)` : "keine"}</span>
@@ -1675,7 +1676,10 @@ function renderLoadingList(errorMessage = "") {
               return `
               <tr class="${selected ? "is-selected" : ""}" data-loading-list-order-number="${escapeHtml(order.orderNumber)}" aria-selected="${selected ? "true" : "false"}">
                 <td>${loadingOrders.indexOf(order) + 1}</td>
-                <td><strong>${escapeHtml(order.orderNumber)}</strong></td>
+                <td>
+                  <strong>${escapeHtml(order.orderNumber)}</strong>
+                  ${loadingListOrderTags(order, twoDayTour)}
+                </td>
                 <td>${escapeHtml(order.customerName || "-")}</td>
                 <td>${escapeHtml(order.commission || "-")}</td>
                 <td>${escapeHtml(order.blrCount || "-")}</td>
@@ -1871,6 +1875,24 @@ function formatDeliveryAddress(order) {
   return order.deliveryAddress
     || [order.deliveryCountry, order.deliveryPostalCode, order.deliveryCity, order.deliveryStreet].filter(Boolean).join(" ")
     || "-";
+}
+
+function loadingListIsTwoDayTour(exportEntry, orders) {
+  return Boolean(exportEntry?.twoDayTour || orders.some((order) => order.avis?.twoDayTour));
+}
+
+function loadingListOrderTags(order, tourIsTwoDay) {
+  const tags = [];
+
+  if (tourIsTwoDay || order.avis?.twoDayTour) {
+    tags.push(`<span class="ptv-tag is-two-day">2-Tagestour</span>`);
+  }
+
+  if (order.avis?.mwTrailer) {
+    tags.push(`<span class="ptv-tag is-trailer">MW Anh.</span>`);
+  }
+
+  return tags.length ? `<span class="tag-list">${tags.join("")}</span>` : "";
 }
 
 function loadingListDriverLabel(orders) {
@@ -4768,6 +4790,35 @@ function formatDate(value) {
   }
 
   return new Intl.DateTimeFormat("de-DE").format(new Date(`${value}T00:00:00`));
+}
+
+function formatDeliveryDateRange(value, twoDayTour) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (!match || !twoDayTour) {
+    return formatDate(value);
+  }
+
+  const start = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 1);
+
+  const startDay = String(start.getUTCDate()).padStart(2, "0");
+  const startMonth = String(start.getUTCMonth() + 1).padStart(2, "0");
+  const startYear = String(start.getUTCFullYear());
+  const endDay = String(end.getUTCDate()).padStart(2, "0");
+  const endMonth = String(end.getUTCMonth() + 1).padStart(2, "0");
+  const endYear = String(end.getUTCFullYear());
+
+  if (startYear === endYear && startMonth === endMonth) {
+    return `${startDay}-${endDay}.${startMonth}.${startYear}`;
+  }
+
+  if (startYear === endYear) {
+    return `${startDay}.${startMonth}-${endDay}.${endMonth}.${startYear}`;
+  }
+
+  return `${startDay}.${startMonth}.${startYear}-${endDay}.${endMonth}.${endYear}`;
 }
 
 function formatElementWeight(value) {

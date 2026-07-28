@@ -49,6 +49,19 @@ Fahrertelefon: {{fahrertelefon}}
 
 Mit freundlichen Gruessen
 Bayerwald Fenster und Türen`,
+    pickupBody: `Guten Tag,
+
+Ihr Auftrag {{auftrag}} ist ab dem {{liefertag}} zur Abholung bereit.
+
+Kunde: {{kunde}}
+Kommission: {{kommission}}
+Abholort: {{lieferanschrift}}
+Tour: {{tour}}
+
+{{info_fuer_kunden}}
+
+Mit freundlichen Gruessen
+Bayerwald Fenster und Türen`,
     smtpHost: "",
     smtpPort: 587,
     smtpSecure: false,
@@ -61,6 +74,11 @@ Bayerwald Fenster und Türen`,
     replyTo: "",
     demoMode: true,
     demoRecipients: "",
+    updatedAt: "",
+    updatedBy: ""
+  },
+  tourSettings: {
+    selfPickupTours: [],
     updatedAt: "",
     updatedBy: ""
   },
@@ -141,6 +159,13 @@ export class LocalStore {
       ...structuredClone(EMPTY_STATE.mailSettings),
       ...(this.state.mailSettings || {})
     };
+    this.state.tourSettings = {
+      ...structuredClone(EMPTY_STATE.tourSettings),
+      ...(this.state.tourSettings || {})
+    };
+    this.state.tourSettings.selfPickupTours = Array.isArray(this.state.tourSettings.selfPickupTours)
+      ? this.state.tourSettings.selfPickupTours
+      : [];
     this.state.ptvSettings = {
       ...structuredClone(EMPTY_STATE.ptvSettings),
       ...(this.state.ptvSettings || {})
@@ -715,6 +740,25 @@ export class LocalStore {
 
     await this.save();
     return this.getMailSettings();
+  }
+
+  getTourSettings() {
+    return {
+      ...structuredClone(EMPTY_STATE.tourSettings),
+      ...(this.state.tourSettings || {})
+    };
+  }
+
+  async updateTourSettings(input, actor) {
+    this.state.tourSettings = {
+      ...this.getTourSettings(),
+      ...input,
+      updatedAt: new Date().toISOString(),
+      updatedBy: actor?.displayName || actor?.username || ""
+    };
+
+    await this.save();
+    return this.getTourSettings();
   }
 
   getPtvSettings() {

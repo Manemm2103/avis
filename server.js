@@ -199,6 +199,22 @@ app.patch("/api/mail-settings", requireAdmin, async (request, response) => {
   }
 });
 
+app.get("/api/tour-settings", requireAdmin, (request, response) => {
+  response.json(publicTourSettings(store.getTourSettings()));
+});
+
+app.patch("/api/tour-settings", requireAdmin, async (request, response) => {
+  try {
+    const settings = await store.updateTourSettings(sanitizeTourSettings(request.body), request.user);
+    response.json(publicTourSettings(settings));
+  } catch (error) {
+    response.status(400).json({
+      error: "TOUR_SETTINGS_SAVE_FAILED",
+      message: error.message
+    });
+  }
+});
+
 app.get("/api/ptv-settings", requireAdmin, (request, response) => {
   response.json(publicPtvSettings(store.getPtvSettings()));
 });
@@ -760,7 +776,10 @@ async function processMailJob(job) {
   }
 
   const orderMap = new Map(orders.map((order) => [order.orderNumber, order]));
-  const settings = store.getMailSettings();
+  const settings = {
+    ...store.getMailSettings(),
+    selfPickupTours: store.getTourSettings().selfPickupTours || []
+  };
   const sendDelayMs = Math.max(0, number(settings.sendDelaySeconds, 0)) * 1000;
   const actor = {
     id: job.createdByUserId,
@@ -1429,6 +1448,10 @@ function sanitizeMailSettings(input, fullAdmin) {
     settings.body = normalizeRequiredText(input.body, "Mailtext");
   }
 
+  if (Object.hasOwn(input, "pickupBody")) {
+    settings.pickupBody = normalizeRequiredText(input.pickupBody, "Mailtext Selbstabholer");
+  }
+
   if (!fullAdmin) {
     return settings;
   }
@@ -1470,6 +1493,16 @@ function sanitizeMailSettings(input, fullAdmin) {
   return settings;
 }
 
+function sanitizeTourSettings(input) {
+  const selfPickupTours = Array.isArray(input.selfPickupTours)
+    ? input.selfPickupTours
+    : [];
+
+  return {
+    selfPickupTours: [...new Set(selfPickupTours.map((item) => text(item)).filter(Boolean))]
+  };
+}
+
 function sanitizePtvSettings(input) {
   return {
     login: text(input.login),
@@ -1509,6 +1542,7 @@ function publicMailSettings(settings, fullAdmin) {
   const result = {
     subject: settings.subject || "",
     body: settings.body || "",
+    pickupBody: settings.pickupBody || "",
     updatedAt: settings.updatedAt || "",
     updatedBy: settings.updatedBy || "",
     textMarks: MAIL_TEXT_MARKS
@@ -1532,6 +1566,14 @@ function publicMailSettings(settings, fullAdmin) {
     replyTo: settings.replyTo || "",
     demoMode: settings.demoMode !== false,
     demoRecipients: settings.demoRecipients || ""
+  };
+}
+
+function publicTourSettings(settings) {
+  return {
+    selfPickupTours: Array.isArray(settings.selfPickupTours) ? settings.selfPickupTours : [],
+    updatedAt: settings.updatedAt || "",
+    updatedBy: settings.updatedBy || ""
   };
 }
 

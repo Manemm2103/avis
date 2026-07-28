@@ -21,6 +21,9 @@ const state = {
   sqlSettings: null,
   ldapSettings: null,
   mailSettings: null,
+  tourSettings: {
+    selfPickupTours: []
+  },
   mailJobs: [],
   mailLogs: [],
   mailJobsSearch: "",
@@ -181,6 +184,7 @@ const elements = {
   mailSettingsForm: document.querySelector("#mail-settings-form"),
   mailSubject: document.querySelector("#mail-subject"),
   mailBody: document.querySelector("#mail-body"),
+  mailPickupBody: document.querySelector("#mail-pickup-body"),
   mailTextmarks: document.querySelector("#mail-textmarks"),
   mailAdminOnly: document.querySelectorAll(".mail-admin-only"),
   mailSmtpHost: document.querySelector("#mail-smtp-host"),
@@ -199,6 +203,8 @@ const elements = {
   mailJobsRefresh: document.querySelector("#mail-jobs-refresh"),
   mailJobsSearch: document.querySelector("#mail-jobs-search"),
   mailJobsList: document.querySelector("#mail-jobs-list"),
+  tourSettingsForm: document.querySelector("#tour-settings-form"),
+  tourSettingsBody: document.querySelector("#tour-settings-body"),
   ptvSettingsForm: document.querySelector("#ptv-settings-form"),
   ptvLogin: document.querySelector("#ptv-login"),
   ptvPassword: document.querySelector("#ptv-password"),
@@ -528,6 +534,7 @@ function bindEvents() {
   elements.csvImportForm.addEventListener("submit", importCsvOrders);
   elements.sampleCsvButton.addEventListener("click", downloadSampleCsv);
   elements.mailSettingsForm.addEventListener("submit", saveMailSettings);
+  elements.tourSettingsForm.addEventListener("submit", saveTourSettings);
   elements.mailJobsRefresh.addEventListener("click", () => loadMailJobs());
   elements.mailJobsSearch.addEventListener("input", debounce(() => {
     state.mailJobsSearch = elements.mailJobsSearch.value;
@@ -799,6 +806,7 @@ async function enterApp() {
     resetUserForm();
     await loadMailSettings();
     await loadMailJobs();
+    await loadTourSettings();
     await loadPtvSettings();
     await loadUsers();
   }
@@ -1046,7 +1054,7 @@ function canSeeMasterdataPage(page) {
     return false;
   }
 
-  return ["auth", "sql"].includes(page) ? isFullAdmin() : ["drivers", "mail", "ptv", "loadingList", "users"].includes(page);
+  return ["auth", "sql"].includes(page) ? isFullAdmin() : ["drivers", "tours", "mail", "ptv", "loadingList", "users"].includes(page);
 }
 
 function isAdmin() {
@@ -1131,10 +1139,12 @@ async function loadTours() {
     state.tours = await api("/api/tours");
     state.filterTours = state.tours;
     renderTours();
+    renderTourSettings();
   } catch (error) {
     state.tours = [];
     state.filterTours = [];
     renderTours();
+    renderTourSettings();
     showSourceError(error);
   }
 }
@@ -1172,6 +1182,7 @@ async function loadMailSettings() {
   state.mailSettings = await api("/api/mail-settings");
   elements.mailSubject.value = state.mailSettings.subject || "";
   elements.mailBody.value = state.mailSettings.body || "";
+  elements.mailPickupBody.value = state.mailSettings.pickupBody || "";
   renderMailTextmarks(state.mailSettings.textMarks || []);
 
   if (isFullAdmin()) {
@@ -1190,6 +1201,11 @@ async function loadMailSettings() {
   }
 
   renderMailDemoState();
+}
+
+async function loadTourSettings() {
+  state.tourSettings = await api("/api/tour-settings");
+  renderTourSettings();
 }
 
 async function loadMailJobs() {
@@ -1761,6 +1777,12 @@ function loadingListAddressLabel(order) {
     || "-";
 }
 
+function formatDeliveryAddress(order) {
+  return order.deliveryAddress
+    || [order.deliveryCountry, order.deliveryPostalCode, order.deliveryCity, order.deliveryStreet].filter(Boolean).join(" ")
+    || "-";
+}
+
 function loadingListDriverLabel(orders) {
   const orderWithDriver = orders.find((order) => order.avis?.driverPhoneLabel || order.avis?.driverPhoneId);
 
@@ -2032,7 +2054,7 @@ function insertMailToken(token) {
     return;
   }
 
-  const target = elements.mailBody;
+  const target = document.activeElement === elements.mailPickupBody ? elements.mailPickupBody : elements.mailBody;
   const start = target.selectionStart ?? target.value.length;
   const end = target.selectionEnd ?? target.value.length;
   target.value = `${target.value.slice(0, start)}${token}${target.value.slice(end)}`;
@@ -2056,7 +2078,7 @@ function renderOrders(errorMessage = "") {
   elements.notifiedAtHeader.hidden = !showNotifiedAtColumn;
   elements.ordersTable.classList.toggle("has-notified-at", showNotifiedAtColumn);
   updateSortHeaders();
-  const columnCount = showNotifiedAtColumn ? 11 : 10;
+  const columnCount = showNotifiedAtColumn ? 12 : 11;
 
   if (errorMessage) {
     elements.ordersBody.innerHTML = `<tr><td class="empty is-error" colspan="${columnCount}">${escapeHtml(errorMessage)}</td></tr>`;
@@ -2096,6 +2118,7 @@ function renderOrders(errorMessage = "") {
         </td>
         <td>${formatWeek(order.displayDeliveryWeek || isoWeekValue(order.displayDeliveryDate || order.deliveryDate))}</td>
         <td>${escapeHtml(order.displayTour || "-")}</td>
+        <td>${escapeHtml(formatDeliveryAddress(order))}</td>
         <td>
           <span class="main-text">${escapeHtml(order.sourcePhone || "-")}</span>
           <span class="sub-text">${escapeHtml(order.sourceEmail || "")}</span>
@@ -2247,6 +2270,7 @@ function orderSortValue(order, key) {
     deliveryDate: order.displayDeliveryDate || order.deliveryDate,
     deliveryWeek: order.displayDeliveryWeek || isoWeekValue(order.displayDeliveryDate || order.deliveryDate),
     tour: order.displayTour || order.tour,
+    deliveryAddress: formatDeliveryAddress(order),
     contact: `${order.sourcePhone || ""} ${order.sourceEmail || ""}`.trim()
   };
 
@@ -2651,6 +2675,31 @@ function renderTours() {
   ].join("");
 
   renderPtvTours();
+}
+
+function renderTourSettings() {
+  if (!elements.tourSettingsBody) {
+    return;
+  }
+
+  if (state.tours.length === 0) {
+    elements.tourSettingsBody.innerHTML = `<tr><td class="empty" colspan="2">Keine Touren aus der Tourenabfrage gefunden.</td></tr>`;
+    return;
+  }
+
+  const selfPickupTours = new Set(state.tourSettings?.selfPickupTours || []);
+
+  elements.tourSettingsBody.innerHTML = state.tours.map((tour) => `
+    <tr>
+      <td><strong>${escapeHtml(tour)}</strong></td>
+      <td>
+        <label class="checkbox inline-checkbox">
+          <input data-self-pickup-tour="${escapeHtml(tour)}" type="checkbox" ${selfPickupTours.has(tour) ? "checked" : ""}>
+          <span>Selbstabholer</span>
+        </label>
+      </td>
+    </tr>
+  `).join("");
 }
 
 function renderPtvTours() {
@@ -3800,7 +3849,8 @@ async function saveMailSettings(event) {
 
   const body = {
     subject: elements.mailSubject.value,
-    body: elements.mailBody.value
+    body: elements.mailBody.value,
+    pickupBody: elements.mailPickupBody.value
   };
 
   if (isFullAdmin()) {
@@ -3827,6 +3877,27 @@ async function saveMailSettings(event) {
 
   await loadMailSettings();
   showToast("E-Mail Avis gespeichert.");
+}
+
+async function saveTourSettings(event) {
+  event.preventDefault();
+
+  if (!isAdmin()) {
+    showToast("Nur Admins und Abteilungsleiter dürfen Touren speichern.");
+    return;
+  }
+
+  const selfPickupTours = [...elements.tourSettingsBody.querySelectorAll("[data-self-pickup-tour]:checked")]
+    .map((input) => input.dataset.selfPickupTour)
+    .filter(Boolean);
+
+  await api("/api/tour-settings", {
+    method: "PATCH",
+    body: JSON.stringify({ selfPickupTours })
+  });
+
+  await loadTourSettings();
+  showToast("Touren gespeichert.");
 }
 
 async function savePtvSettings(event) {

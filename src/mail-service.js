@@ -24,7 +24,8 @@ export const MAIL_TEXT_MARKS = [
 
 export async function sendAvisMail(order, settings = {}) {
   const recipients = targetRecipients(order, settings);
-  const body = renderMailTemplate(settings.body || "", order);
+  const bodyTemplate = selfPickupOrder(order, settings) ? settings.pickupBody || settings.body || "" : settings.body || "";
+  const body = renderMailTemplate(bodyTemplate, order);
   const subject = renderMailTemplate(settings.subject || "Avisierung Auftrag {{auftrag}}", order);
   const from = mailAddress(settings.fromEmail, settings.fromName);
 
@@ -112,6 +113,13 @@ function targetRecipients(order, settings) {
 
 function isMailConfigured(settings) {
   return Boolean(settings.smtpHost && settings.fromEmail);
+}
+
+function selfPickupOrder(order, settings) {
+  const tour = String(order?.displayTour || order?.tour || "").trim();
+  const selfPickupTours = Array.isArray(settings.selfPickupTours) ? settings.selfPickupTours : [];
+
+  return Boolean(tour && selfPickupTours.includes(tour));
 }
 
 function mailErrorInfo(error, settings) {

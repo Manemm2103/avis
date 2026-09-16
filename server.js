@@ -273,6 +273,35 @@ app.post("/api/ptv/exports", async (request, response) => {
   }
 });
 
+app.patch("/api/ptv/exports/:id", async (request, response) => {
+  try {
+    const input = {
+      name: text(request.body.name),
+      ...sanitizePtvExportLoadingList(request.body)
+    };
+    const entry = await store.updatePtvExport(request.params.id, input, request.user);
+    const orderNumbers = entry.optimizedOrderNumbers?.length
+      ? entry.optimizedOrderNumbers
+      : entry.orderNumbers || [];
+
+    if (input.hasDriverPhoneId || input.hasTwoDayTour) {
+      for (const orderNumber of orderNumbers) {
+        await store.updateAvis(orderNumber, {
+          ...(input.hasDriverPhoneId ? { driverPhoneId: input.driverPhoneId } : {}),
+          ...(input.hasTwoDayTour ? { twoDayTour: input.twoDayTour } : {})
+        }, request.user);
+      }
+    }
+
+    response.json(entry);
+  } catch (error) {
+    response.status(400).json({
+      error: "PTV_EXPORT_UPDATE_FAILED",
+      message: error.message
+    });
+  }
+});
+
 app.delete("/api/ptv/exports/:id", async (request, response) => {
   try {
     response.json(await store.deletePtvExport(request.params.id));

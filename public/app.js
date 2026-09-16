@@ -465,6 +465,7 @@ function bindEvents() {
     const deleteButton = event.target.closest("[data-ptv-delete-export]");
     const sendButton = event.target.closest("[data-ptv-send-export]");
     const removeOrderButton = event.target.closest("[data-ptv-remove-export-order]");
+    const saveButton = event.target.closest("[data-ptv-save-export]");
     const card = event.target.closest("[data-ptv-export-card]");
 
     if (deleteButton) {
@@ -482,6 +483,16 @@ function bindEvents() {
     if (removeOrderButton) {
       event.stopPropagation();
       removeOrderFromPtvExport(removeOrderButton.dataset.ptvExportId, removeOrderButton.dataset.ptvRemoveExportOrder);
+      return;
+    }
+
+    if (saveButton) {
+      event.stopPropagation();
+      savePtvExportDetails(saveButton.dataset.ptvSaveExport);
+      return;
+    }
+
+    if (event.target.closest("input, select, textarea, label, button, form")) {
       return;
     }
 
@@ -1532,6 +1543,27 @@ function renderPtvExports() {
           <button class="secondary danger small" data-ptv-delete-export="${escapeHtml(item.id)}" type="button">Löschen</button>
         </div>
         <div class="ptv-export-details" ${expanded ? "" : "hidden"}>
+          <form class="ptv-export-edit-form" data-ptv-export-edit-form="${escapeHtml(item.id)}">
+            <label>
+              <span>Name der Tour</span>
+              <input name="name" value="${escapeHtml(item.name || "")}" autocomplete="off">
+            </label>
+            <label>
+              <span>LKW</span>
+              <select name="truckId">${ptvTruckOptionsHtml(item.loadingListTruckId || "")}</select>
+            </label>
+            <label>
+              <span>Fahrertelefon</span>
+              <select name="driverPhoneId">${ptvDriverOptionsHtml(item.driverPhoneId || "")}</select>
+            </label>
+            <label class="checkbox-row">
+              <input name="twoDayTour" type="checkbox" ${item.twoDayTour ? "checked" : ""}>
+              <span>2-Tagestour</span>
+            </label>
+            <div class="ptv-export-edit-actions">
+              <button class="primary small" data-ptv-save-export="${escapeHtml(item.id)}" type="button">Änderungen speichern</button>
+            </div>
+          </form>
           ${orders.length ? `
             <div class="ptv-export-order-list">
               ${orders.map((order, index) => `
@@ -1735,6 +1767,24 @@ function renderPtvTruckOptions() {
   elements.ptvExportTruck.value = trucks.some((truck) => truck.id === currentValue) ? currentValue : "";
 }
 
+function ptvTruckOptionsHtml(selectedId = "") {
+  const trucks = state.loadingListSettings?.trucks || [];
+
+  return [
+    `<option value="">Kein Fahrzeug</option>`,
+    ...trucks.map((truck) => `<option value="${escapeHtml(truck.id)}" ${truck.id === selectedId ? "selected" : ""}>${escapeHtml(loadingListTruckLabel(truck))}</option>`)
+  ].join("");
+}
+
+function ptvDriverOptionsHtml(selectedId = "") {
+  const activeDrivers = state.drivers.filter((driver) => driver.active || driver.id === selectedId);
+
+  return [
+    `<option value="">Kein Fahrertelefon</option>`,
+    ...activeDrivers.map((driver) => `<option value="${escapeHtml(driver.id)}" ${driver.id === selectedId ? "selected" : ""}>${escapeHtml(driver.label)} - ${escapeHtml(driver.phone)}</option>`)
+  ].join("");
+}
+
 async function assignLoadingListTruck() {
   const selectedExport = state.ptvExports.find((item) => item.id === state.loadingListExportId);
 
@@ -1793,7 +1843,11 @@ function loadingListTruckLabel(truck) {
 }
 
 function selectedPtvTruckPayload() {
-  const truck = (state.loadingListSettings?.trucks || []).find((item) => item.id === elements.ptvExportTruck.value);
+  return ptvTruckPayloadById(elements.ptvExportTruck.value);
+}
+
+function ptvTruckPayloadById(truckId) {
+  const truck = (state.loadingListSettings?.trucks || []).find((item) => item.id === truckId);
 
   return {
     truckId: truck?.id || "",
@@ -1804,7 +1858,11 @@ function selectedPtvTruckPayload() {
 }
 
 function selectedPtvDriverPayload() {
-  const driver = state.drivers.find((item) => item.id === elements.ptvExportDriver.value);
+  return ptvDriverPayloadById(elements.ptvExportDriver.value);
+}
+
+function ptvDriverPayloadById(driverId) {
+  const driver = state.drivers.find((item) => item.id === driverId);
 
   return {
     driverPhoneId: driver?.id || "",
@@ -2769,6 +2827,47 @@ async function deletePtvExport(id) {
   await loadPtvOrders();
   renderPtv();
   showToast("Tourzusammenstellung gelöscht.");
+}
+
+async function savePtvExportDetails(id) {
+  const entry = state.ptvExports.find((item) => item.id === id);
+  const form = [...elements.ptvExportList.querySelectorAll("[data-ptv-export-edit-form]")]
+    .find((item) => item.dataset.ptvExportEditForm === id);
+
+  if (!entry || !form) {
+    showToast("Tourzusammenstellung nicht gefunden.");
+    return;
+  }
+
+  const formData = new FormData(form);
+  const name = String(formData.get("name") || "").trim();
+  const truckPayload = ptvTruckPayloadById(String(formData.get("truckId") || ""));
+  const driverPayload = ptvDriverPayloadById(String(formData.get("driverPhoneId") || ""));
+  const twoDayTour = formData.has("twoDayTour");
+
+  await api(`/api/ptv/exports/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      name,
+      ...truckPayload,
+      ...driverPayload,
+      twoDayTour
+    })
+  });
+
+  if (state.ptvExportId === id) {
+    elements.ptvExportName.value = name || entry.name || "";
+    elements.ptvExportTruck.value = truckPayload.truckId;
+    elements.ptvExportDriver.value = driverPayload.driverPhoneId;
+    elements.ptvExportTwoDayTour.checked = twoDayTour;
+  }
+
+  await Promise.all([
+    loadPtvExports(),
+    loadPtvOrders(),
+    loadOrders()
+  ]);
+  showToast("Tourzusammenstellung gespeichert.");
 }
 
 async function removeOrderFromPtvExport(exportId, orderNumber) {

@@ -901,6 +901,41 @@ export class LocalStore {
     return entry;
   }
 
+  async updatePtvExport(id, input, actor) {
+    const exportEntry = this.getPtvExport(id);
+
+    if (!exportEntry) {
+      throw new Error("Tourzusammenstellung nicht gefunden.");
+    }
+
+    if (Object.hasOwn(input, "name")) {
+      exportEntry.name = String(input.name || "").trim() || exportEntry.name || `Tourzusammenstellung ${new Date().toLocaleString("de-DE")}`;
+    }
+
+    if (input.hasTruckId) {
+      exportEntry.loadingListTruckId = String(input.truckId || "").trim();
+      exportEntry.loadingListTruckLabel = String(input.truckLabel || "").trim();
+      exportEntry.loadingListLicensePlate = String(input.licensePlate || "").trim();
+      exportEntry.loadingListPtvVehicleId = String(input.ptvVehicleId || "").trim();
+    }
+
+    if (input.hasDriverPhoneId) {
+      exportEntry.driverPhoneId = String(input.driverPhoneId || "").trim();
+      exportEntry.driverPhoneLabel = String(input.driverPhoneLabel || "").trim();
+      exportEntry.driverPhoneNumber = String(input.driverPhoneNumber || "").trim();
+    }
+
+    if (input.hasTwoDayTour) {
+      exportEntry.twoDayTour = Boolean(input.twoDayTour);
+    }
+
+    exportEntry.updatedAt = new Date().toISOString();
+    exportEntry.updatedBy = actor?.displayName || actor?.username || "";
+    await this.applyPtvExportTags(exportEntry, actor, isOptimizedPtvExport(exportEntry));
+    await this.save();
+    return exportEntry;
+  }
+
   findPtvExportDuplicate(orderNumbers) {
     const existingIds = new Set((this.state.ptvExports || []).map((item) => item.id));
 

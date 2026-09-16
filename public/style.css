@@ -688,6 +688,24 @@ select:disabled {
   border-top: 1px solid var(--line);
 }
 
+.ptv-export-edit-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(150px, 1fr));
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-strong);
+}
+
+.ptv-export-edit-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}
+
 .ptv-export-order-list {
   display: grid;
   gap: 6px;

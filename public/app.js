@@ -345,15 +345,18 @@ function bindEvents() {
   elements.loadingListExport.addEventListener("change", () => {
     state.loadingListExportId = elements.loadingListExport.value;
     state.loadingListDeliveryDate = "";
+    state.loadingListLoadingText = "";
     applyLoadingListDefaultDate();
     renderLoadingList();
   });
-  elements.loadingListDeliveryDate.addEventListener("change", () => {
+  elements.loadingListDeliveryDate.addEventListener("change", async () => {
     state.loadingListDeliveryDate = elements.loadingListDeliveryDate.value;
+    await saveLoadingListDates();
     renderLoadingList();
   });
-  elements.loadingListLoadingText.addEventListener("input", () => {
+  elements.loadingListLoadingText.addEventListener("change", async () => {
     state.loadingListLoadingText = elements.loadingListLoadingText.value;
+    await saveLoadingListDates();
     renderLoadingList();
   });
   elements.loadingListTruck.addEventListener("change", assignLoadingListTruck);
@@ -1604,6 +1607,7 @@ function renderLoadingList(errorMessage = "") {
   if (!state.loadingListExportId || !optimizedExports.some((item) => item.id === state.loadingListExportId)) {
     state.loadingListExportId = optimizedExports[0].id;
     state.loadingListDeliveryDate = "";
+    state.loadingListLoadingText = "";
   }
 
   elements.loadingListExport.innerHTML = optimizedExports.map((item) => {
@@ -1634,6 +1638,8 @@ function renderLoadingList(errorMessage = "") {
 
   state.loadingListTruckId = selectedExport.loadingListTruckId || "";
   state.loadingListDriverId = selectedExport.driverPhoneId || "";
+  state.loadingListDeliveryDate = selectedExport.loadingListDeliveryDate || state.loadingListDeliveryDate || "";
+  state.loadingListLoadingText = selectedExport.loadingListLoadingDate || state.loadingListLoadingText || "";
   renderLoadingListTruckOptions();
   renderDriverOptions(elements.loadingListDriver, state.loadingListDriverId, "Kein Fahrertelefon");
   syncLoadingListControls();
@@ -1836,6 +1842,25 @@ async function assignLoadingListDriver() {
     loadOrders()
   ]);
   showToast(payload.driverPhoneId ? `Fahrer ${driver.label} zugewiesen.` : "Fahrer-Zuweisung entfernt.");
+}
+
+async function saveLoadingListDates() {
+  const selectedExport = state.ptvExports.find((item) => item.id === state.loadingListExportId);
+
+  if (!selectedExport) {
+    return;
+  }
+
+  await api(`/api/ptv/exports/${encodeURIComponent(selectedExport.id)}/loading-list`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      loadingListDeliveryDate: state.loadingListDeliveryDate,
+      loadingListLoadingDate: state.loadingListLoadingText
+    })
+  });
+
+  await loadPtvExports();
+  showToast("Ladelisten-Datum gespeichert.");
 }
 
 function loadingListTruckLabel(truck) {

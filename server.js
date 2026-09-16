@@ -1689,7 +1689,11 @@ function sanitizePtvExportLoadingList(input) {
     driverPhoneLabel: text(input.driverPhoneLabel),
     driverPhoneNumber: text(input.driverPhoneNumber),
     hasTwoDayTour: Object.hasOwn(input, "twoDayTour"),
-    twoDayTour: Boolean(input.twoDayTour)
+    twoDayTour: Boolean(input.twoDayTour),
+    hasLoadingListDeliveryDate: Object.hasOwn(input, "loadingListDeliveryDate"),
+    loadingListDeliveryDate: dateText(input.loadingListDeliveryDate),
+    hasLoadingListLoadingDate: Object.hasOwn(input, "loadingListLoadingDate"),
+    loadingListLoadingDate: dateText(input.loadingListLoadingDate)
   };
 }
 

@@ -823,6 +823,14 @@ export class LocalStore {
       exportEntry.twoDayTour = Boolean(input.twoDayTour);
     }
 
+    if (input.hasLoadingListDeliveryDate) {
+      exportEntry.loadingListDeliveryDate = String(input.loadingListDeliveryDate || "").trim();
+    }
+
+    if (input.hasLoadingListLoadingDate) {
+      exportEntry.loadingListLoadingDate = String(input.loadingListLoadingDate || "").trim();
+    }
+
     exportEntry.updatedAt = new Date().toISOString();
     exportEntry.updatedBy = actor?.displayName || actor?.username || "";
 
@@ -927,6 +935,14 @@ export class LocalStore {
 
     if (input.hasTwoDayTour) {
       exportEntry.twoDayTour = Boolean(input.twoDayTour);
+    }
+
+    if (input.hasLoadingListDeliveryDate) {
+      exportEntry.loadingListDeliveryDate = String(input.loadingListDeliveryDate || "").trim();
+    }
+
+    if (input.hasLoadingListLoadingDate) {
+      exportEntry.loadingListLoadingDate = String(input.loadingListLoadingDate || "").trim();
     }
 
     exportEntry.updatedAt = new Date().toISOString();

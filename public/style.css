@@ -70,6 +70,7 @@ body {
   min-width: 320px;
   background: var(--bg);
   color: var(--text);
+  font-size: 14px;
 }
 
 [hidden] {
@@ -279,10 +280,10 @@ h2 {
 .primary,
 .secondary,
 .ghost {
-  min-height: 38px;
+  min-height: 34px;
   border: 1px solid transparent;
   border-radius: 6px;
-  padding: 8px 14px;
+  padding: 6px 11px;
   background: transparent;
   color: var(--text);
 }
@@ -296,7 +297,7 @@ h2 {
 
 main {
   flex: 1;
-  padding: 16px 28px 32px;
+  padding: 12px 24px 28px;
 }
 
 .app-footer {
@@ -321,7 +322,7 @@ main {
 
 .segmented {
   display: inline-flex;
-  min-height: 40px;
+  min-height: 36px;
   padding: 3px;
   gap: 3px;
   border: 1px solid var(--line);
@@ -356,10 +357,10 @@ main {
 .week-toggle,
 .readonly-value {
   width: 100%;
-  min-height: 40px;
+  min-height: 36px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  padding: 9px 10px;
+  padding: 7px 9px;
   background: var(--surface);
   color: var(--text);
   text-align: left;
@@ -437,10 +438,10 @@ input,
 select,
 textarea {
   width: 100%;
-  min-height: 40px;
+  min-height: 36px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  padding: 9px 10px;
+  padding: 7px 9px;
   background: var(--surface);
   color: var(--text);
 }
@@ -485,9 +486,9 @@ select:disabled {
 }
 
 .small {
-  min-height: 32px;
-  padding: 5px 9px;
-  font-size: 13px;
+  min-height: 28px;
+  padding: 4px 8px;
+  font-size: 12px;
 }
 
 .compact-actions {
@@ -653,8 +654,8 @@ select:disabled {
 
 .ptv-export-list {
   display: grid;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 6px;
+  margin-bottom: 12px;
 }
 
 .ptv-page-tabs {
@@ -664,8 +665,8 @@ select:disabled {
 .ptv-export-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: 8px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
@@ -684,17 +685,17 @@ select:disabled {
 
 .ptv-export-details {
   grid-column: 1 / -1;
-  padding-top: 8px;
+  padding-top: 6px;
   border-top: 1px solid var(--line);
 }
 
 .ptv-export-edit-form {
   display: grid;
   grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(150px, 1fr));
-  gap: 10px;
+  gap: 8px;
   align-items: end;
-  margin-bottom: 10px;
-  padding: 10px;
+  margin-bottom: 8px;
+  padding: 8px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--surface-strong);
@@ -708,15 +709,15 @@ select:disabled {
 
 .ptv-export-order-list {
   display: grid;
-  gap: 6px;
+  gap: 5px;
 }
 
 .ptv-export-order-row {
   display: grid;
   grid-template-columns: 44px 120px minmax(160px, 1fr) minmax(220px, 1.2fr) auto;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
-  padding: 7px 8px;
+  padding: 5px 7px;
   border-radius: 6px;
   background: var(--muted);
 }

@@ -957,10 +957,7 @@ export class LocalStore {
         continue;
       }
 
-      this.state.avisByOrder[orderNumber] = {
-        ...avis,
-        ptvExportTags: tags
-      };
+      this.removePtvExportTagFromOrder(orderNumber, id, deleted);
     }
 
     await this.save();
@@ -1010,14 +1007,14 @@ export class LocalStore {
       exportEntry.optimizedBy = "";
       await this.applyPtvExportTags(exportEntry, actor, false);
     }
-    this.removePtvExportTagFromOrder(normalizedOrderNumber, id);
+    this.removePtvExportTagFromOrder(normalizedOrderNumber, id, exportEntry);
     this.reindexPtvExportRoute(exportEntry, actor);
 
     await this.save();
     return exportEntry;
   }
 
-  removePtvExportTagFromOrder(orderNumber, exportId) {
+  removePtvExportTagFromOrder(orderNumber, exportId, exportEntry = null) {
     const current = this.state.avisByOrder[orderNumber] || {};
     const tags = Array.isArray(current.ptvExportTags)
       ? current.ptvExportTags.filter((tag) => tag.id !== exportId)
@@ -1033,6 +1030,13 @@ export class LocalStore {
       delete next.routeSequenceUpdatedBy;
       delete next.routeSequenceUpdatedByUserId;
       delete next.ptvRouteInfo;
+      delete next.twoDayTour;
+      delete next.mwTrailer;
+      delete next.ptvExportTags;
+
+      if (!exportEntry?.driverPhoneId || current.driverPhoneId === exportEntry.driverPhoneId) {
+        delete next.driverPhoneId;
+      }
     }
 
     this.state.avisByOrder[orderNumber] = next;

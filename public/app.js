@@ -1664,7 +1664,7 @@ function renderLoadingList(errorMessage = "") {
               <th>Versand EH</th>
               <th>Stellplatz</th>
               <th>Gewicht</th>
-              <th>MW Anh.</th>
+              <th>HÄ</th>
             </tr>
           </thead>
           <tbody>
@@ -1686,7 +1686,7 @@ function renderLoadingList(errorMessage = "") {
                 <td>${escapeHtml(order.shippingEh || "-")}</td>
                 <td>${escapeHtml(order.eprodStorageLocation || "-")}</td>
                 <td>${escapeHtml(ptvWeightKg(order) ? `${ptvWeightKg(order)} Kg` : "-")}</td>
-                <td>${order.avis?.mwTrailer ? `<span class="ptv-tag is-trailer">MW Anh.</span>` : ""}</td>
+                <td>${order.avis?.mwTrailer ? `<span class="ptv-tag is-trailer">HÄ</span>` : ""}</td>
               </tr>
               ${marker ? `<tr class="loading-capacity-marker"><td colspan="9"><span>${escapeHtml(marker)}</span></td></tr>` : ""}
             `;
@@ -1889,7 +1889,7 @@ function loadingListOrderTags(order, tourIsTwoDay) {
   }
 
   if (order.avis?.mwTrailer) {
-    tags.push(`<span class="ptv-tag is-trailer">MW Anh.</span>`);
+    tags.push(`<span class="ptv-tag is-trailer">HÄ</span>`);
   }
 
   return tags.length ? `<span class="tag-list">${tags.join("")}</span>` : "";
@@ -2053,7 +2053,7 @@ async function applyLoadingListTrailerMark(value) {
     return;
   }
 
-  const action = value ? "als MW Anh. markieren" : "MW Anh. entfernen";
+  const action = value ? "als HÄ markieren" : "HÄ entfernen";
   const confirmed = await requestConfirm(`Sollen ${orderNumbers.length} markierte Aufträge wirklich ${action} werden?`);
 
   if (!confirmed) {
@@ -2073,7 +2073,7 @@ async function applyLoadingListTrailerMark(value) {
   state.loadingListTrailer = false;
   elements.loadingListTrailer.checked = false;
   await loadPtvOrders();
-  showToast(value ? "MW Anh. gesetzt." : "MW Anh. entfernt.");
+  showToast(value ? "HÄ gesetzt." : "HÄ entfernt.");
 }
 
 function loadingListCapacityMarkerAfter(orders, index) {

@@ -54,6 +54,7 @@ const state = {
   loadingListTruckId: "",
   loadingListDriverId: "",
   loadingListTrailer: false,
+  loadingListTwoDayTransition: false,
   loadingListSelectedOrderNumbers: new Set(),
   loadingListLastSelectedOrderNumber: "",
   ptvDeliveryDate: "",
@@ -150,6 +151,7 @@ const elements = {
   loadingListTruck: document.querySelector("#loading-list-truck"),
   loadingListDriver: document.querySelector("#loading-list-driver"),
   loadingListTrailer: document.querySelector("#loading-list-trailer"),
+  loadingListTwoDayTransition: document.querySelector("#loading-list-two-day-transition"),
   loadingListClearSelection: document.querySelector("#loading-list-clear-selection"),
   loadingListNotify: document.querySelector("#loading-list-notify"),
   loadingListRemoveOrders: document.querySelector("#loading-list-remove-orders"),
@@ -364,6 +366,10 @@ function bindEvents() {
   elements.loadingListTrailer.addEventListener("change", () => {
     state.loadingListTrailer = elements.loadingListTrailer.checked;
     applyLoadingListTrailerMark(elements.loadingListTrailer.checked);
+  });
+  elements.loadingListTwoDayTransition.addEventListener("change", () => {
+    state.loadingListTwoDayTransition = elements.loadingListTwoDayTransition.checked;
+    applyLoadingListTwoDayTransition(elements.loadingListTwoDayTransition.checked);
   });
   elements.loadingListClearSelection.addEventListener("click", clearLoadingListSelection);
   elements.loadingListNotify.addEventListener("click", notifyLoadingList);
@@ -1679,6 +1685,9 @@ function renderLoadingList(errorMessage = "") {
     : "Aufträge aus Ladeliste entfernen";
   state.loadingListTrailer = selectedOrders.length > 0 && selectedOrders.every((order) => order.avis?.mwTrailer);
   elements.loadingListTrailer.checked = state.loadingListTrailer;
+  state.loadingListTwoDayTransition = selectedOrders.length === 1
+    && selectedOrders[0].orderNumber === selectedExport.twoDayTransitionOrderNumber;
+  elements.loadingListTwoDayTransition.checked = state.loadingListTwoDayTransition;
 
   elements.loadingListContent.innerHTML = unloadingStops.map((stop, stopIndex) => `
     <article class="loading-stop-card">
@@ -1701,6 +1710,7 @@ function renderLoadingList(errorMessage = "") {
               <th>Stück BLR</th>
               <th>Versand EH</th>
               <th>Stellplatz</th>
+              <th>Anliefertag</th>
               <th>Gewicht</th>
               <th>HÄ</th>
             </tr>
@@ -1723,10 +1733,11 @@ function renderLoadingList(errorMessage = "") {
                 <td>${escapeHtml(order.blrCount || "-")}</td>
                 <td>${escapeHtml(order.shippingEh || "-")}</td>
                 <td>${escapeHtml(order.eprodStorageLocation || "-")}</td>
+                <td>${escapeHtml(loadingListOrderDeliveryText(order, selectedExport))}</td>
                 <td>${escapeHtml(ptvWeightKg(order) ? `${ptvWeightKg(order)} Kg` : "-")}</td>
                 <td>${order.avis?.mwTrailer ? `<span class="ptv-tag is-trailer">HÄ</span>` : ""}</td>
               </tr>
-              ${marker ? `<tr class="loading-capacity-marker"><td colspan="9"><span>${escapeHtml(marker)}</span></td></tr>` : ""}
+              ${marker ? `<tr class="loading-capacity-marker"><td colspan="10"><span>${escapeHtml(marker)}</span></td></tr>` : ""}
             `;
             }).join("")}
           </tbody>
@@ -1742,6 +1753,7 @@ function syncLoadingListControls() {
   elements.loadingListTruck.value = state.loadingListTruckId;
   elements.loadingListDriver.value = state.loadingListDriverId;
   elements.loadingListTrailer.checked = state.loadingListTrailer;
+  elements.loadingListTwoDayTransition.checked = state.loadingListTwoDayTransition;
 }
 
 function renderLoadingListTruckOptions() {
@@ -1967,8 +1979,10 @@ function loadingListIsTwoDayTour(exportEntry, orders) {
 function loadingListOrderTags(order, tourIsTwoDay) {
   const tags = [];
 
-  if (tourIsTwoDay || order.avis?.twoDayTour) {
+  if (order.avis?.twoDayTransition || order.avis?.twoDayTour) {
     tags.push(`<span class="ptv-tag is-two-day">2-Tagestour</span>`);
+  } else if (tourIsTwoDay && Number(order.avis?.tourDeliveryDayOffset) === 1) {
+    tags.push(`<span class="ptv-tag is-two-day">Tag 2</span>`);
   }
 
   if (order.avis?.mwTrailer) {
@@ -2157,6 +2171,54 @@ async function applyLoadingListTrailerMark(value) {
   elements.loadingListTrailer.checked = false;
   await loadPtvOrders();
   showToast(value ? "HÄ gesetzt." : "HÄ entfernt.");
+}
+
+async function applyLoadingListTwoDayTransition(value) {
+  const selectedExport = state.ptvExports.find((item) => item.id === state.loadingListExportId);
+  const orderNumbers = [...state.loadingListSelectedOrderNumbers];
+
+  if (!selectedExport) {
+    return;
+  }
+
+  if (value && orderNumbers.length !== 1) {
+    state.loadingListTwoDayTransition = false;
+    elements.loadingListTwoDayTransition.checked = false;
+    showToast("Bitte genau einen Auftrag als Tageswechsel markieren.");
+    return;
+  }
+
+  const transitionOrderNumber = value ? orderNumbers[0] : "";
+  const message = value
+    ? `Soll Auftrag ${transitionOrderNumber} beide Anliefertage erhalten und für alle folgenden Aufträge Tag 2 gelten?`
+    : "Soll der Tageswechsel dieser Tour wirklich entfernt werden?";
+
+  if (!await requestConfirm(message)) {
+    state.loadingListTwoDayTransition = false;
+    elements.loadingListTwoDayTransition.checked = false;
+    return;
+  }
+
+  await api(`/api/ptv/exports/${encodeURIComponent(selectedExport.id)}/loading-list`, {
+    method: "PATCH",
+    body: JSON.stringify({ twoDayTransitionOrderNumber: transitionOrderNumber })
+  });
+
+  state.loadingListTwoDayTransition = false;
+  elements.loadingListTwoDayTransition.checked = false;
+  clearLoadingListSelection();
+  await Promise.all([loadPtvExports(), loadPtvOrders(), loadOrders()]);
+  showToast(value ? "Tageswechsel gesetzt." : "Tageswechsel entfernt.");
+}
+
+function loadingListOrderDeliveryText(order, exportEntry) {
+  const date = order.displayDeliveryDate || order.deliveryDate;
+
+  if (order.orderNumber === exportEntry?.twoDayTransitionOrderNumber) {
+    return formatDeliveryDateRange(date, true);
+  }
+
+  return formatDate(date);
 }
 
 function loadingListCapacityMarkerAfter(orders, index) {

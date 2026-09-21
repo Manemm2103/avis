@@ -969,7 +969,9 @@ function avisMailGroupKey(order, settings) {
 
   return [
     recipients.join(";").toLowerCase(),
-    address.replace(/\s+/g, " ").trim().toLowerCase()
+    address.replace(/\s+/g, " ").trim().toLowerCase(),
+    order.displayDeliveryDate || order.deliveryDate || "",
+    order.avis?.twoDayTour ? "two-day" : "single-day"
   ].join("|");
 }
 
@@ -1174,7 +1176,8 @@ function normalizeOrder(row, origin = "mssql", canDelete = false) {
 
 function mergeOrder(order, avis, driverMap) {
   const driver = avis?.driverPhoneId ? driverMap.get(avis.driverPhoneId) : null;
-  const displayDeliveryDate = avis?.deliveryDate || order.deliveryDate;
+  const baseDeliveryDate = avis?.tourDeliveryDate || avis?.deliveryDate || order.deliveryDate;
+  const displayDeliveryDate = addDaysToDateText(baseDeliveryDate, Number(avis?.tourDeliveryDayOffset) || 0);
   const displayDeliveryAddress = avis?.deliveryAddress || order.deliveryAddress;
   const displayEprodStorageLocation = avis?.eprodStorageLocation || order.eprodStorageLocation;
   const displayDeliveryParts = avis?.deliveryAddress
@@ -1207,6 +1210,8 @@ function mergeOrder(order, avis, driverMap) {
       driverPhoneName: driver?.label || "",
       driverPhoneNumber: driver?.phone || "",
       twoDayTour: Boolean(avis?.twoDayTour),
+      twoDayTransition: Boolean(avis?.twoDayTransition),
+      tourDeliveryDayOffset: Number(avis?.tourDeliveryDayOffset) || 0,
       mwTrailer: Boolean(avis?.mwTrailer),
       notified: Boolean(avis?.notified),
       notifiedAt: avis?.notifiedAt || "",
@@ -1690,6 +1695,8 @@ function sanitizePtvExportLoadingList(input) {
     driverPhoneNumber: text(input.driverPhoneNumber),
     hasTwoDayTour: Object.hasOwn(input, "twoDayTour"),
     twoDayTour: Boolean(input.twoDayTour),
+    hasTwoDayTransitionOrderNumber: Object.hasOwn(input, "twoDayTransitionOrderNumber"),
+    twoDayTransitionOrderNumber: text(input.twoDayTransitionOrderNumber),
     hasLoadingListDeliveryDate: Object.hasOwn(input, "loadingListDeliveryDate"),
     loadingListDeliveryDate: dateText(input.loadingListDeliveryDate),
     hasLoadingListLoadingDate: Object.hasOwn(input, "loadingListLoadingDate"),
@@ -2777,6 +2784,19 @@ function dateText(value) {
   }
 
   return raw.slice(0, 10);
+}
+
+function addDaysToDateText(value, days) {
+  const isoDate = dateText(value);
+  const match = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (!match || !days) {
+    return isoDate;
+  }
+
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 function dateTimeLocalText(value) {

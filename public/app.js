@@ -56,6 +56,7 @@ const state = {
   loadingListTrailer: false,
   loadingListSelectedOrderNumbers: new Set(),
   loadingListLastSelectedOrderNumber: "",
+  loadingListSelectedStopKeys: new Set(),
   ptvDeliveryDate: "",
   ptvDeliveryWeek: "",
   ptvTour: "",
@@ -149,6 +150,7 @@ const elements = {
   loadingListTruck: document.querySelector("#loading-list-truck"),
   loadingListDriver: document.querySelector("#loading-list-driver"),
   loadingListTrailer: document.querySelector("#loading-list-trailer"),
+  loadingListTwoDay: document.querySelector("#loading-list-two-day"),
   loadingListClearSelection: document.querySelector("#loading-list-clear-selection"),
   loadingListNotify: document.querySelector("#loading-list-notify"),
   loadingListRemoveOrders: document.querySelector("#loading-list-remove-orders"),
@@ -345,6 +347,8 @@ function bindEvents() {
     state.loadingListExportId = elements.loadingListExport.value;
     state.loadingListDeliveryDate = "";
     state.loadingListLoadingText = "";
+    state.loadingListSelectedOrderNumbers.clear();
+    state.loadingListSelectedStopKeys.clear();
     applyLoadingListDefaultDate();
     renderLoadingList();
   });
@@ -364,11 +368,11 @@ function bindEvents() {
     state.loadingListTrailer = elements.loadingListTrailer.checked;
     applyLoadingListTrailerMark(elements.loadingListTrailer.checked);
   });
+  elements.loadingListTwoDay.addEventListener("click", applySelectedLoadingListStopsTwoDay);
   elements.loadingListClearSelection.addEventListener("click", clearLoadingListSelection);
   elements.loadingListNotify.addEventListener("click", notifyLoadingList);
   elements.loadingListRemoveOrders.addEventListener("click", removeSelectedOrdersFromLoadingList);
   elements.loadingListContent.addEventListener("click", handleLoadingListClick);
-  elements.loadingListContent.addEventListener("change", handleLoadingListChange);
   elements.loadingListSettingsForm.addEventListener("submit", saveLoadingListSettings);
   elements.filterDate.addEventListener("change", () => {
     state.deliveryDate = elements.filterDate.value;
@@ -1591,10 +1595,12 @@ function renderLoadingList(errorMessage = "") {
 
   if (!optimizedExports.length) {
     state.loadingListExportId = "";
+    state.loadingListSelectedStopKeys.clear();
     elements.loadingListExport.innerHTML = `<option value="">Keine optimierte Tour vorhanden</option>`;
     elements.loadingListSummary.innerHTML = "";
     elements.loadingListContent.innerHTML = `<p class="help-text">Eine Ladeliste kann erst aus einer von PTV optimierten Tour erstellt werden.</p>`;
     elements.loadingListNotify.disabled = true;
+    elements.loadingListTwoDay.disabled = true;
     elements.loadingListRemoveOrders.hidden = true;
     return;
   }
@@ -1627,6 +1633,7 @@ function renderLoadingList(errorMessage = "") {
     elements.loadingListSummary.innerHTML = "";
     elements.loadingListContent.innerHTML = `<p class="help-text">Für diese optimierte Tour wurden keine Aufträge gefunden.</p>`;
     elements.loadingListNotify.disabled = true;
+    elements.loadingListTwoDay.disabled = true;
     elements.loadingListRemoveOrders.hidden = true;
     return;
   }
@@ -1642,11 +1649,13 @@ function renderLoadingList(errorMessage = "") {
   const loadingOrders = orders.slice();
   reconcileLoadingListSelection(loadingOrders);
   const unloadingStops = groupLoadingListStops(loadingOrders);
+  reconcileLoadingListStopSelection(unloadingStops);
   const driverLabel = loadingListDriverLabel(orders);
   const totalBlr = loadingOrders.reduce((sum, order) => sum + loadingListNumber(order.blrCount), 0);
   const totalWeight = loadingOrders.reduce((sum, order) => sum + (Number(ptvWeightKg(order)) || 0), 0);
   const totalShippingEh = loadingOrders.reduce((sum, order) => sum + loadingListNumber(order.shippingEh), 0);
   const selectedCount = state.loadingListSelectedOrderNumbers.size;
+  const selectedStopCount = state.loadingListSelectedStopKeys.size;
   const selectedOrders = loadingOrders.filter((order) => state.loadingListSelectedOrderNumbers.has(order.orderNumber));
   const selectedShippingEh = selectedOrders.reduce((sum, order) => sum + loadingListNumber(order.shippingEh), 0);
   const twoDayTour = loadingListIsTwoDayTour(selectedExport, loadingOrders);
@@ -1658,7 +1667,7 @@ function renderLoadingList(errorMessage = "") {
       <span><strong>Auslieferungsdatum</strong>${escapeHtml(state.loadingListDeliveryDate ? formatDeliveryDateRange(state.loadingListDeliveryDate, twoDayTour) : "-")}${twoDayTour ? `<small class="two-day-text">2-Tagestour</small>` : ""}</span>
       <span><strong>Verladung</strong>${escapeHtml(state.loadingListLoadingText ? formatDate(state.loadingListLoadingText) : "-")}</span>
       <span><strong>LKW</strong>${escapeHtml(selectedExport.loadingListLicensePlate || selectedExport.loadingListTruckLabel || "-")}</span>
-      <span><strong>Auswahl</strong>${selectedCount ? `${selectedCount} markiert (${selectedShippingEh.toLocaleString("de-DE")} Versand EH)` : "keine"}</span>
+      <span><strong>Auswahl</strong>${selectedStopCount ? `${selectedStopCount} ${selectedStopCount === 1 ? "Entladestelle" : "Entladestellen"}` : selectedCount ? `${selectedCount} Aufträge (${selectedShippingEh.toLocaleString("de-DE")} Versand EH)` : "keine"}</span>
       <span><strong>Entladestellen</strong>${unloadingStops.length}</span>
       <span><strong>Aufträge</strong>${loadingOrders.length}</span>
       <span><strong>Stück BLR</strong>${totalBlr || "-"}</span>
@@ -1666,7 +1675,7 @@ function renderLoadingList(errorMessage = "") {
       <span><strong>Versand EH</strong>${totalShippingEh ? totalShippingEh.toLocaleString("de-DE") : "-"}</span>
     </div>
   `;
-  elements.loadingListClearSelection.hidden = selectedCount === 0;
+  elements.loadingListClearSelection.hidden = selectedCount === 0 && selectedStopCount === 0;
   elements.loadingListNotify.disabled = loadingOrders.length === 0;
   elements.loadingListRemoveOrders.hidden = selectedCount === 0;
   elements.loadingListRemoveOrders.textContent = selectedCount === 1
@@ -1676,23 +1685,28 @@ function renderLoadingList(errorMessage = "") {
   elements.loadingListTrailer.checked = state.loadingListTrailer;
 
   const transitionOrderNumbers = new Set(ptvExportTwoDayTransitionOrderNumbers(selectedExport));
+  const selectedStops = unloadingStops.filter((stop) => state.loadingListSelectedStopKeys.has(stop.key));
+  const selectedStopsAreTwoDay = selectedStops.length > 0
+    && selectedStops.every((stop) => stop.orders.every((order) => transitionOrderNumbers.has(order.orderNumber)));
+  elements.loadingListTwoDay.disabled = selectedStops.length === 0;
+  elements.loadingListTwoDay.textContent = selectedStopsAreTwoDay
+    ? "2-Tagestour entfernen"
+    : "Als 2-Tagestour markieren";
+
   elements.loadingListContent.innerHTML = unloadingStops.map((stop, stopIndex) => {
     const isTwoDayTransition = stop.orders.length > 0
       && stop.orders.every((order) => transitionOrderNumbers.has(order.orderNumber));
+    const isSelectedStop = state.loadingListSelectedStopKeys.has(stop.key);
 
     return `
-    <article class="loading-stop-card ${isTwoDayTransition ? "is-two-day-transition" : ""}">
-      <header class="loading-stop-header">
+    <article class="loading-stop-card ${isTwoDayTransition ? "is-two-day-transition" : ""} ${isSelectedStop ? "is-selected" : ""}">
+      <header class="loading-stop-header" data-loading-list-stop-index="${stopIndex}" aria-selected="${isSelectedStop ? "true" : "false"}">
         <span class="sequence-pill">${stopIndex + 1}</span>
         <div>
           <strong>Entladestelle</strong>
           <span>${escapeHtml(stop.address || "-")}</span>
         </div>
         <small>${stop.orders.length} ${stop.orders.length === 1 ? "Auftrag" : "Aufträge"}</small>
-        <label class="loading-stop-two-day">
-          <input type="checkbox" data-loading-list-two-day-stop="${stopIndex}" ${isTwoDayTransition ? "checked" : ""}>
-          <span>Heute oder morgen</span>
-        </label>
       </header>
       <div class="table-wrap loading-list-table-wrap">
         <table class="orders-table loading-list-table">
@@ -2015,12 +2029,48 @@ function reconcileLoadingListSelection(orders) {
   }
 }
 
+function reconcileLoadingListStopSelection(stops) {
+  const visible = new Set(stops.map((stop) => stop.key));
+  state.loadingListSelectedStopKeys = new Set(
+    [...state.loadingListSelectedStopKeys].filter((key) => visible.has(key))
+  );
+}
+
 function handleLoadingListClick(event) {
+  const stopHeader = event.target.closest("[data-loading-list-stop-index]");
+
+  if (stopHeader) {
+    const stop = groupLoadingListStops(currentLoadingListOrders())[Number(stopHeader.dataset.loadingListStopIndex)];
+
+    if (!stop) {
+      return;
+    }
+
+    state.loadingListSelectedOrderNumbers.clear();
+    state.loadingListLastSelectedOrderNumber = "";
+
+    if (event.ctrlKey || event.metaKey) {
+      if (state.loadingListSelectedStopKeys.has(stop.key)) {
+        state.loadingListSelectedStopKeys.delete(stop.key);
+      } else {
+        state.loadingListSelectedStopKeys.add(stop.key);
+      }
+    } else {
+      state.loadingListSelectedStopKeys = new Set([stop.key]);
+    }
+
+    renderLoadingList();
+    return;
+  }
+
   const row = event.target.closest("[data-loading-list-order-number]");
 
   if (!row) {
     return;
   }
+
+
+  state.loadingListSelectedStopKeys.clear();
 
   const orderNumber = row.dataset.loadingListOrderNumber;
   const visible = currentLoadingListOrders().map((order) => order.orderNumber);
@@ -2048,19 +2098,10 @@ function handleLoadingListClick(event) {
   renderLoadingList();
 }
 
-function handleLoadingListChange(event) {
-  const twoDayStop = event.target.closest("[data-loading-list-two-day-stop]");
-
-  if (!twoDayStop) {
-    return;
-  }
-
-  applyLoadingListTwoDayStop(Number(twoDayStop.dataset.loadingListTwoDayStop), twoDayStop.checked);
-}
-
 function clearLoadingListSelection() {
   state.loadingListSelectedOrderNumbers.clear();
   state.loadingListLastSelectedOrderNumber = "";
+  state.loadingListSelectedStopKeys.clear();
   renderLoadingList();
 }
 
@@ -2172,32 +2213,40 @@ async function applyLoadingListTrailerMark(value) {
   showToast(value ? "HÄ gesetzt." : "HÄ entfernt.");
 }
 
-async function applyLoadingListTwoDayStop(stopIndex, value) {
+async function applySelectedLoadingListStopsTwoDay() {
   const selectedExport = state.ptvExports.find((item) => item.id === state.loadingListExportId);
   const loadingOrders = currentLoadingListOrders();
-  const stop = groupLoadingListStops(loadingOrders)[stopIndex];
+  const selectedStops = groupLoadingListStops(loadingOrders)
+    .filter((stop) => state.loadingListSelectedStopKeys.has(stop.key));
 
-  if (!selectedExport || !stop) {
+  if (!selectedExport || selectedStops.length === 0) {
+    showToast("Bitte zuerst eine oder mehrere Entladestellen auswählen.");
     renderLoadingList();
     return;
   }
 
   const transitionSet = new Set(ptvExportTwoDayTransitionOrderNumbers(selectedExport));
+  const removeMark = selectedStops.every((stop) =>
+    stop.orders.every((order) => transitionSet.has(order.orderNumber))
+  );
 
-  for (const order of stop.orders) {
-    if (value) {
-      transitionSet.add(order.orderNumber);
-    } else {
-      transitionSet.delete(order.orderNumber);
+  for (const stop of selectedStops) {
+    for (const order of stop.orders) {
+      if (removeMark) {
+        transitionSet.delete(order.orderNumber);
+      } else {
+        transitionSet.add(order.orderNumber);
+      }
     }
   }
 
   const transitionOrderNumbers = loadingOrders
     .map((order) => order.orderNumber)
     .filter((orderNumber) => transitionSet.has(orderNumber));
-  const message = value
-    ? `Soll die Entladestelle ${stop.address} mit ${stop.orders.length} ${stop.orders.length === 1 ? "Auftrag" : "Aufträgen"} zusätzlich beide Anliefertage erhalten? Nach der letzten markierten Entladestelle gilt Tag 2.`
-    : `Soll die Entladestelle ${stop.address} aus der 2-Tagestour-Auswahl entfernt werden?`;
+  const selectedOrderCount = selectedStops.reduce((sum, stop) => sum + stop.orders.length, 0);
+  const message = removeMark
+    ? `Soll die 2-Tagestour-Markierung von ${selectedStops.length} ${selectedStops.length === 1 ? "Entladestelle" : "Entladestellen"} mit insgesamt ${selectedOrderCount} Aufträgen entfernt werden?`
+    : `Sollen ${selectedStops.length} ${selectedStops.length === 1 ? "Entladestelle" : "Entladestellen"} mit insgesamt ${selectedOrderCount} Aufträgen als 2-Tagestour markiert werden? Nach der letzten markierten Entladestelle gilt Tag 2.`;
 
   if (!await requestConfirm(message)) {
     renderLoadingList();
@@ -2209,8 +2258,9 @@ async function applyLoadingListTwoDayStop(stopIndex, value) {
     body: JSON.stringify({ twoDayTransitionOrderNumbers: transitionOrderNumbers })
   });
 
+  state.loadingListSelectedStopKeys.clear();
   await Promise.all([loadPtvExports(), loadPtvOrders(), loadOrders()]);
-  showToast(value ? "Entladestelle zur 2-Tagestour hinzugefügt." : "Entladestelle aus der 2-Tagestour entfernt.");
+  showToast(removeMark ? "2-Tagestour-Markierung entfernt." : "Entladestellen als 2-Tagestour markiert.");
 }
 
 function loadingListOrderDeliveryText(order, exportEntry) {

@@ -1691,7 +1691,7 @@ function renderLoadingList(errorMessage = "") {
         <small>${stop.orders.length} ${stop.orders.length === 1 ? "Auftrag" : "Aufträge"}</small>
         <label class="loading-stop-two-day">
           <input type="checkbox" data-loading-list-two-day-stop="${stopIndex}" ${isTwoDayTransition ? "checked" : ""}>
-          <span>2-Tagestour ab hier</span>
+          <span>Heute oder morgen</span>
         </label>
       </header>
       <div class="table-wrap loading-list-table-wrap">
@@ -2174,17 +2174,30 @@ async function applyLoadingListTrailerMark(value) {
 
 async function applyLoadingListTwoDayStop(stopIndex, value) {
   const selectedExport = state.ptvExports.find((item) => item.id === state.loadingListExportId);
-  const stop = groupLoadingListStops(currentLoadingListOrders())[stopIndex];
+  const loadingOrders = currentLoadingListOrders();
+  const stop = groupLoadingListStops(loadingOrders)[stopIndex];
 
   if (!selectedExport || !stop) {
     renderLoadingList();
     return;
   }
 
-  const transitionOrderNumbers = value ? stop.orders.map((order) => order.orderNumber) : [];
+  const transitionSet = new Set(ptvExportTwoDayTransitionOrderNumbers(selectedExport));
+
+  for (const order of stop.orders) {
+    if (value) {
+      transitionSet.add(order.orderNumber);
+    } else {
+      transitionSet.delete(order.orderNumber);
+    }
+  }
+
+  const transitionOrderNumbers = loadingOrders
+    .map((order) => order.orderNumber)
+    .filter((orderNumber) => transitionSet.has(orderNumber));
   const message = value
-    ? `Soll die Entladestelle ${stop.address} mit ${stop.orders.length} ${stop.orders.length === 1 ? "Auftrag" : "Aufträgen"} beide Anliefertage erhalten und für alle folgenden Entladestellen Tag 2 gelten?`
-    : "Soll der Tageswechsel dieser Tour wirklich entfernt werden?";
+    ? `Soll die Entladestelle ${stop.address} mit ${stop.orders.length} ${stop.orders.length === 1 ? "Auftrag" : "Aufträgen"} zusätzlich beide Anliefertage erhalten? Nach der letzten markierten Entladestelle gilt Tag 2.`
+    : `Soll die Entladestelle ${stop.address} aus der 2-Tagestour-Auswahl entfernt werden?`;
 
   if (!await requestConfirm(message)) {
     renderLoadingList();
@@ -2197,7 +2210,7 @@ async function applyLoadingListTwoDayStop(stopIndex, value) {
   });
 
   await Promise.all([loadPtvExports(), loadPtvOrders(), loadOrders()]);
-  showToast(value ? "Entladestelle als Tageswechsel gesetzt." : "Tageswechsel entfernt.");
+  showToast(value ? "Entladestelle zur 2-Tagestour hinzugefügt." : "Entladestelle aus der 2-Tagestour entfernt.");
 }
 
 function loadingListOrderDeliveryText(order, exportEntry) {

@@ -823,7 +823,9 @@ export class LocalStore {
       exportEntry.twoDayTour = Boolean(input.twoDayTour);
     }
 
-    if (input.hasTwoDayTransitionOrderNumber) {
+    if (input.hasTwoDayTransitionOrderNumbers) {
+      this.applyTwoDayTransition(exportEntry, input.twoDayTransitionOrderNumbers, actor);
+    } else if (input.hasTwoDayTransitionOrderNumber) {
       this.applyTwoDayTransition(exportEntry, input.twoDayTransitionOrderNumber, actor);
     }
 
@@ -903,6 +905,7 @@ export class LocalStore {
       driverPhoneNumber: String(input.driverPhoneNumber || "").trim(),
       twoDayTour: Boolean(input.twoDayTour),
       twoDayTransitionOrderNumber: "",
+      twoDayTransitionOrderNumbers: [],
       createdAt: now,
       createdBy: actor?.displayName || actor?.username || "",
       updatedAt: now,
@@ -943,7 +946,9 @@ export class LocalStore {
       exportEntry.twoDayTour = Boolean(input.twoDayTour);
     }
 
-    if (input.hasTwoDayTransitionOrderNumber) {
+    if (input.hasTwoDayTransitionOrderNumbers) {
+      this.applyTwoDayTransition(exportEntry, input.twoDayTransitionOrderNumbers, actor);
+    } else if (input.hasTwoDayTransitionOrderNumber) {
       this.applyTwoDayTransition(exportEntry, input.twoDayTransitionOrderNumber, actor);
     }
 
@@ -995,8 +1000,8 @@ export class LocalStore {
     exportEntry.updatedAt = exportEntry.optimizedAt;
     exportEntry.updatedBy = exportEntry.optimizedBy;
 
-    if (exportEntry.twoDayTransitionOrderNumber) {
-      this.applyTwoDayTransition(exportEntry, exportEntry.twoDayTransitionOrderNumber, actor);
+    if (this.ptvExportTwoDayTransitionOrderNumbers(exportEntry).length > 0) {
+      this.applyTwoDayTransition(exportEntry, this.ptvExportTwoDayTransitionOrderNumbers(exportEntry), actor);
     }
 
     await this.applyPtvExportTags(exportEntry, actor, true);
@@ -1134,24 +1139,27 @@ export class LocalStore {
       };
     });
 
-    if (exportEntry.twoDayTransitionOrderNumber) {
-      this.applyTwoDayTransition(exportEntry, exportEntry.twoDayTransitionOrderNumber, actor);
+    if (this.ptvExportTwoDayTransitionOrderNumbers(exportEntry).length > 0) {
+      this.applyTwoDayTransition(exportEntry, this.ptvExportTwoDayTransitionOrderNumbers(exportEntry), actor);
     }
   }
 
-  applyTwoDayTransition(exportEntry, orderNumber, actor) {
+  applyTwoDayTransition(exportEntry, orderNumbers, actor) {
     const orderedNumbers = exportEntry.optimizedOrderNumbers?.length
       ? exportEntry.optimizedOrderNumbers
       : exportEntry.orderNumbers || [];
-    const transitionOrderNumber = String(orderNumber || "").trim();
-    const transitionIndex = transitionOrderNumber ? orderedNumbers.indexOf(transitionOrderNumber) : -1;
+    const transitionOrderNumbers = uniqueOrderNumbers(Array.isArray(orderNumbers) ? orderNumbers : [orderNumbers]);
+    const transitionIndexes = transitionOrderNumbers.map((orderNumber) => orderedNumbers.indexOf(orderNumber));
 
-    if (transitionOrderNumber && transitionIndex === -1) {
-      throw new Error("Der Tageswechsel-Auftrag gehört nicht zu dieser Tour.");
+    if (transitionIndexes.some((index) => index === -1)) {
+      throw new Error("Mindestens ein Tageswechsel-Auftrag gehört nicht zu dieser Tour.");
     }
 
-    exportEntry.twoDayTransitionOrderNumber = transitionOrderNumber;
-    exportEntry.twoDayTour = transitionIndex >= 0;
+    const transitionSet = new Set(transitionOrderNumbers);
+    const lastTransitionIndex = transitionIndexes.length > 0 ? Math.max(...transitionIndexes) : -1;
+    exportEntry.twoDayTransitionOrderNumbers = transitionOrderNumbers;
+    exportEntry.twoDayTransitionOrderNumber = transitionOrderNumbers[0] || "";
+    exportEntry.twoDayTour = transitionOrderNumbers.length > 0;
 
     const now = new Date().toISOString();
     const actorName = actor?.displayName || actor?.username || "Unbekannt";
@@ -1160,10 +1168,11 @@ export class LocalStore {
       const current = this.state.avisByOrder[currentOrderNumber] || {};
       const next = { ...current };
 
-      if (transitionIndex >= 0) {
-        next.twoDayTour = index === transitionIndex;
-        next.twoDayTransition = index === transitionIndex;
-        next.tourDeliveryDayOffset = index > transitionIndex ? 1 : 0;
+      if (transitionOrderNumbers.length > 0) {
+        const isTransitionOrder = transitionSet.has(currentOrderNumber);
+        next.twoDayTour = isTransitionOrder;
+        next.twoDayTransition = isTransitionOrder;
+        next.tourDeliveryDayOffset = index > lastTransitionIndex ? 1 : 0;
       } else {
         delete next.twoDayTour;
         delete next.twoDayTransition;
@@ -1175,6 +1184,14 @@ export class LocalStore {
       next.updatedByUserId = actor?.id || current.updatedByUserId || "";
       this.state.avisByOrder[currentOrderNumber] = next;
     }
+  }
+
+  ptvExportTwoDayTransitionOrderNumbers(exportEntry) {
+    if (Array.isArray(exportEntry?.twoDayTransitionOrderNumbers)) {
+      return uniqueOrderNumbers(exportEntry.twoDayTransitionOrderNumbers);
+    }
+
+    return exportEntry?.twoDayTransitionOrderNumber ? [exportEntry.twoDayTransitionOrderNumber] : [];
   }
 
   applyTourDeliveryDate(exportEntry, deliveryDate, actor) {

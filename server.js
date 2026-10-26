@@ -1697,6 +1697,10 @@ function sanitizePtvExportLoadingList(input) {
     twoDayTour: Boolean(input.twoDayTour),
     hasTwoDayTransitionOrderNumber: Object.hasOwn(input, "twoDayTransitionOrderNumber"),
     twoDayTransitionOrderNumber: text(input.twoDayTransitionOrderNumber),
+    hasTwoDayTransitionOrderNumbers: Object.hasOwn(input, "twoDayTransitionOrderNumbers"),
+    twoDayTransitionOrderNumbers: Array.isArray(input.twoDayTransitionOrderNumbers)
+      ? [...new Set(input.twoDayTransitionOrderNumbers.map((value) => text(value)).filter(Boolean))]
+      : [],
     hasLoadingListDeliveryDate: Object.hasOwn(input, "loadingListDeliveryDate"),
     loadingListDeliveryDate: dateText(input.loadingListDeliveryDate),
     hasLoadingListLoadingDate: Object.hasOwn(input, "loadingListLoadingDate"),

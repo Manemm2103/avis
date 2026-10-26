@@ -790,9 +790,14 @@ select:disabled {
   background: var(--surface);
 }
 
+.loading-stop-card.is-two-day-transition {
+  border-color: #b45309;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #b45309 35%, transparent);
+}
+
 .loading-stop-header {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto;
+  grid-template-columns: 48px minmax(0, 1fr) auto auto;
   gap: 12px;
   align-items: center;
   padding: 10px 12px;
@@ -812,6 +817,30 @@ select:disabled {
 
 .loading-stop-header small {
   color: var(--muted);
+}
+
+.loading-stop-two-day {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.loading-stop-two-day input {
+  width: 16px;
+  min-height: 16px;
+  margin: 0;
+}
+
+.loading-stop-card.is-two-day-transition .loading-stop-two-day {
+  border-color: #b45309;
+  background: color-mix(in srgb, #f59e0b 14%, var(--surface));
 }
 
 .loading-list-table-wrap {

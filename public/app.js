@@ -140,7 +140,6 @@ const elements = {
   ptvExportName: document.querySelector("#ptv-export-name"),
   ptvExportTruck: document.querySelector("#ptv-export-truck"),
   ptvExportDriver: document.querySelector("#ptv-export-driver"),
-  ptvExportTwoDayTour: document.querySelector("#ptv-export-two-day-tour"),
   ptvExportList: document.querySelector("#ptv-export-list"),
   ptvBody: document.querySelector("#ptv-body"),
   ptvListBody: document.querySelector("#ptv-list-body"),
@@ -461,7 +460,6 @@ function bindEvents() {
   elements.ptvOpenRemote.addEventListener("click", openPtvRemoteControl);
   elements.ptvExportTruck.addEventListener("change", () => renderPtv());
   elements.ptvExportDriver.addEventListener("change", () => renderPtv());
-  elements.ptvExportTwoDayTour.addEventListener("change", () => renderPtv());
   document.querySelectorAll("[data-ptv-page]").forEach((button) => {
     button.addEventListener("click", () => showPtvPage(button.dataset.ptvPage || "assemblies"));
   });
@@ -1560,10 +1558,6 @@ function renderPtvExports() {
               <span>Fahrertelefon</span>
               <select name="driverPhoneId">${ptvDriverOptionsHtml(item.driverPhoneId || "")}</select>
             </label>
-            <label class="checkbox-row">
-              <input name="twoDayTour" type="checkbox" ${item.twoDayTour ? "checked" : ""}>
-              <span>2-Tagestour</span>
-            </label>
             <div class="ptv-export-edit-actions">
               <button class="primary small" data-ptv-save-export="${escapeHtml(item.id)}" type="button">Änderungen speichern</button>
             </div>
@@ -1906,12 +1900,6 @@ function ptvDriverPayloadById(driverId) {
     driverPhoneId: driver?.id || "",
     driverPhoneLabel: driver?.label || "",
     driverPhoneNumber: driver?.phone || ""
-  };
-}
-
-function selectedPtvTourFlagsPayload() {
-  return {
-    twoDayTour: Boolean(elements.ptvExportTwoDayTour.checked)
   };
 }
 
@@ -2862,7 +2850,6 @@ function loadPtvExport(id) {
   elements.ptvExportName.value = entry.name || "";
   elements.ptvExportTruck.value = entry.loadingListTruckId || "";
   elements.ptvExportDriver.value = entry.driverPhoneId || "";
-  elements.ptvExportTwoDayTour.checked = Boolean(entry.twoDayTour);
   state.ptvListOrderNumbers = [...(entry.optimizedOrderNumbers?.length ? entry.optimizedOrderNumbers : entry.orderNumbers || [])];
   state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
   state.ptvLastSelectedOrderNumber = "";
@@ -2884,7 +2871,6 @@ function togglePtvExportDetails(id) {
     elements.ptvExportName.value = entry.name || "";
     elements.ptvExportTruck.value = entry.loadingListTruckId || "";
     elements.ptvExportDriver.value = entry.driverPhoneId || "";
-    elements.ptvExportTwoDayTour.checked = Boolean(entry.twoDayTour);
     state.ptvListOrderNumbers = [...(entry.optimizedOrderNumbers?.length ? entry.optimizedOrderNumbers : entry.orderNumbers || [])];
     state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
     state.ptvLastSelectedOrderNumber = "";
@@ -2939,15 +2925,12 @@ async function savePtvExportDetails(id) {
   const name = String(formData.get("name") || "").trim();
   const truckPayload = ptvTruckPayloadById(String(formData.get("truckId") || ""));
   const driverPayload = ptvDriverPayloadById(String(formData.get("driverPhoneId") || ""));
-  const twoDayTour = formData.has("twoDayTour");
-
   await api(`/api/ptv/exports/${encodeURIComponent(id)}`, {
     method: "PATCH",
     body: JSON.stringify({
       name,
       ...truckPayload,
-      ...driverPayload,
-      twoDayTour
+      ...driverPayload
     })
   });
 
@@ -2955,7 +2938,6 @@ async function savePtvExportDetails(id) {
     elements.ptvExportName.value = name || entry.name || "";
     elements.ptvExportTruck.value = truckPayload.truckId;
     elements.ptvExportDriver.value = driverPayload.driverPhoneId;
-    elements.ptvExportTwoDayTour.checked = twoDayTour;
   }
 
   await Promise.all([
@@ -3899,8 +3881,7 @@ async function openPtvRemoteControl() {
         orderNumbers,
         exportName: ptvExportName(),
         ...selectedPtvTruckPayload(),
-        ...selectedPtvDriverPayload(),
-        ...selectedPtvTourFlagsPayload()
+        ...selectedPtvDriverPayload()
       })
     });
 
@@ -3996,8 +3977,7 @@ async function createPtvExportRecord(orderNumbers) {
       name: ptvExportName(),
       orderNumbers,
       ...selectedPtvTruckPayload(),
-      ...selectedPtvDriverPayload(),
-      ...selectedPtvTourFlagsPayload()
+      ...selectedPtvDriverPayload()
     })
   });
 }
@@ -4024,7 +4004,6 @@ function resetPtvPlanningForm() {
   elements.ptvSearchInput.value = "";
   elements.ptvExportTruck.value = "";
   elements.ptvExportDriver.value = "";
-  elements.ptvExportTwoDayTour.checked = false;
   elements.ptvFilterDate.value = "";
   elements.ptvFilterTour.value = "";
   renderPtvWeekPicker();

@@ -2621,13 +2621,51 @@ function sanitizeUser(input, partial = false) {
 }
 
 function sanitizeUserPreferences(input) {
-  const theme = text(input.theme);
+  const preferences = {};
 
-  if (!["light", "dark", "system"].includes(theme)) {
-    throw new Error("Ungültiges Design.");
+  if (Object.hasOwn(input, "theme")) {
+    const theme = text(input.theme);
+
+    if (!["light", "dark", "system"].includes(theme)) {
+      throw new Error("Ungültiges Design.");
+    }
+
+    preferences.theme = theme;
   }
 
-  return { theme };
+  if (Object.hasOwn(input, "orderSort")) {
+    preferences.orderSort = sanitizeSortPreference(input.orderSort, [
+      "status", "notifiedAt", "driver", "orderNumber", "customer", "commission",
+      "deliveryDate", "deliveryWeek", "tour", "deliveryAddress", "contact"
+    ]);
+  }
+
+  if (Object.hasOwn(input, "ptvSort")) {
+    preferences.ptvSort = sanitizeSortPreference(input.ptvSort, [
+      "selection", "orderNumber", "customer", "deliveryDate", "tour", "address", "weight"
+    ]);
+  }
+
+  if (Object.keys(preferences).length === 0) {
+    throw new Error("Keine Profileinstellung übergeben.");
+  }
+
+  return preferences;
+}
+
+function sanitizeSortPreference(input, allowedKeys) {
+  const key = text(input?.key);
+  const direction = text(input?.direction) || "asc";
+
+  if (key && !allowedKeys.includes(key)) {
+    throw new Error("Ungültige Sortierspalte.");
+  }
+
+  if (!["asc", "desc"].includes(direction)) {
+    throw new Error("Ungültige Sortierrichtung.");
+  }
+
+  return { key, direction };
 }
 
 function requireAuth(request, response, next) {

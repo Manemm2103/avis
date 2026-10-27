@@ -76,6 +76,7 @@ const state = {
   ptvDraggedOrderNumber: "",
   ptvAutoRefreshTimer: null,
   mailJobsAutoRefreshTimer: null,
+  sortPreferenceSaveTimer: null,
   ptvRefreshInFlight: false,
   selectedOrder: null,
   notifySelectedOrder: false,
@@ -912,6 +913,8 @@ async function logout() {
   }
 
   localStorage.removeItem("avisToken");
+  window.clearTimeout(state.sortPreferenceSaveTimer);
+  state.sortPreferenceSaveTimer = null;
   state.token = "";
   state.currentUser = null;
   syncThemeControl();
@@ -920,6 +923,7 @@ async function logout() {
 
 async function enterApp() {
   setStatusFilter("open");
+  applyUserSortPreferences();
   elements.loginView.hidden = true;
   elements.appShell.hidden = false;
   elements.currentUser.textContent = state.currentUser?.displayName || state.currentUser?.username || "-";
@@ -957,21 +961,68 @@ function setStatusFilter(status) {
 function setOrderSort(key) {
   if (state.sort.key === key) {
     state.sort.direction = state.sort.direction === "asc" ? "desc" : "asc";
+    scheduleSortPreferencesSave();
     return;
   }
 
   state.sort.key = key;
   state.sort.direction = "asc";
+  scheduleSortPreferencesSave();
 }
 
 function setPtvSort(key) {
   if (state.ptvSort.key === key) {
     state.ptvSort.direction = state.ptvSort.direction === "asc" ? "desc" : "asc";
+    scheduleSortPreferencesSave();
     return;
   }
 
   state.ptvSort.key = key;
   state.ptvSort.direction = "asc";
+  scheduleSortPreferencesSave();
+}
+
+function applyUserSortPreferences() {
+  state.sort = normalizeSortPreference(state.currentUser?.orderSort, [
+    "status", "notifiedAt", "driver", "orderNumber", "customer", "commission",
+    "deliveryDate", "deliveryWeek", "tour", "deliveryAddress", "contact"
+  ]);
+  state.ptvSort = normalizeSortPreference(state.currentUser?.ptvSort, [
+    "selection", "orderNumber", "customer", "deliveryDate", "tour", "address", "weight"
+  ]);
+}
+
+function normalizeSortPreference(preference, allowedKeys) {
+  const key = allowedKeys.includes(preference?.key) ? preference.key : "";
+  return {
+    key,
+    direction: preference?.direction === "desc" ? "desc" : "asc"
+  };
+}
+
+function scheduleSortPreferencesSave() {
+  window.clearTimeout(state.sortPreferenceSaveTimer);
+  state.sortPreferenceSaveTimer = window.setTimeout(saveSortPreferences, 250);
+}
+
+async function saveSortPreferences() {
+  state.sortPreferenceSaveTimer = null;
+
+  if (!state.token) {
+    return;
+  }
+
+  try {
+    state.currentUser = await api("/api/auth/me", {
+      method: "PATCH",
+      body: JSON.stringify({
+        orderSort: state.sort,
+        ptvSort: state.ptvSort
+      })
+    });
+  } catch (error) {
+    showToast(`Sortierung konnte nicht gespeichert werden: ${error.message}`);
+  }
 }
 
 function clearFilters() {

@@ -421,10 +421,21 @@ export class LocalStore {
 
     const next = {
       ...this.state.users[index],
-      theme: normalizeTheme(input.theme),
       updatedAt: new Date().toISOString(),
       updatedBy: actor?.displayName || actor?.username || ""
     };
+
+    if (Object.hasOwn(input, "theme")) {
+      next.theme = normalizeTheme(input.theme);
+    }
+
+    if (Object.hasOwn(input, "orderSort")) {
+      next.orderSort = { ...input.orderSort };
+    }
+
+    if (Object.hasOwn(input, "ptvSort")) {
+      next.ptvSort = { ...input.ptvSort };
+    }
 
     this.state.users[index] = next;
     await this.save();
@@ -1435,6 +1446,8 @@ function publicUser(user) {
     active: user.active !== false,
     authProvider: user.authProvider || "local",
     theme: normalizeTheme(user.theme),
+    orderSort: normalizeSortPreference(user.orderSort),
+    ptvSort: normalizeSortPreference(user.ptvSort),
     lastLoginAt: user.lastLoginAt || "",
     lastActiveAt: user.lastActiveAt || user.lastLoginAt || "",
     createdAt: user.createdAt || "",
@@ -1444,6 +1457,13 @@ function publicUser(user) {
 
 function normalizeTheme(value) {
   return ["light", "dark", "system"].includes(value) ? value : "light";
+}
+
+function normalizeSortPreference(value) {
+  return {
+    key: String(value?.key || ""),
+    direction: value?.direction === "desc" ? "desc" : "asc"
+  };
 }
 
 function uniqueOrderNumbers(values) {

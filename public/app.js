@@ -142,6 +142,7 @@ const elements = {
   ptvAssemblyDate: document.querySelector("#ptv-assembly-date"),
   ptvSearchInput: document.querySelector("#ptv-search-input"),
   ptvClearFilters: document.querySelector("#ptv-clear-filters"),
+  ptvNewOrderButton: document.querySelector("#ptv-new-order-button"),
   ptvCount: document.querySelector("#ptv-count"),
   ptvSubline: document.querySelector("#ptv-subline"),
   ptvClearSelection: document.querySelector("#ptv-clear-selection"),
@@ -520,6 +521,7 @@ function bindEvents() {
     renderPtv();
   }, 150));
   elements.ptvClearFilters.addEventListener("click", clearPtvFilters);
+  elements.ptvNewOrderButton.addEventListener("click", openManualOrderModal);
   elements.ptvClearSelection.addEventListener("click", clearPtvSelection);
   elements.ptvOpenRemote.addEventListener("click", openPtvRemoteControl);
   elements.ptvExportTruck.addEventListener("change", () => renderPtv());

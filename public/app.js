@@ -3047,12 +3047,10 @@ async function removeOrderFromPtvExport(exportId, orderNumber) {
     return;
   }
 
-  if (isPtvExportOptimized(entry)) {
-    showToast("Aus bereits optimierten Touren können keine einzelnen Aufträge entfernt werden.");
-    return;
-  }
-
-  const confirmed = await requestConfirm(`Soll Auftrag "${orderNumber}" aus der Tourzusammenstellung "${entry.name}" entfernt werden?`);
+  const wasOptimized = isPtvExportOptimized(entry);
+  const confirmed = await requestConfirm(wasOptimized
+    ? `Soll Auftrag "${orderNumber}" aus der optimierten Tour "${entry.name}" entfernt werden? Die bisherige PTV-Optimierung wird ungültig. Die Tour muss anschließend zwingend erneut an PTV übergeben und zurückimportiert werden.`
+    : `Soll Auftrag "${orderNumber}" aus der Tourzusammenstellung "${entry.name}" entfernt werden?`);
 
   if (!confirmed) {
     return;
@@ -3067,10 +3065,19 @@ async function removeOrderFromPtvExport(exportId, orderNumber) {
     state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
   }
 
-  await loadPtvExports();
-  await loadPtvOrders();
+  if (wasOptimized) {
+    state.ptvOptimizationStatus = "exported";
+    state.ptvExpandedExportId = exportId;
+    document.querySelectorAll("[data-ptv-optimization]").forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.ptvOptimization === state.ptvOptimizationStatus);
+    });
+  }
+
+  await Promise.all([loadPtvExports(), loadPtvOrders(), loadOrders()]);
   renderPtv();
-  showToast("Auftrag aus Tourzusammenstellung entfernt.");
+  showToast(wasOptimized
+    ? "Auftrag entfernt. Die Tour muss zwingend erneut an PTV übergeben werden."
+    : "Auftrag aus Tourzusammenstellung entfernt.");
 }
 
 function addPtvListOrder(orderNumber) {

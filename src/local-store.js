@@ -1075,6 +1075,7 @@ export class LocalStore {
       exportEntry.routeInfos = {};
       exportEntry.optimizedAt = "";
       exportEntry.optimizedBy = "";
+      this.clearPtvRouteData(exportEntry.orderNumbers, actor);
       await this.applyPtvExportTags(exportEntry, actor, false);
     }
     this.applyTwoDayTransition(exportEntry, "", actor);
@@ -1083,6 +1084,25 @@ export class LocalStore {
 
     await this.save();
     return exportEntry;
+  }
+
+  clearPtvRouteData(orderNumbers, actor) {
+    const now = new Date().toISOString();
+    const actorName = actor?.displayName || actor?.username || "Unbekannt";
+
+    for (const orderNumber of uniqueOrderNumbers(orderNumbers)) {
+      const current = this.state.avisByOrder[orderNumber] || {};
+      const next = { ...current };
+      delete next.routeSequence;
+      delete next.routeSequenceUpdatedAt;
+      delete next.routeSequenceUpdatedBy;
+      delete next.routeSequenceUpdatedByUserId;
+      delete next.ptvRouteInfo;
+      next.updatedAt = now;
+      next.updatedBy = actorName;
+      next.updatedByUserId = actor?.id || current.updatedByUserId || "";
+      this.state.avisByOrder[orderNumber] = next;
+    }
   }
 
   removePtvExportTagFromOrder(orderNumber, exportId, exportEntry = null) {

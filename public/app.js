@@ -1101,6 +1101,7 @@ function showView(view) {
 }
 
 function openPtvOrderSelection() {
+  clearPtvPlanningAssignments();
   state.ptvPage = "orders";
   state.ptvStatus = "none";
   syncPtvStatusButtons();
@@ -1112,8 +1113,8 @@ function showPtvPage(page) {
   elements.ptvAssembliesPage.hidden = state.ptvPage !== "assemblies";
   elements.ptvOrdersPage.hidden = state.ptvPage !== "orders";
 
-  if (state.ptvPage === "orders" && state.ptvExpandedExportId) {
-    clearPtvExportName();
+  if (state.ptvPage === "orders") {
+    clearPtvPlanningAssignments();
   }
 
   document.querySelectorAll("[data-ptv-page]").forEach((button) => {
@@ -4349,19 +4350,23 @@ function clearPtvExportName() {
   elements.ptvExportName.value = "";
 }
 
-function resetPtvPlanningForm() {
+function clearPtvPlanningAssignments() {
   clearPtvExportName();
+  state.ptvExportId = "";
+  elements.ptvExportTruck.value = "";
+  elements.ptvExportDriver.value = "";
+}
+
+function resetPtvPlanningForm() {
+  clearPtvPlanningAssignments();
   state.ptvSearch = "";
   state.ptvDeliveryDate = "";
   state.ptvDeliveryWeek = "";
   state.ptvTour = "";
-  state.ptvExportId = "";
   state.ptvListOrderNumbers = [];
   state.ptvSelectedOrderNumbers.clear();
   state.ptvLastSelectedOrderNumber = "";
   elements.ptvSearchInput.value = "";
-  elements.ptvExportTruck.value = "";
-  elements.ptvExportDriver.value = "";
   elements.ptvFilterDate.value = "";
   elements.ptvFilterTour.value = "";
   renderPtvWeekPicker();

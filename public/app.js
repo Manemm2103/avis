@@ -2696,24 +2696,11 @@ function renderPtv(errorMessage = "") {
 
   const orders = ptvFilteredOrders();
   const exclusionMode = state.ptvStatus === "excluded";
-  const selectedCount = activePtvSelectedOrderNumbers().length;
-  const countLabel = selectedCount === 1 ? "1 Auftrag" : `${selectedCount} Aufträge`;
-
-  elements.ptvCount.textContent = countLabel;
-  elements.ptvSubline.textContent = selectedCount > 0
-    ? "markiert für Tour oder Massenbearbeitung"
-    : "noch keine Aufträge markiert";
-  elements.ptvClearSelection.hidden = false;
-  elements.ptvClearSelection.disabled = selectedCount === 0;
-  elements.ptvOpenRemote.disabled = exclusionMode || selectedPtvOrderNumbers().length === 0;
-  elements.ptvExcludeSelection.textContent = exclusionMode ? "Markierte freigeben" : "Markierte ausnehmen";
-  elements.ptvExcludeSelection.disabled = exclusionMode
-    ? selectedExcludedPtvOrderNumbers().length === 0
-    : ptvExclusionTargetOrderNumbers().length === 0;
+  updatePtvSelectionControls();
 
   if (errorMessage) {
     elements.ptvBody.innerHTML = `<tr><td class="empty is-error" colspan="8">${escapeHtml(errorMessage)}</td></tr>`;
-    elements.ptvListBody.innerHTML = `<tr><td class="empty is-error" colspan="7">${escapeHtml(errorMessage)}</td></tr>`;
+    renderPtvSelectedList(errorMessage);
     return;
   }
 
@@ -2756,6 +2743,57 @@ function renderPtv(errorMessage = "") {
         </tr>
       `;
     }).join("");
+  }
+
+  renderPtvSelectedList();
+}
+
+function updatePtvSelectionControls() {
+  const exclusionMode = state.ptvStatus === "excluded";
+  const selectedCount = activePtvSelectedOrderNumbers().length;
+  const countLabel = selectedCount === 1 ? "1 Auftrag" : `${selectedCount} Aufträge`;
+
+  elements.ptvCount.textContent = countLabel;
+  elements.ptvSubline.textContent = selectedCount > 0
+    ? "markiert für Tour oder Massenbearbeitung"
+    : "noch keine Aufträge markiert";
+  elements.ptvClearSelection.hidden = false;
+  elements.ptvClearSelection.disabled = selectedCount === 0;
+  elements.ptvOpenRemote.disabled = exclusionMode || selectedPtvOrderNumbers().length === 0;
+  elements.ptvExcludeSelection.textContent = exclusionMode ? "Markierte freigeben" : "Markierte ausnehmen";
+  elements.ptvExcludeSelection.disabled = exclusionMode
+    ? selectedExcludedPtvOrderNumbers().length === 0
+    : ptvExclusionTargetOrderNumbers().length === 0;
+}
+
+function renderPtvSelectionState() {
+  if (state.ptvSort.key === "selection") {
+    renderPtv();
+    return;
+  }
+
+  const selectedOrderNumbers = new Set(activePtvSelectedOrderNumbers());
+
+  updatePtvSelectionControls();
+  elements.ptvBody.querySelectorAll("[data-ptv-order-number]").forEach((row) => {
+    const selected = selectedOrderNumbers.has(row.dataset.ptvOrderNumber || "");
+    const excluded = row.classList.contains("is-excluded");
+    row.classList.toggle("is-selected", selected);
+    row.setAttribute("aria-selected", selected ? "true" : "false");
+
+    const marker = row.querySelector(".sequence-pill");
+    if (marker) {
+      marker.textContent = selected ? "OK" : excluded ? "X" : "+";
+    }
+  });
+
+  renderPtvSelectedList();
+}
+
+function renderPtvSelectedList(errorMessage = "") {
+  if (errorMessage) {
+    elements.ptvListBody.innerHTML = `<tr><td class="empty is-error" colspan="7">${escapeHtml(errorMessage)}</td></tr>`;
+    return;
   }
 
   const listOrders = ptvTargetOrders();
@@ -3318,7 +3356,7 @@ function handlePtvRowSelection(event, orderNumber) {
   }
 
   state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
-  renderPtv();
+  renderPtvSelectionState();
 }
 
 function handleExcludedPtvRowSelection(event, orderNumber, visible) {
@@ -3345,21 +3383,21 @@ function handleExcludedPtvRowSelection(event, orderNumber, visible) {
     state.ptvExcludedLastSelectedOrderNumber = orderNumber;
   }
 
-  renderPtv();
+  renderPtvSelectionState();
 }
 
 function clearActivePtvSelection() {
   if (state.ptvStatus === "excluded") {
     state.ptvExcludedSelectedOrderNumbers.clear();
     state.ptvExcludedLastSelectedOrderNumber = "";
-    renderPtv();
+    renderPtvSelectionState();
     return;
   }
 
   state.ptvListOrderNumbers = [];
   state.ptvSelectedOrderNumbers.clear();
   state.ptvLastSelectedOrderNumber = "";
-  renderPtv();
+  renderPtvSelectionState();
 }
 
 function clearPtvSelection() {
@@ -3667,7 +3705,7 @@ function togglePtvListOrder(orderNumber) {
 function removePtvListOrder(orderNumber) {
   state.ptvListOrderNumbers = state.ptvListOrderNumbers.filter((item) => item !== orderNumber);
   state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
-  renderPtv();
+  renderPtvSelectionState();
 }
 
 function updateSortHeaders() {

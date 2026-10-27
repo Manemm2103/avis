@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AVIS</title>
-    <link rel="stylesheet" href="/style.css?v=20260706-ptv-list">
+    <link rel="stylesheet" href="/style.css?v=20261027-pinned-layout">
   </head>
   <body>
     <section class="login-view" id="login-view">
@@ -43,6 +43,10 @@
           </div>
         </button>
         <div class="topbar-side">
+          <button class="pin-button" id="layout-pin-button" type="button" aria-pressed="false" title="Kopfbereich fixieren">
+            <span class="pin-icon" aria-hidden="true"></span>
+            <span class="pin-label">Fixieren</span>
+          </button>
           <div class="stats" aria-live="polite">
             <span><strong id="stat-total">0</strong> Gesamt</span>
             <span><strong id="stat-open">0</strong> Offen</span>
@@ -748,7 +752,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.10.26.04</footer>
+      <footer class="app-footer">Version 2026.10.27.01</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -985,6 +989,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20261026-select-two-day-stops" type="module"></script>
+    <script src="/app.js?v=20261027-pinned-layout" type="module"></script>
   </body>
 </html>

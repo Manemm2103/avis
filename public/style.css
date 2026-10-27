@@ -146,6 +146,66 @@ button {
   flex-wrap: wrap;
 }
 
+.pin-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.pin-button:hover,
+.pin-button:focus-visible {
+  color: var(--text);
+  background: var(--surface-strong);
+}
+
+.pin-button.is-active {
+  border-color: var(--accent);
+  background: var(--selected-bg);
+  color: var(--selected-text);
+}
+
+.pin-icon {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  transform: rotate(-32deg);
+  transition: transform 160ms ease;
+}
+
+.pin-icon::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 1px;
+  width: 8px;
+  height: 7px;
+  border: 2px solid currentColor;
+  border-radius: 4px 4px 2px 2px;
+}
+
+.pin-icon::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 9px;
+  width: 2px;
+  height: 7px;
+  background: currentColor;
+  border-radius: 2px;
+}
+
+.pin-button.is-active .pin-icon {
+  transform: rotate(0deg);
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -298,6 +358,70 @@ h2 {
 main {
   flex: 1;
   padding: 12px 24px 28px;
+}
+
+html[data-layout-pinned="true"],
+html[data-layout-pinned="true"] body {
+  height: 100%;
+  overflow: hidden;
+}
+
+html[data-layout-pinned="true"] .app-shell {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+html[data-layout-pinned="true"] .topbar,
+html[data-layout-pinned="true"] .tabs,
+html[data-layout-pinned="true"] .app-footer {
+  flex: 0 0 auto;
+}
+
+html[data-layout-pinned="true"] main {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+html[data-layout-pinned="true"] .view:not([hidden]) {
+  width: 100%;
+  min-height: 0;
+}
+
+html[data-layout-pinned="true"] #orders-view,
+html[data-layout-pinned="true"] #loading-list-view,
+html[data-layout-pinned="true"] #ptv-view {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+html[data-layout-pinned="true"] #orders-view > .table-wrap,
+html[data-layout-pinned="true"] #loading-list-view > .loading-list-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+html[data-layout-pinned="true"] #orders-view > .table-wrap thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  box-shadow: 0 1px 0 var(--line);
+}
+
+html[data-layout-pinned="true"] #ptv-assemblies-page:not([hidden]),
+html[data-layout-pinned="true"] #ptv-orders-page:not([hidden]) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+html[data-layout-pinned="true"] #import-view,
+html[data-layout-pinned="true"] #masterdata-view {
+  overflow: auto;
 }
 
 .app-footer {

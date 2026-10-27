@@ -12,6 +12,7 @@ const state = {
   driverPhoneId: "",
   orders: [],
   ptvOrders: [],
+  ptvOrderMap: new Map(),
   drivers: [],
   tours: [],
   filterTours: [],
@@ -1313,6 +1314,7 @@ async function loadPtvOrders() {
   try {
     const data = await api("/api/orders?status=all");
     state.ptvOrders = data.orders;
+    state.ptvOrderMap = new Map(state.ptvOrders.map((order) => [order.orderNumber, order]));
     updatePtvFilterWeeks();
     reconcilePtvSelection();
     renderPtv();
@@ -1321,6 +1323,7 @@ async function loadPtvOrders() {
     renderPlannedTours();
   } catch (error) {
     state.ptvOrders = [];
+    state.ptvOrderMap = new Map();
     updatePtvFilterWeeks();
     reconcilePtvSelection();
     renderPtv(sourceErrorMessage(error));
@@ -2766,16 +2769,21 @@ function updatePtvSelectionControls() {
     : ptvExclusionTargetOrderNumbers().length === 0;
 }
 
-function renderPtvSelectionState() {
+function renderPtvSelectionState(changedOrderNumbers = null) {
   if (state.ptvSort.key === "selection") {
     renderPtv();
     return;
   }
 
   const selectedOrderNumbers = new Set(activePtvSelectedOrderNumbers());
+  const rows = changedOrderNumbers
+    ? [...new Set(changedOrderNumbers)].map((orderNumber) => (
+      elements.ptvBody.querySelector(`[data-ptv-order-number="${CSS.escape(orderNumber)}"]`)
+    )).filter(Boolean)
+    : elements.ptvBody.querySelectorAll("[data-ptv-order-number]");
 
   updatePtvSelectionControls();
-  elements.ptvBody.querySelectorAll("[data-ptv-order-number]").forEach((row) => {
+  rows.forEach((row) => {
     const selected = selectedOrderNumbers.has(row.dataset.ptvOrderNumber || "");
     const excluded = row.classList.contains("is-excluded");
     row.classList.toggle("is-selected", selected);
@@ -3281,15 +3289,13 @@ function ptvSortValue(order, key) {
 }
 
 function selectedPtvOrderNumbers() {
-  const known = new Set(state.ptvOrders.map((order) => order.orderNumber));
-  return state.ptvListOrderNumbers.filter((orderNumber) => known.has(orderNumber));
+  return state.ptvListOrderNumbers.filter((orderNumber) => state.ptvOrderMap.has(orderNumber));
 }
 
 function selectedExcludedPtvOrderNumbers() {
-  const excluded = new Set(state.ptvOrders
-    .filter((order) => order.avis.excludedFromPlanning)
-    .map((order) => order.orderNumber));
-  return [...state.ptvExcludedSelectedOrderNumbers].filter((orderNumber) => excluded.has(orderNumber));
+  return [...state.ptvExcludedSelectedOrderNumbers].filter((orderNumber) => (
+    state.ptvOrderMap.get(orderNumber)?.avis.excludedFromPlanning
+  ));
 }
 
 function activePtvSelectedOrderNumbers() {
@@ -3299,15 +3305,13 @@ function activePtvSelectedOrderNumbers() {
 }
 
 function ptvTargetOrders() {
-  const orderMap = new Map(state.ptvOrders.map((order) => [order.orderNumber, order]));
   return selectedPtvOrderNumbers()
-    .map((orderNumber) => orderMap.get(orderNumber))
+    .map((orderNumber) => state.ptvOrderMap.get(orderNumber))
     .filter(Boolean);
 }
 
 function reconcilePtvSelection() {
-  const known = new Set(state.ptvOrders.map((order) => order.orderNumber));
-  state.ptvListOrderNumbers = state.ptvListOrderNumbers.filter((orderNumber) => known.has(orderNumber));
+  state.ptvListOrderNumbers = state.ptvListOrderNumbers.filter((orderNumber) => state.ptvOrderMap.has(orderNumber));
   state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
   const excluded = new Set(state.ptvOrders
     .filter((order) => order.avis.excludedFromPlanning)
@@ -3316,7 +3320,7 @@ function reconcilePtvSelection() {
     [...state.ptvExcludedSelectedOrderNumbers].filter((orderNumber) => excluded.has(orderNumber))
   );
 
-  if (state.ptvLastSelectedOrderNumber && !known.has(state.ptvLastSelectedOrderNumber)) {
+  if (state.ptvLastSelectedOrderNumber && !state.ptvOrderMap.has(state.ptvLastSelectedOrderNumber)) {
     state.ptvLastSelectedOrderNumber = "";
   }
 
@@ -3326,16 +3330,23 @@ function reconcilePtvSelection() {
 }
 
 function handlePtvRowSelection(event, orderNumber) {
-  const visible = ptvFilteredOrders().map((order) => order.orderNumber);
-
-  if (!visible.includes(orderNumber)) {
+  if (!state.ptvOrderMap.has(orderNumber)) {
     return;
   }
 
+  const before = new Set(activePtvSelectedOrderNumbers());
+
   if (state.ptvStatus === "excluded") {
+    const visible = event.shiftKey && state.ptvExcludedLastSelectedOrderNumber
+      ? ptvFilteredOrders().map((order) => order.orderNumber)
+      : [];
     handleExcludedPtvRowSelection(event, orderNumber, visible);
     return;
   }
+
+  const visible = event.shiftKey && state.ptvLastSelectedOrderNumber
+    ? ptvFilteredOrders().map((order) => order.orderNumber)
+    : [];
 
   if (event.shiftKey && state.ptvLastSelectedOrderNumber && visible.includes(state.ptvLastSelectedOrderNumber)) {
     const start = visible.indexOf(state.ptvLastSelectedOrderNumber);
@@ -3356,10 +3367,11 @@ function handlePtvRowSelection(event, orderNumber) {
   }
 
   state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
-  renderPtvSelectionState();
+  renderPtvSelectionState(changedPtvSelectionOrderNumbers(before));
 }
 
 function handleExcludedPtvRowSelection(event, orderNumber, visible) {
+  const before = new Set(selectedExcludedPtvOrderNumbers());
   if (
     event.shiftKey
     && state.ptvExcludedLastSelectedOrderNumber
@@ -3383,21 +3395,28 @@ function handleExcludedPtvRowSelection(event, orderNumber, visible) {
     state.ptvExcludedLastSelectedOrderNumber = orderNumber;
   }
 
-  renderPtvSelectionState();
+  renderPtvSelectionState(changedPtvSelectionOrderNumbers(before));
+}
+
+function changedPtvSelectionOrderNumbers(before) {
+  const after = new Set(activePtvSelectedOrderNumbers());
+  return [...new Set([...before, ...after])].filter((orderNumber) => before.has(orderNumber) !== after.has(orderNumber));
 }
 
 function clearActivePtvSelection() {
   if (state.ptvStatus === "excluded") {
+    const changedOrderNumbers = [...state.ptvExcludedSelectedOrderNumbers];
     state.ptvExcludedSelectedOrderNumbers.clear();
     state.ptvExcludedLastSelectedOrderNumber = "";
-    renderPtvSelectionState();
+    renderPtvSelectionState(changedOrderNumbers);
     return;
   }
 
+  const changedOrderNumbers = [...state.ptvSelectedOrderNumbers];
   state.ptvListOrderNumbers = [];
   state.ptvSelectedOrderNumbers.clear();
   state.ptvLastSelectedOrderNumber = "";
-  renderPtvSelectionState();
+  renderPtvSelectionState(changedOrderNumbers);
 }
 
 function clearPtvSelection() {
@@ -3561,7 +3580,7 @@ async function removeOrderFromPtvExport(exportId, orderNumber) {
 }
 
 function addPtvListOrder(orderNumber) {
-  const order = state.ptvOrders.find((item) => item.orderNumber === orderNumber);
+  const order = state.ptvOrderMap.get(orderNumber);
 
   if (order?.avis.excludedFromPlanning) {
     showToast(`Auftrag ${orderNumber} ist von der Tourplanung ausgenommen.`);
@@ -3621,9 +3640,8 @@ async function togglePtvPlanningExclusion(orderNumber, excluded) {
 }
 
 function ptvExclusionTargetOrderNumbers() {
-  const orderMap = new Map(state.ptvOrders.map((order) => [order.orderNumber, order]));
   return selectedPtvOrderNumbers().filter((orderNumber) => {
-    const order = orderMap.get(orderNumber);
+    const order = state.ptvOrderMap.get(orderNumber);
     return order && !order.avis.excludedFromPlanning && ptvOptimizationState(order) === "none";
   });
 }
@@ -3705,7 +3723,7 @@ function togglePtvListOrder(orderNumber) {
 function removePtvListOrder(orderNumber) {
   state.ptvListOrderNumbers = state.ptvListOrderNumbers.filter((item) => item !== orderNumber);
   state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
-  renderPtvSelectionState();
+  renderPtvSelectionState([orderNumber]);
 }
 
 function updateSortHeaders() {

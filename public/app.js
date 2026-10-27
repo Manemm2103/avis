@@ -151,6 +151,7 @@ const elements = {
   ptvCount: document.querySelector("#ptv-count"),
   ptvSubline: document.querySelector("#ptv-subline"),
   ptvClearSelection: document.querySelector("#ptv-clear-selection"),
+  ptvExcludeSelection: document.querySelector("#ptv-exclude-selection"),
   ptvOpenRemote: document.querySelector("#ptv-open-remote"),
   ptvExportName: document.querySelector("#ptv-export-name"),
   ptvExportTruck: document.querySelector("#ptv-export-truck"),
@@ -528,6 +529,7 @@ function bindEvents() {
   elements.ptvClearFilters.addEventListener("click", clearPtvFilters);
   elements.ptvNewOrderButton.addEventListener("click", openManualOrderModal);
   elements.ptvClearSelection.addEventListener("click", clearPtvSelection);
+  elements.ptvExcludeSelection.addEventListener("click", excludeSelectedPtvOrders);
   elements.ptvOpenRemote.addEventListener("click", openPtvRemoteControl);
   elements.ptvExportTruck.addEventListener("change", () => renderPtv());
   elements.ptvExportDriver.addEventListener("change", () => renderPtv());
@@ -2722,10 +2724,11 @@ function renderPtv(errorMessage = "") {
 
   elements.ptvCount.textContent = countLabel;
   elements.ptvSubline.textContent = selectedCount > 0
-    ? "in der PTV-Auswahlliste"
-    : "noch keine PTV-Auswahlliste erstellt";
+    ? "markiert für Tour oder Massenbearbeitung"
+    : "noch keine Aufträge markiert";
   elements.ptvClearSelection.hidden = selectedCount === 0;
   elements.ptvOpenRemote.disabled = selectedCount === 0;
+  elements.ptvExcludeSelection.disabled = ptvExclusionTargetOrderNumbers().length === 0;
 
   if (errorMessage) {
     elements.ptvBody.innerHTML = `<tr><td class="empty is-error" colspan="8">${escapeHtml(errorMessage)}</td></tr>`;
@@ -3515,6 +3518,41 @@ async function togglePtvPlanningExclusion(orderNumber, excluded) {
   state.ptvSelectedOrderNumbers.delete(orderNumber);
   await Promise.all([loadPtvOrders(), loadOrders()]);
   showToast(excluded ? `Auftrag ${orderNumber} wurde ausgenommen.` : `Auftrag ${orderNumber} ist wieder für die Tourplanung freigegeben.`);
+}
+
+function ptvExclusionTargetOrderNumbers() {
+  const orderMap = new Map(state.ptvOrders.map((order) => [order.orderNumber, order]));
+  return selectedPtvOrderNumbers().filter((orderNumber) => {
+    const order = orderMap.get(orderNumber);
+    return order && !order.avis.excludedFromPlanning && ptvOptimizationState(order) === "none";
+  });
+}
+
+async function excludeSelectedPtvOrders() {
+  const orderNumbers = ptvExclusionTargetOrderNumbers();
+
+  if (orderNumbers.length === 0) {
+    showToast("Keine noch nicht eingeplanten Aufträge markiert.");
+    return;
+  }
+
+  const label = orderNumbers.length === 1 ? "1 markierter Auftrag" : `${orderNumbers.length} markierte Aufträge`;
+  const confirmed = await requestConfirm(orderNumbers.length === 1
+    ? "Soll der markierte Auftrag wirklich von der Tourplanung ausgenommen werden?"
+    : `Sollen ${orderNumbers.length} markierte Aufträge wirklich von der Tourplanung ausgenommen werden?`);
+
+  if (!confirmed) {
+    return;
+  }
+
+  await api("/api/orders/bulk", {
+    method: "PATCH",
+    body: JSON.stringify({ orderNumbers, excludedFromPlanning: true })
+  });
+
+  clearPtvSelection();
+  await Promise.all([loadPtvOrders(), loadOrders()]);
+  showToast(`${label} wurden ausgenommen.`);
 }
 
 function togglePtvListOrder(orderNumber) {

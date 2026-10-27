@@ -250,6 +250,7 @@
                 <select id="ptv-export-driver"></select>
               </label>
               <button class="secondary" id="ptv-clear-selection" type="button" hidden>Auswahl aufheben</button>
+              <button class="secondary exclusion-button" id="ptv-exclude-selection" type="button" disabled>Markierte ausnehmen</button>
               <button class="secondary" id="ptv-open-remote" type="button">Tour speichern und in PTV öffnen</button>
             </div>
           </div>
@@ -276,23 +277,8 @@
             </table>
           </div>
 
-          <div class="ptv-section-heading">
-            <h3>PTV-Auswahlliste</h3>
-            <p class="help-text">Diese Liste wird exportiert. Nach dem PTV-Reimport entspricht sie der optimierten Reihenfolge und kann per Drag & Drop nachsortiert werden.</p>
-          </div>
-          <div class="table-wrap">
-            <table class="orders-table ptv-table">
-              <thead>
-                <tr>
-                  <th>Reihenfolge</th>
-                  <th>Auftrag</th>
-                  <th>Kunde</th>
-                  <th>Liefertermin</th>
-                  <th>Tour</th>
-                  <th>Adresse</th>
-                  <th>Aktion</th>
-                </tr>
-              </thead>
+          <div id="ptv-selection-preview" hidden aria-hidden="true">
+            <table>
               <tbody id="ptv-list-body"></tbody>
             </table>
           </div>
@@ -803,7 +789,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.10.27.09</footer>
+      <footer class="app-footer">Version 2026.10.27.10</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -1040,6 +1026,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20261027-user-sort-preferences" type="module"></script>
+    <script src="/app.js?v=20261027-bulk-ptv-exclusions" type="module"></script>
   </body>
 </html>

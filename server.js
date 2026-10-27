@@ -453,6 +453,17 @@ app.patch("/api/orders/bulk", async (request, response) => {
       throw new Error("Avisierungen dürfen per Massenbearbeitung nur von Admins und Abteilungsleitern zurückgenommen werden.");
     }
 
+    if (update.values.excludedFromPlanning === true) {
+      const alreadyPlannedOrderNumber = update.orderNumbers.find((orderNumber) => {
+        const tags = store.getAvis(orderNumber)?.ptvExportTags;
+        return Array.isArray(tags) && tags.length > 0;
+      });
+
+      if (alreadyPlannedOrderNumber) {
+        throw new Error(`Auftrag ${alreadyPlannedOrderNumber} ist bereits eingeplant und kann nicht ausgenommen werden.`);
+      }
+    }
+
     for (const orderNumber of update.orderNumbers) {
       const currentAvis = store.getAvis(orderNumber);
       if (update.values.notified === true && !update.values.driverPhoneId && !currentAvis?.driverPhoneId) {
@@ -1529,6 +1540,10 @@ function sanitizeBulkAvisUpdate(input) {
 
   if (Object.hasOwn(input, "completed")) {
     values.completed = Boolean(input.completed);
+  }
+
+  if (Object.hasOwn(input, "excludedFromPlanning")) {
+    values.excludedFromPlanning = Boolean(input.excludedFromPlanning);
   }
 
   if (Object.keys(values).length === 0) {

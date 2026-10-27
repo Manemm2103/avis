@@ -1219,6 +1219,9 @@ function mergeOrder(order, avis, driverMap) {
       notified: Boolean(avis?.notified),
       notifiedAt: avis?.notifiedAt || "",
       notifiedBy: avis?.notifiedBy || "",
+      completed: Boolean(avis?.completed),
+      completedAt: avis?.completedAt || "",
+      completedBy: avis?.completedBy || "",
       note: avis?.note || "",
       customerInfo: avis?.customerInfo || "",
       updatedAt: avis?.updatedAt || "",
@@ -1454,6 +1457,10 @@ function sanitizeAvisUpdate(input) {
     update.notified = Boolean(input.notified);
   }
 
+  if (Object.hasOwn(input, "completed")) {
+    update.completed = Boolean(input.completed);
+  }
+
   if (Object.hasOwn(input, "note")) {
     update.note = text(input.note);
   }
@@ -1493,6 +1500,10 @@ function sanitizeBulkAvisUpdate(input) {
     values.notified = true;
   } else if (input.notified === false) {
     values.notified = false;
+  }
+
+  if (Object.hasOwn(input, "completed")) {
+    values.completed = Boolean(input.completed);
   }
 
   if (Object.keys(values).length === 0) {

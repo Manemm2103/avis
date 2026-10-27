@@ -392,6 +392,7 @@ html[data-layout-pinned="true"] .view:not([hidden]) {
 
 html[data-layout-pinned="true"] #orders-view,
 html[data-layout-pinned="true"] #loading-list-view,
+html[data-layout-pinned="true"] #planned-tours-view,
 html[data-layout-pinned="true"] #ptv-view {
   display: flex;
   flex-direction: column;
@@ -399,13 +400,15 @@ html[data-layout-pinned="true"] #ptv-view {
 }
 
 html[data-layout-pinned="true"] #orders-view > .table-wrap,
+html[data-layout-pinned="true"] #planned-tours-view > .table-wrap,
 html[data-layout-pinned="true"] #loading-list-view > .loading-list-content {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
 }
 
-html[data-layout-pinned="true"] #orders-view > .table-wrap thead th {
+html[data-layout-pinned="true"] #orders-view > .table-wrap thead th,
+html[data-layout-pinned="true"] #planned-tours-view > .table-wrap thead th {
   position: sticky;
   top: 0;
   z-index: 3;
@@ -1233,6 +1236,38 @@ tbody tr:last-child td {
   background: #dcfce7;
   color: #166534;
 }
+
+.badge.is-completed {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.planned-tours-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.planned-tours-actions > div:first-child {
+  margin-right: auto;
+}
+
+#planned-tours-body tr[data-planned-order-number] {
+  cursor: pointer;
+  user-select: none;
+}
+
+.planned-tours-table th:nth-child(1) { width: 8%; }
+.planned-tours-table th:nth-child(2) { width: 8%; }
+.planned-tours-table th:nth-child(3) { width: 13%; }
+.planned-tours-table th:nth-child(4) { width: 13%; }
+.planned-tours-table th:nth-child(5) { width: 9%; }
+.planned-tours-table th:nth-child(6) { width: 11%; }
+.planned-tours-table th:nth-child(7) { width: 8%; }
+.planned-tours-table th:nth-child(8) { width: 10%; }
+.planned-tours-table th:nth-child(9) { width: 10%; }
+.planned-tours-table th:nth-child(10) { width: 10%; }
 
 .empty {
   padding: 28px 12px;

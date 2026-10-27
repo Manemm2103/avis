@@ -492,6 +492,8 @@ export class LocalStore {
     const actorName = actor?.displayName || actor?.username || "Unbekannt";
     const isNotifying = update.notified === true && !current.notified;
     const isRevokingNotification = update.notified === false && current.notified;
+    const isCompleting = update.completed === true && !current.completed;
+    const isReopening = update.completed === false && current.completed;
     const next = {
       ...current,
       ...update,
@@ -503,7 +505,15 @@ export class LocalStore {
 
     next.log.push({
       id: crypto.randomUUID(),
-      type: isNotifying ? "avisiert" : isRevokingNotification ? "avisierung_zurueckgenommen" : "gespeichert",
+      type: isNotifying
+        ? "avisiert"
+        : isRevokingNotification
+          ? "avisierung_zurueckgenommen"
+          : isCompleting
+            ? "abgeschlossen"
+            : isReopening
+              ? "abschluss_zurueckgenommen"
+              : "gespeichert",
       at: now,
       by: actorName,
       byUserId: actor?.id || ""
@@ -519,6 +529,18 @@ export class LocalStore {
       next.notifiedAt = "";
       next.notifiedBy = "";
       next.notifiedByUserId = "";
+    }
+
+    if (isCompleting) {
+      next.completedAt = now;
+      next.completedBy = actorName;
+      next.completedByUserId = actor?.id || "";
+    }
+
+    if (!next.completed) {
+      next.completedAt = "";
+      next.completedBy = "";
+      next.completedByUserId = "";
     }
 
     this.state.avisByOrder[orderNumber] = next;

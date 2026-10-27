@@ -49,6 +49,10 @@ const state = {
   ptvAssemblySearch: "",
   ptvAssemblyDate: "",
   ptvExpandedExportId: "",
+  plannedToursStatus: "open",
+  plannedToursSearch: "",
+  plannedToursSelectedOrderNumbers: new Set(),
+  plannedToursLastSelectedOrderNumber: "",
   loadingListExportId: "",
   loadingListDeliveryDate: "",
   loadingListLoadingText: "",
@@ -90,6 +94,7 @@ const elements = {
     orders: document.querySelector("#tab-orders"),
     ptv: document.querySelector("#tab-ptv"),
     loadingList: document.querySelector("#tab-loading-list"),
+    plannedTours: document.querySelector("#tab-planned-tours"),
     import: document.querySelector("#tab-import"),
     masterdata: document.querySelector("#tab-masterdata")
   },
@@ -97,6 +102,7 @@ const elements = {
     orders: document.querySelector("#orders-view"),
     ptv: document.querySelector("#ptv-view"),
     loadingList: document.querySelector("#loading-list-view"),
+    plannedTours: document.querySelector("#planned-tours-view"),
     import: document.querySelector("#import-view"),
     masterdata: document.querySelector("#masterdata-view")
   },
@@ -158,6 +164,12 @@ const elements = {
   loadingListRemoveOrders: document.querySelector("#loading-list-remove-orders"),
   loadingListSummary: document.querySelector("#loading-list-summary"),
   loadingListContent: document.querySelector("#loading-list-content"),
+  plannedToursSearch: document.querySelector("#planned-tours-search"),
+  plannedToursCount: document.querySelector("#planned-tours-count"),
+  plannedToursSubline: document.querySelector("#planned-tours-subline"),
+  plannedToursClearSelection: document.querySelector("#planned-tours-clear-selection"),
+  plannedToursComplete: document.querySelector("#planned-tours-complete"),
+  plannedToursBody: document.querySelector("#planned-tours-body"),
   loadingListSettingsForm: document.querySelector("#loading-list-settings-form"),
   loadingListShippingEhLimit: document.querySelector("#loading-list-shipping-eh-limit"),
   loadingListTrucks: document.querySelector("#loading-list-trucks"),
@@ -345,6 +357,7 @@ function bindEvents() {
   elements.tabs.orders.addEventListener("click", () => showView("orders"));
   elements.tabs.ptv.addEventListener("click", () => openPtvOrderSelection());
   elements.tabs.loadingList.addEventListener("click", () => showView("loadingList"));
+  elements.tabs.plannedTours.addEventListener("click", () => showView("plannedTours"));
   elements.tabs.import.addEventListener("click", () => showView("import"));
   elements.tabs.masterdata.addEventListener("click", () => showView("masterdata"));
   elements.loadingListExport.addEventListener("change", () => {
@@ -377,6 +390,49 @@ function bindEvents() {
   elements.loadingListNotify.addEventListener("click", notifyLoadingList);
   elements.loadingListRemoveOrders.addEventListener("click", removeSelectedOrdersFromLoadingList);
   elements.loadingListContent.addEventListener("click", handleLoadingListClick);
+  elements.plannedToursSearch.addEventListener("input", debounce(() => {
+    state.plannedToursSearch = elements.plannedToursSearch.value;
+    reconcilePlannedToursSelection();
+    renderPlannedTours();
+  }, 150));
+  elements.plannedToursClearSelection.addEventListener("click", clearPlannedToursSelection);
+  elements.plannedToursComplete.addEventListener("click", completeSelectedPlannedTours);
+  elements.plannedToursBody.addEventListener("click", async (event) => {
+    const editButton = event.target.closest("[data-planned-edit-order]");
+
+    if (editButton) {
+      event.stopPropagation();
+      openDrawer(editButton.dataset.plannedEditOrder);
+      return;
+    }
+
+    const completeButton = event.target.closest("[data-planned-toggle-completion]");
+
+    if (completeButton) {
+      event.stopPropagation();
+      await setPlannedToursCompletion(
+        [completeButton.dataset.plannedToggleCompletion],
+        completeButton.dataset.completed !== "true"
+      );
+      return;
+    }
+
+    const row = event.target.closest("[data-planned-order-number]");
+
+    if (row) {
+      handlePlannedToursRowSelection(event, row.dataset.plannedOrderNumber);
+    }
+  });
+  document.querySelectorAll("[data-planned-status]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.plannedToursStatus = button.dataset.plannedStatus || "open";
+      document.querySelectorAll("[data-planned-status]").forEach((item) => {
+        item.classList.toggle("is-active", item.dataset.plannedStatus === state.plannedToursStatus);
+      });
+      reconcilePlannedToursSelection();
+      renderPlannedTours();
+    });
+  });
   elements.loadingListSettingsForm.addEventListener("submit", saveLoadingListSettings);
   elements.filterDate.addEventListener("change", () => {
     state.deliveryDate = elements.filterDate.value;
@@ -997,17 +1053,20 @@ function showView(view) {
   const isOrders = view === "orders";
   const isPtv = view === "ptv";
   const isLoadingList = view === "loadingList";
+  const isPlannedTours = view === "plannedTours";
   const isImport = view === "import";
   const isMasterdata = view === "masterdata";
   state.currentView = view;
   elements.views.orders.hidden = !isOrders;
   elements.views.ptv.hidden = !isPtv;
   elements.views.loadingList.hidden = !isLoadingList;
+  elements.views.plannedTours.hidden = !isPlannedTours;
   elements.views.import.hidden = !isImport;
   elements.views.masterdata.hidden = !isMasterdata;
   elements.tabs.orders.classList.toggle("is-active", isOrders);
   elements.tabs.ptv.classList.toggle("is-active", isPtv);
   elements.tabs.loadingList.classList.toggle("is-active", isLoadingList);
+  elements.tabs.plannedTours.classList.toggle("is-active", isPlannedTours);
   elements.tabs.import.classList.toggle("is-active", isImport);
   elements.tabs.masterdata.classList.toggle("is-active", isMasterdata);
 
@@ -1028,6 +1087,12 @@ function showView(view) {
   if (isLoadingList) {
     renderLoadingList();
     refreshPtvData();
+  }
+
+  if (isPlannedTours) {
+    reconcilePlannedToursSelection();
+    renderPlannedTours();
+    loadPtvOrders();
   }
 
   if (!isMasterdata) {
@@ -1189,6 +1254,7 @@ async function loadPtvOrders() {
     renderPtv();
     renderPtvExports();
     renderLoadingList();
+    renderPlannedTours();
   } catch (error) {
     state.ptvOrders = [];
     updatePtvFilterWeeks();
@@ -1196,6 +1262,7 @@ async function loadPtvOrders() {
     renderPtv(sourceErrorMessage(error));
     renderPtvExports();
     renderLoadingList(sourceErrorMessage(error));
+    renderPlannedTours(sourceErrorMessage(error));
   }
 }
 
@@ -2651,6 +2718,198 @@ function renderPtv(errorMessage = "") {
   `).join("");
 }
 
+function plannedTourOrders() {
+  const query = state.plannedToursSearch.trim().toLowerCase();
+
+  return state.ptvOrders
+    .filter((order) => order.avis.completed || order.avis.notified || ptvOptimizationState(order) === "optimized")
+    .filter((order) => {
+      if (state.plannedToursStatus === "open" && order.avis.completed) {
+        return false;
+      }
+
+      if (state.plannedToursStatus === "completed" && !order.avis.completed) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      return [
+        order.orderNumber,
+        order.customerNumber,
+        order.customerName,
+        order.commission,
+        order.displayTour || order.tour,
+        formatDeliveryAddress(order),
+        order.avis.driverPhoneLabel
+      ].join(" ").toLowerCase().includes(query);
+    })
+    .sort((left, right) => {
+      const leftDate = left.displayDeliveryDate || left.deliveryDate || "";
+      const rightDate = right.displayDeliveryDate || right.deliveryDate || "";
+      return compareSortValues(leftDate, rightDate)
+        || compareSortValues(left.avis.routeSequence || 0, right.avis.routeSequence || 0)
+        || compareSortValues(left.orderNumber, right.orderNumber);
+    });
+}
+
+function renderPlannedTours(errorMessage = "") {
+  const orders = plannedTourOrders();
+  const selected = selectedPlannedTourOrderNumbers();
+  const selectedOrders = state.ptvOrders.filter((order) => selected.includes(order.orderNumber));
+  const allSelectedCompleted = selectedOrders.length > 0 && selectedOrders.every((order) => order.avis.completed);
+
+  elements.plannedToursCount.textContent = orders.length === 1 ? "1 Auftrag" : `${orders.length} Aufträge`;
+  elements.plannedToursSubline.textContent = selected.length === 0
+    ? "Keine Aufträge ausgewählt"
+    : selected.length === 1 ? "1 Auftrag ausgewählt" : `${selected.length} Aufträge ausgewählt`;
+  elements.plannedToursClearSelection.hidden = selected.length === 0;
+  elements.plannedToursComplete.disabled = selected.length === 0;
+  elements.plannedToursComplete.textContent = allSelectedCompleted ? "Abschluss zurücknehmen" : "Auswahl abschließen";
+  elements.plannedToursComplete.classList.toggle("secondary", allSelectedCompleted);
+  elements.plannedToursComplete.classList.toggle("danger", allSelectedCompleted);
+  elements.plannedToursComplete.classList.toggle("primary", !allSelectedCompleted);
+
+  if (errorMessage) {
+    elements.plannedToursBody.innerHTML = `<tr><td class="empty is-error" colspan="10">${escapeHtml(errorMessage)}</td></tr>`;
+    return;
+  }
+
+  if (orders.length === 0) {
+    elements.plannedToursBody.innerHTML = `<tr><td class="empty" colspan="10">Keine passenden Aufträge gefunden.</td></tr>`;
+    return;
+  }
+
+  elements.plannedToursBody.innerHTML = orders.map((order) => {
+    const isSelected = state.plannedToursSelectedOrderNumbers.has(order.orderNumber);
+
+    return `
+      <tr class="${isSelected ? "is-selected" : ""}" data-planned-order-number="${escapeHtml(order.orderNumber)}" aria-selected="${isSelected ? "true" : "false"}">
+        <td>${completionBadge(order)}</td>
+        <td><strong>${escapeHtml(order.orderNumber)}</strong></td>
+        <td>
+          <span class="main-text">${escapeHtml(order.customerName || "-")}</span>
+          <span class="sub-text">${escapeHtml(order.customerNumber || "")}</span>
+        </td>
+        <td>${escapeHtml(order.commission || "-")}</td>
+        <td>
+          <span class="main-text">${formatDate(order.displayDeliveryDate)}</span>
+          ${order.avis.twoDayTour ? `<span class="sub-text two-day-text">2-Tagestour</span>` : ""}
+        </td>
+        <td>${escapeHtml(order.displayTour || order.tour || "-")}</td>
+        <td>${statusBadge(order.avis.notified)}</td>
+        <td>${ptvStatusBadge(order) || `<span class="sub-text">Ohne PTV-Optimierung</span>`}</td>
+        <td>
+          <span class="main-text">${formatDateTime(order.avis.completedAt)}</span>
+          ${order.avis.completedBy ? `<span class="sub-text">${escapeHtml(order.avis.completedBy)}</span>` : ""}
+        </td>
+        <td>
+          <div class="row-actions">
+            <button class="secondary small" data-planned-edit-order="${escapeHtml(order.orderNumber)}" type="button">Bearbeiten</button>
+            <button class="${order.avis.completed ? "secondary danger" : "primary"} small" data-planned-toggle-completion="${escapeHtml(order.orderNumber)}" data-completed="${order.avis.completed ? "true" : "false"}" type="button">
+              ${order.avis.completed ? "Abschluss zurücknehmen" : "Abschließen"}
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function completionBadge(order) {
+  return order.avis.completed
+    ? `<span class="badge is-completed">Abgeschlossen</span>`
+    : `<span class="badge is-open">Offen</span>`;
+}
+
+function selectedPlannedTourOrderNumbers() {
+  const visible = new Set(plannedTourOrders().map((order) => order.orderNumber));
+  return [...state.plannedToursSelectedOrderNumbers].filter((orderNumber) => visible.has(orderNumber));
+}
+
+function reconcilePlannedToursSelection() {
+  const visible = new Set(plannedTourOrders().map((order) => order.orderNumber));
+  state.plannedToursSelectedOrderNumbers = new Set(
+    [...state.plannedToursSelectedOrderNumbers].filter((orderNumber) => visible.has(orderNumber))
+  );
+
+  if (state.plannedToursLastSelectedOrderNumber && !visible.has(state.plannedToursLastSelectedOrderNumber)) {
+    state.plannedToursLastSelectedOrderNumber = "";
+  }
+}
+
+function handlePlannedToursRowSelection(event, orderNumber) {
+  const visible = plannedTourOrders().map((order) => order.orderNumber);
+
+  if (!visible.includes(orderNumber)) {
+    return;
+  }
+
+  if (event.shiftKey && state.plannedToursLastSelectedOrderNumber && visible.includes(state.plannedToursLastSelectedOrderNumber)) {
+    const start = visible.indexOf(state.plannedToursLastSelectedOrderNumber);
+    const end = visible.indexOf(orderNumber);
+    const range = visible.slice(Math.min(start, end), Math.max(start, end) + 1);
+
+    if (!event.ctrlKey && !event.metaKey) {
+      state.plannedToursSelectedOrderNumbers.clear();
+    }
+
+    range.forEach((item) => state.plannedToursSelectedOrderNumbers.add(item));
+  } else if (event.ctrlKey || event.metaKey) {
+    if (state.plannedToursSelectedOrderNumbers.has(orderNumber)) {
+      state.plannedToursSelectedOrderNumbers.delete(orderNumber);
+    } else {
+      state.plannedToursSelectedOrderNumbers.add(orderNumber);
+    }
+  } else {
+    state.plannedToursSelectedOrderNumbers = new Set([orderNumber]);
+  }
+
+  state.plannedToursLastSelectedOrderNumber = orderNumber;
+  renderPlannedTours();
+}
+
+function clearPlannedToursSelection() {
+  state.plannedToursSelectedOrderNumbers.clear();
+  state.plannedToursLastSelectedOrderNumber = "";
+  renderPlannedTours();
+}
+
+async function completeSelectedPlannedTours() {
+  const orderNumbers = selectedPlannedTourOrderNumbers();
+  const selectedOrders = state.ptvOrders.filter((order) => orderNumbers.includes(order.orderNumber));
+  const completed = !selectedOrders.every((order) => order.avis.completed);
+  await setPlannedToursCompletion(orderNumbers, completed);
+}
+
+async function setPlannedToursCompletion(orderNumbers, completed) {
+  if (orderNumbers.length === 0) {
+    return;
+  }
+
+  const countLabel = orderNumbers.length === 1 ? "1 Auftrag" : `${orderNumbers.length} Aufträge`;
+  const confirmed = await requestConfirm(
+    completed
+      ? `Soll ${countLabel} wirklich abgeschlossen werden? Der Avis-Status bleibt dabei unverändert.`
+      : `Soll der Abschluss für ${countLabel} wirklich zurückgenommen werden?`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  await api("/api/orders/bulk", {
+    method: "PATCH",
+    body: JSON.stringify({ orderNumbers, completed })
+  });
+
+  clearPlannedToursSelection();
+  await Promise.all([loadPtvOrders(), loadOrders()]);
+  showToast(completed ? `${countLabel} abgeschlossen.` : `Abschluss für ${countLabel} zurückgenommen.`);
+}
+
 function sortedOrders() {
   if (!state.sort.key) {
     return state.orders;
@@ -3466,7 +3725,8 @@ function bulkScopeLabel(hasSelection) {
 }
 
 function openDrawer(orderNumber) {
-  const order = state.orders.find((item) => item.orderNumber === orderNumber);
+  const order = state.orders.find((item) => item.orderNumber === orderNumber)
+    || state.ptvOrders.find((item) => item.orderNumber === orderNumber);
 
   if (!order) {
     return;
@@ -5231,6 +5491,14 @@ function logTypeLabel(type) {
 
   if (type === "avisierung_zurueckgenommen") {
     return "Avisierung zurückgenommen";
+  }
+
+  if (type === "abgeschlossen") {
+    return "Abgeschlossen";
+  }
+
+  if (type === "abschluss_zurueckgenommen") {
+    return "Abschluss zurückgenommen";
   }
 
   return "Gespeichert";

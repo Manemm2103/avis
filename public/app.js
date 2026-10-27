@@ -2703,7 +2703,8 @@ function renderPtv(errorMessage = "") {
   elements.ptvSubline.textContent = selectedCount > 0
     ? "markiert für Tour oder Massenbearbeitung"
     : "noch keine Aufträge markiert";
-  elements.ptvClearSelection.hidden = selectedCount === 0;
+  elements.ptvClearSelection.hidden = false;
+  elements.ptvClearSelection.disabled = selectedCount === 0;
   elements.ptvOpenRemote.disabled = exclusionMode || selectedPtvOrderNumbers().length === 0;
   elements.ptvExcludeSelection.textContent = exclusionMode ? "Markierte freigeben" : "Markierte ausnehmen";
   elements.ptvExcludeSelection.disabled = exclusionMode

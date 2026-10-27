@@ -3,7 +3,6 @@ const state = {
   currentUser: null,
   currentView: "ptv",
   theme: "light",
-  layoutPinned: false,
   loginThemeTouched: false,
   status: "open",
   search: "",
@@ -91,7 +90,6 @@ const elements = {
   loginTheme: document.querySelector("#login-theme"),
   appShell: document.querySelector("#app-shell"),
   brandHomeButton: document.querySelector("#brand-home-button"),
-  layoutPinButton: document.querySelector("#layout-pin-button"),
   currentUser: document.querySelector("#current-user"),
   logoutButton: document.querySelector("#logout-button"),
   themeButtons: document.querySelectorAll("[data-theme-choice]"),
@@ -329,7 +327,7 @@ document.addEventListener("DOMContentLoaded", init);
 
 async function init() {
   applyTheme(readStoredTheme());
-  applyLayoutPinned(readStoredLayoutPinned());
+  localStorage.removeItem("avisLayoutPinned");
   syncThemeControl();
   bindEvents();
   state.token = localStorage.getItem("avisToken") || "";
@@ -360,7 +358,6 @@ function bindEvents() {
   });
   elements.logoutButton.addEventListener("click", logout);
   elements.brandHomeButton.addEventListener("click", goHomeAndRefresh);
-  elements.layoutPinButton.addEventListener("click", () => applyLayoutPinned(!state.layoutPinned, { persist: true }));
   elements.tabs.orders.addEventListener("click", () => showView("orders"));
   elements.tabs.ptv.addEventListener("click", () => openPtvOrderSelection());
   elements.tabs.loadingList.addEventListener("click", () => showView("loadingList"));
@@ -1096,30 +1093,6 @@ function readStoredTheme() {
 
 function normalizeTheme(theme) {
   return ["light", "dark", "system"].includes(String(theme || "")) ? String(theme) : "light";
-}
-
-function applyLayoutPinned(pinned, options = {}) {
-  state.layoutPinned = Boolean(pinned);
-  document.documentElement.dataset.layoutPinned = state.layoutPinned ? "true" : "false";
-
-  if (elements.layoutPinButton) {
-    elements.layoutPinButton.classList.toggle("is-active", state.layoutPinned);
-    elements.layoutPinButton.setAttribute("aria-pressed", state.layoutPinned ? "true" : "false");
-    elements.layoutPinButton.title = state.layoutPinned ? "Fixierung lösen" : "Kopfbereich fixieren";
-    const label = elements.layoutPinButton.querySelector(".pin-label");
-
-    if (label) {
-      label.textContent = state.layoutPinned ? "Fixiert" : "Fixieren";
-    }
-  }
-
-  if (options.persist) {
-    localStorage.setItem("avisLayoutPinned", state.layoutPinned ? "true" : "false");
-  }
-}
-
-function readStoredLayoutPinned() {
-  return localStorage.getItem("avisLayoutPinned") === "true";
 }
 
 async function goHomeAndRefresh() {

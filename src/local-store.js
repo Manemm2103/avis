@@ -881,6 +881,20 @@ export class LocalStore {
     return (this.state.ptvExports || []).find((item) => item.id === id) || null;
   }
 
+  async markPtvExportSent(id, actor) {
+    const exportEntry = this.getPtvExport(id);
+
+    if (!exportEntry) {
+      throw new Error("Tourzusammenstellung nicht gefunden.");
+    }
+
+    exportEntry.lastSentAt = new Date().toISOString();
+    exportEntry.lastSentBy = actor?.displayName || actor?.username || "";
+    exportEntry.lastSentByUserId = actor?.id || "";
+    await this.save();
+    return exportEntry;
+  }
+
   async createPtvExport(input, actor) {
     const now = new Date().toISOString();
     const orderNumbers = uniqueOrderNumbers(input.orderNumbers);

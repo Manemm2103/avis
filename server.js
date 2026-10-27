@@ -371,6 +371,7 @@ app.post("/api/ptv/remote-url", async (request, response) => {
       orderNumbers,
       ...sanitizePtvExportLoadingList(request.body)
     }, request.user);
+    await store.markPtvExportSent(exportEntry.id, request.user);
     await assignPtvExportAvisValues(request.body, orderNumbers, request.user);
     const settings = store.getPtvSettings();
     const source = await loadSourceOrders();
@@ -391,6 +392,8 @@ app.post("/api/ptv/exports/:id/remote-url", async (request, response) => {
     if (!exportEntry) {
       throw new Error("Tourzusammenstellung nicht gefunden.");
     }
+
+    await store.markPtvExportSent(exportEntry.id, request.user);
 
     const orderNumbers = exportEntry.optimizedOrderNumbers?.length
       ? exportEntry.optimizedOrderNumbers
@@ -2042,17 +2045,9 @@ async function importPtvCallback(input) {
     : "PTV-Rückgabe gespeichert, aber keine bekannte Auftragsnummer erkannt.";
 
   if (orderNumbers.length > 0) {
-    await store.updateRouteSequence(orderNumbers, {
-      id: "",
-      username: "ptv-callback",
-      displayName: "PTV Rückgabe"
-    }, ptvRoute.routeInfos);
-
-    await store.optimizePtvExport(ticketid, orderNumbers, {
-      id: "",
-      username: "ptv-callback",
-      displayName: "PTV Rückgabe"
-    }, ptvRoute.routeInfos);
+    const actor = ptvCallbackActor(ticketid);
+    await store.updateRouteSequence(orderNumbers, actor, ptvRoute.routeInfos);
+    await store.optimizePtvExport(ticketid, orderNumbers, actor, ptvRoute.routeInfos);
   }
 
   await store.appendPtvCallback({
@@ -2071,6 +2066,17 @@ async function importPtvCallback(input) {
     message,
     orderNumbers,
     routeInfoCount: Object.keys(ptvRoute.routeInfos).length
+  };
+}
+
+function ptvCallbackActor(ticketid) {
+  const exportEntry = store.getPtvExport(ticketid);
+  const displayName = exportEntry?.lastSentBy || exportEntry?.createdBy || "PTV Rückgabe";
+
+  return {
+    id: exportEntry?.lastSentByUserId || "",
+    username: displayName === "PTV Rückgabe" ? "ptv-callback" : displayName,
+    displayName
   };
 }
 

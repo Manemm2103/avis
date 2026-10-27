@@ -72,6 +72,8 @@ const state = {
   ptvListOrderNumbers: [],
   ptvSelectedOrderNumbers: new Set(),
   ptvLastSelectedOrderNumber: "",
+  ptvExcludedSelectedOrderNumbers: new Set(),
+  ptvExcludedLastSelectedOrderNumber: "",
   ptvDraggedOrderNumber: "",
   ptvAutoRefreshTimer: null,
   mailJobsAutoRefreshTimer: null,
@@ -525,8 +527,8 @@ function bindEvents() {
   }, 150));
   elements.ptvClearFilters.addEventListener("click", clearPtvFilters);
   elements.ptvNewOrderButton.addEventListener("click", openManualOrderModal);
-  elements.ptvClearSelection.addEventListener("click", clearPtvSelection);
-  elements.ptvExcludeSelection.addEventListener("click", excludeSelectedPtvOrders);
+  elements.ptvClearSelection.addEventListener("click", clearActivePtvSelection);
+  elements.ptvExcludeSelection.addEventListener("click", applySelectedPtvExclusionAction);
   elements.ptvOpenRemote.addEventListener("click", openPtvRemoteControl);
   elements.ptvExportTruck.addEventListener("change", () => renderPtv());
   elements.ptvExportDriver.addEventListener("change", () => renderPtv());
@@ -2693,7 +2695,8 @@ function renderPtv(errorMessage = "") {
   renderPtvTours();
 
   const orders = ptvFilteredOrders();
-  const selectedCount = selectedPtvOrderNumbers().length;
+  const exclusionMode = state.ptvStatus === "excluded";
+  const selectedCount = activePtvSelectedOrderNumbers().length;
   const countLabel = selectedCount === 1 ? "1 Auftrag" : `${selectedCount} Aufträge`;
 
   elements.ptvCount.textContent = countLabel;
@@ -2701,8 +2704,11 @@ function renderPtv(errorMessage = "") {
     ? "markiert für Tour oder Massenbearbeitung"
     : "noch keine Aufträge markiert";
   elements.ptvClearSelection.hidden = selectedCount === 0;
-  elements.ptvOpenRemote.disabled = selectedCount === 0;
-  elements.ptvExcludeSelection.disabled = ptvExclusionTargetOrderNumbers().length === 0;
+  elements.ptvOpenRemote.disabled = exclusionMode || selectedPtvOrderNumbers().length === 0;
+  elements.ptvExcludeSelection.textContent = exclusionMode ? "Markierte freigeben" : "Markierte ausnehmen";
+  elements.ptvExcludeSelection.disabled = exclusionMode
+    ? selectedExcludedPtvOrderNumbers().length === 0
+    : ptvExclusionTargetOrderNumbers().length === 0;
 
   if (errorMessage) {
     elements.ptvBody.innerHTML = `<tr><td class="empty is-error" colspan="8">${escapeHtml(errorMessage)}</td></tr>`;
@@ -2714,13 +2720,15 @@ function renderPtv(errorMessage = "") {
     elements.ptvBody.innerHTML = `<tr><td class="empty" colspan="8">Keine Aufträge für PTV gefunden.</td></tr>`;
   } else {
     elements.ptvBody.innerHTML = orders.map((order) => {
-      const selected = state.ptvSelectedOrderNumbers.has(order.orderNumber);
       const excluded = Boolean(order.avis.excludedFromPlanning);
+      const selected = exclusionMode
+        ? state.ptvExcludedSelectedOrderNumbers.has(order.orderNumber)
+        : state.ptvSelectedOrderNumbers.has(order.orderNumber);
 
       return `
         <tr class="${selected ? "is-selected" : ""} ${excluded ? "is-excluded" : ""}" data-ptv-order-number="${escapeHtml(order.orderNumber)}" aria-selected="${selected ? "true" : "false"}">
           <td>
-            <span class="sequence-pill">${excluded ? "X" : selected ? "OK" : "+"}</span>
+            <span class="sequence-pill">${selected ? "OK" : excluded ? "X" : "+"}</span>
           </td>
           <td><strong>${escapeHtml(order.orderNumber)}</strong></td>
           <td>
@@ -3219,7 +3227,7 @@ function orderMatchesPtvStatus(order) {
 }
 
 function ptvSortValue(order, key) {
-  const selectionIndex = state.ptvListOrderNumbers.indexOf(order.orderNumber);
+  const selectionIndex = activePtvSelectedOrderNumbers().indexOf(order.orderNumber);
   const values = {
     selection: selectionIndex >= 0 ? selectionIndex + 1 : Number.MAX_SAFE_INTEGER,
     orderNumber: order.orderNumber || "",
@@ -3238,6 +3246,19 @@ function selectedPtvOrderNumbers() {
   return state.ptvListOrderNumbers.filter((orderNumber) => known.has(orderNumber));
 }
 
+function selectedExcludedPtvOrderNumbers() {
+  const excluded = new Set(state.ptvOrders
+    .filter((order) => order.avis.excludedFromPlanning)
+    .map((order) => order.orderNumber));
+  return [...state.ptvExcludedSelectedOrderNumbers].filter((orderNumber) => excluded.has(orderNumber));
+}
+
+function activePtvSelectedOrderNumbers() {
+  return state.ptvStatus === "excluded"
+    ? selectedExcludedPtvOrderNumbers()
+    : selectedPtvOrderNumbers();
+}
+
 function ptvTargetOrders() {
   const orderMap = new Map(state.ptvOrders.map((order) => [order.orderNumber, order]));
   return selectedPtvOrderNumbers()
@@ -3249,9 +3270,19 @@ function reconcilePtvSelection() {
   const known = new Set(state.ptvOrders.map((order) => order.orderNumber));
   state.ptvListOrderNumbers = state.ptvListOrderNumbers.filter((orderNumber) => known.has(orderNumber));
   state.ptvSelectedOrderNumbers = new Set(state.ptvListOrderNumbers);
+  const excluded = new Set(state.ptvOrders
+    .filter((order) => order.avis.excludedFromPlanning)
+    .map((order) => order.orderNumber));
+  state.ptvExcludedSelectedOrderNumbers = new Set(
+    [...state.ptvExcludedSelectedOrderNumbers].filter((orderNumber) => excluded.has(orderNumber))
+  );
 
   if (state.ptvLastSelectedOrderNumber && !known.has(state.ptvLastSelectedOrderNumber)) {
     state.ptvLastSelectedOrderNumber = "";
+  }
+
+  if (state.ptvExcludedLastSelectedOrderNumber && !excluded.has(state.ptvExcludedLastSelectedOrderNumber)) {
+    state.ptvExcludedLastSelectedOrderNumber = "";
   }
 }
 
@@ -3259,6 +3290,11 @@ function handlePtvRowSelection(event, orderNumber) {
   const visible = ptvFilteredOrders().map((order) => order.orderNumber);
 
   if (!visible.includes(orderNumber)) {
+    return;
+  }
+
+  if (state.ptvStatus === "excluded") {
+    handleExcludedPtvRowSelection(event, orderNumber, visible);
     return;
   }
 
@@ -3284,10 +3320,53 @@ function handlePtvRowSelection(event, orderNumber) {
   renderPtv();
 }
 
+function handleExcludedPtvRowSelection(event, orderNumber, visible) {
+  if (
+    event.shiftKey
+    && state.ptvExcludedLastSelectedOrderNumber
+    && visible.includes(state.ptvExcludedLastSelectedOrderNumber)
+  ) {
+    const start = visible.indexOf(state.ptvExcludedLastSelectedOrderNumber);
+    const end = visible.indexOf(orderNumber);
+    const range = visible.slice(Math.min(start, end), Math.max(start, end) + 1);
+
+    if (!event.ctrlKey && !event.metaKey) {
+      state.ptvExcludedSelectedOrderNumbers.clear();
+    }
+
+    range.forEach((item) => state.ptvExcludedSelectedOrderNumbers.add(item));
+  } else {
+    if (state.ptvExcludedSelectedOrderNumbers.has(orderNumber)) {
+      state.ptvExcludedSelectedOrderNumbers.delete(orderNumber);
+    } else {
+      state.ptvExcludedSelectedOrderNumbers.add(orderNumber);
+    }
+    state.ptvExcludedLastSelectedOrderNumber = orderNumber;
+  }
+
+  renderPtv();
+}
+
+function clearActivePtvSelection() {
+  if (state.ptvStatus === "excluded") {
+    state.ptvExcludedSelectedOrderNumbers.clear();
+    state.ptvExcludedLastSelectedOrderNumber = "";
+    renderPtv();
+    return;
+  }
+
+  state.ptvListOrderNumbers = [];
+  state.ptvSelectedOrderNumbers.clear();
+  state.ptvLastSelectedOrderNumber = "";
+  renderPtv();
+}
+
 function clearPtvSelection() {
   state.ptvListOrderNumbers = [];
   state.ptvSelectedOrderNumbers.clear();
   state.ptvLastSelectedOrderNumber = "";
+  state.ptvExcludedSelectedOrderNumbers.clear();
+  state.ptvExcludedLastSelectedOrderNumber = "";
   renderPtv();
 }
 
@@ -3535,6 +3614,44 @@ async function excludeSelectedPtvOrders() {
   clearPtvSelection();
   await Promise.all([loadPtvOrders(), loadOrders()]);
   showToast(`${label} wurden ausgenommen.`);
+}
+
+async function releaseSelectedPtvOrders() {
+  const orderNumbers = selectedExcludedPtvOrderNumbers();
+
+  if (orderNumbers.length === 0) {
+    showToast("Keine ausgenommenen Aufträge markiert.");
+    return;
+  }
+
+  const confirmed = await requestConfirm(orderNumbers.length === 1
+    ? "Soll die Ausnahme für den markierten Auftrag wirklich aufgehoben werden?"
+    : `Sollen die Ausnahmen für ${orderNumbers.length} markierte Aufträge wirklich aufgehoben werden?`);
+
+  if (!confirmed) {
+    return;
+  }
+
+  await api("/api/orders/bulk", {
+    method: "PATCH",
+    body: JSON.stringify({ orderNumbers, excludedFromPlanning: false })
+  });
+
+  state.ptvExcludedSelectedOrderNumbers.clear();
+  state.ptvExcludedLastSelectedOrderNumber = "";
+  await Promise.all([loadPtvOrders(), loadOrders()]);
+  showToast(orderNumbers.length === 1
+    ? "Die Ausnahme wurde aufgehoben."
+    : `${orderNumbers.length} Ausnahmen wurden aufgehoben.`);
+}
+
+async function applySelectedPtvExclusionAction() {
+  if (state.ptvStatus === "excluded") {
+    await releaseSelectedPtvOrders();
+    return;
+  }
+
+  await excludeSelectedPtvOrders();
 }
 
 function togglePtvListOrder(orderNumber) {

@@ -39,6 +39,10 @@ const state = {
     key: "",
     direction: "asc"
   },
+  ptvSort: {
+    key: "",
+    direction: "asc"
+  },
   masterdataPage: "drivers",
   bulkSelectedOrderNumbers: new Set(),
   bulkLastSelectedOrderNumber: "",
@@ -700,6 +704,13 @@ function bindEvents() {
     });
   });
 
+  document.querySelectorAll("[data-ptv-sort]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setPtvSort(button.dataset.ptvSort);
+      renderPtv();
+    });
+  });
+
   elements.searchInput.addEventListener("input", debounce(() => {
     state.search = elements.searchInput.value;
     loadOrders();
@@ -940,6 +951,16 @@ function setOrderSort(key) {
 
   state.sort.key = key;
   state.sort.direction = "asc";
+}
+
+function setPtvSort(key) {
+  if (state.ptvSort.key === key) {
+    state.ptvSort.direction = state.ptvSort.direction === "asc" ? "desc" : "asc";
+    return;
+  }
+
+  state.ptvSort.key = key;
+  state.ptvSort.direction = "asc";
 }
 
 function clearFilters() {
@@ -2630,6 +2651,7 @@ function shouldShowNotifiedAtColumn() {
 }
 
 function renderPtv(errorMessage = "") {
+  updatePtvSortHeaders();
   renderPtvTours();
 
   const orders = ptvFilteredOrders();
@@ -3112,6 +3134,13 @@ function ptvFilteredOrders() {
     })
     .map((order, index) => ({ order, index }))
     .sort((left, right) => {
+      if (state.ptvSort.key) {
+        const leftValue = ptvSortValue(left.order, state.ptvSort.key);
+        const rightValue = ptvSortValue(right.order, state.ptvSort.key);
+        const result = compareSortValues(leftValue, rightValue) || left.index - right.index;
+        return state.ptvSort.direction === "desc" ? -result : result;
+      }
+
       const leftSequence = Number(left.order.avis.routeSequence) || 0;
       const rightSequence = Number(right.order.avis.routeSequence) || 0;
 
@@ -3131,6 +3160,21 @@ function ptvFilteredOrders() {
         || compareSortValues(left.order.orderNumber, right.order.orderNumber);
     })
     .map((entry) => entry.order);
+}
+
+function ptvSortValue(order, key) {
+  const selectionIndex = state.ptvListOrderNumbers.indexOf(order.orderNumber);
+  const values = {
+    selection: selectionIndex >= 0 ? selectionIndex + 1 : Number.MAX_SAFE_INTEGER,
+    orderNumber: order.orderNumber || "",
+    customer: `${order.customerName || ""} ${order.customerNumber || ""}`.trim(),
+    deliveryDate: order.displayDeliveryDate || order.deliveryDate || "",
+    tour: order.displayTour || order.tour || "",
+    address: ptvAddressLine(order) || formatDeliveryAddress(order),
+    weight: parseWeightNumber(order.elementWeight) || 0
+  };
+
+  return values[key] ?? "";
 }
 
 function selectedPtvOrderNumbers() {
@@ -3376,6 +3420,22 @@ function updateSortHeaders() {
   document.querySelectorAll("[data-sort]").forEach((button) => {
     const active = button.dataset.sort === state.sort.key;
     const direction = active ? state.sort.direction : "";
+    const header = button.closest("th");
+
+    button.classList.toggle("is-active", active);
+    button.dataset.direction = direction;
+    button.setAttribute("aria-label", sortButtonLabel(button, active, direction));
+
+    if (header) {
+      header.setAttribute("aria-sort", active && direction === "desc" ? "descending" : active ? "ascending" : "none");
+    }
+  });
+}
+
+function updatePtvSortHeaders() {
+  document.querySelectorAll("[data-ptv-sort]").forEach((button) => {
+    const active = button.dataset.ptvSort === state.ptvSort.key;
+    const direction = active ? state.ptvSort.direction : "";
     const header = button.closest("th");
 
     button.classList.toggle("is-active", active);

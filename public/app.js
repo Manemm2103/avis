@@ -684,6 +684,7 @@ function bindEvents() {
     button.addEventListener("click", () => {
       state.ptvStatus = button.dataset.ptvStatus || "none";
       syncPtvStatusButtons();
+      updatePtvFilterWeeks();
       reconcilePtvSelection();
       renderPtv();
       renderPtvExports();
@@ -3156,18 +3157,7 @@ function ptvFilteredOrders() {
 
   return state.ptvOrders
     .filter((order) => {
-      const planningState = ptvOptimizationState(order);
-      const excluded = Boolean(order.avis.excludedFromPlanning);
-
-      if (state.ptvStatus === "none" && (planningState !== "none" || excluded)) {
-        return false;
-      }
-
-      if (state.ptvStatus === "planned" && planningState === "none") {
-        return false;
-      }
-
-      if (state.ptvStatus === "excluded" && !excluded) {
+      if (!orderMatchesPtvStatus(order)) {
         return false;
       }
 
@@ -3234,6 +3224,25 @@ function ptvFilteredOrders() {
         || compareSortValues(left.order.orderNumber, right.order.orderNumber);
     })
     .map((entry) => entry.order);
+}
+
+function orderMatchesPtvStatus(order) {
+  const planningState = ptvOptimizationState(order);
+  const excluded = Boolean(order.avis.excludedFromPlanning);
+
+  if (state.ptvStatus === "none") {
+    return planningState === "none" && !excluded;
+  }
+
+  if (state.ptvStatus === "planned") {
+    return planningState !== "none";
+  }
+
+  if (state.ptvStatus === "excluded") {
+    return excluded;
+  }
+
+  return true;
 }
 
 function ptvSortValue(order, key) {
@@ -3716,6 +3725,7 @@ function selectPtvWeekFilter(week) {
 
 function updatePtvFilterWeeks() {
   state.ptvFilterWeeks = [...new Set(state.ptvOrders
+    .filter(orderMatchesPtvStatus)
     .map((order) => order.displayDeliveryWeek || isoWeekValue(order.displayDeliveryDate || order.deliveryDate))
     .filter(Boolean))]
     .sort();

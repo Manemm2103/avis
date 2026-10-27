@@ -245,9 +245,11 @@
                 <span>Fahrertelefon</span>
                 <select id="ptv-export-driver"></select>
               </label>
-              <button class="secondary" id="ptv-clear-selection" type="button" hidden>Auswahl aufheben</button>
-              <button class="secondary exclusion-button" id="ptv-exclude-selection" type="button" disabled>Markierte ausnehmen</button>
-              <button class="secondary" id="ptv-open-remote" type="button">Tour speichern und in PTV öffnen</button>
+              <div class="ptv-action-buttons">
+                <button class="secondary" id="ptv-clear-selection" type="button" hidden>Auswahl aufheben</button>
+                <button class="secondary exclusion-button" id="ptv-exclude-selection" type="button" disabled>Markierte ausnehmen</button>
+                <button class="secondary" id="ptv-open-remote" type="button">Tour speichern und in PTV öffnen</button>
+              </div>
             </div>
           </div>
 
@@ -785,7 +787,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.10.27.12</footer>
+      <footer class="app-footer">Version 2026.10.27.13</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -1022,6 +1024,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20261027-remove-layout-pin" type="module"></script>
+    <script src="/app.js?v=20261027-ptv-actions-right" type="module"></script>
   </body>
 </html>

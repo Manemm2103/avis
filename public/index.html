@@ -204,6 +204,7 @@
               <button class="segment" data-ptv-status="all" type="button">Alle</button>
               <button class="segment is-active" data-ptv-status="none" type="button">Nicht in Tour</button>
               <button class="segment" data-ptv-status="planned" type="button">Eingeplant in Tour</button>
+              <button class="segment is-exclusion-filter" data-ptv-status="excluded" type="button">Ausgenommen</button>
             </div>
             <label class="filter-control">
               <span>Liefertag</span>
@@ -802,7 +803,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.10.27.07</footer>
+      <footer class="app-footer">Version 2026.10.27.08</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -1039,6 +1040,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20261027-ptv-column-sort" type="module"></script>
+    <script src="/app.js?v=20261027-ptv-exclusions" type="module"></script>
   </body>
 </html>

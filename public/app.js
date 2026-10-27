@@ -747,7 +747,18 @@ function bindEvents() {
     handleBulkRowSelection(event, row.dataset.orderNumber);
   });
 
-  elements.ptvBody.addEventListener("click", (event) => {
+  elements.ptvBody.addEventListener("click", async (event) => {
+    const exclusionButton = event.target.closest("[data-ptv-toggle-exclusion]");
+
+    if (exclusionButton) {
+      event.stopPropagation();
+      await togglePtvPlanningExclusion(
+        exclusionButton.dataset.ptvToggleExclusion,
+        exclusionButton.dataset.excluded !== "true"
+      );
+      return;
+    }
+
     const editButton = event.target.closest("[data-ptv-edit-order]");
 
     if (editButton) {
@@ -2676,11 +2687,12 @@ function renderPtv(errorMessage = "") {
   } else {
     elements.ptvBody.innerHTML = orders.map((order) => {
       const selected = state.ptvSelectedOrderNumbers.has(order.orderNumber);
+      const excluded = Boolean(order.avis.excludedFromPlanning);
 
       return `
-        <tr class="${selected ? "is-selected" : ""}" data-ptv-order-number="${escapeHtml(order.orderNumber)}" aria-selected="${selected ? "true" : "false"}">
+        <tr class="${selected ? "is-selected" : ""} ${excluded ? "is-excluded" : ""}" data-ptv-order-number="${escapeHtml(order.orderNumber)}" aria-selected="${selected ? "true" : "false"}">
           <td>
-            <span class="sequence-pill">${selected ? "OK" : "+"}</span>
+            <span class="sequence-pill">${excluded ? "X" : selected ? "OK" : "+"}</span>
           </td>
           <td><strong>${escapeHtml(order.orderNumber)}</strong></td>
           <td>
@@ -2699,7 +2711,10 @@ function renderPtv(errorMessage = "") {
           </td>
           <td>${formatElementWeight(order.elementWeight)}</td>
           <td>
-            <button class="secondary small" data-ptv-edit-order="${escapeHtml(order.orderNumber)}" type="button">Bearbeiten</button>
+            <div class="button-row compact-actions">
+              <button class="secondary small" data-ptv-edit-order="${escapeHtml(order.orderNumber)}" type="button">Bearbeiten</button>
+              ${ptvExclusionAction(order)}
+            </div>
           </td>
         </tr>
       `;
@@ -3088,12 +3103,17 @@ function ptvFilteredOrders() {
   return state.ptvOrders
     .filter((order) => {
       const planningState = ptvOptimizationState(order);
+      const excluded = Boolean(order.avis.excludedFromPlanning);
 
-      if (state.ptvStatus === "none" && planningState !== "none") {
+      if (state.ptvStatus === "none" && (planningState !== "none" || excluded)) {
         return false;
       }
 
       if (state.ptvStatus === "planned" && planningState === "none") {
+        return false;
+      }
+
+      if (state.ptvStatus === "excluded" && !excluded) {
         return false;
       }
 
@@ -3387,6 +3407,13 @@ async function removeOrderFromPtvExport(exportId, orderNumber) {
 }
 
 function addPtvListOrder(orderNumber) {
+  const order = state.ptvOrders.find((item) => item.orderNumber === orderNumber);
+
+  if (order?.avis.excludedFromPlanning) {
+    showToast(`Auftrag ${orderNumber} ist von der Tourplanung ausgenommen.`);
+    return false;
+  }
+
   const existing = ptvExistingExportForOrder(orderNumber);
 
   if (existing && existing.id !== state.ptvExportId) {
@@ -3399,6 +3426,44 @@ function addPtvListOrder(orderNumber) {
   }
 
   return true;
+}
+
+function ptvExclusionAction(order) {
+  const planningState = ptvOptimizationState(order);
+
+  if (planningState !== "none") {
+    return "";
+  }
+
+  const excluded = Boolean(order.avis.excludedFromPlanning);
+  return `
+    <button class="secondary small exclusion-button ${excluded ? "is-active" : ""}" data-ptv-toggle-exclusion="${escapeHtml(order.orderNumber)}" data-excluded="${excluded ? "true" : "false"}" type="button">
+      ${excluded ? "Ausnahme aufheben" : "Ausnehmen"}
+    </button>
+  `;
+}
+
+async function togglePtvPlanningExclusion(orderNumber, excluded) {
+  const order = state.ptvOrders.find((item) => item.orderNumber === orderNumber);
+
+  if (!order) {
+    return;
+  }
+
+  if (excluded && ptvOptimizationState(order) !== "none") {
+    showToast("Bereits eingeplante Aufträge können nicht ausgenommen werden.");
+    return;
+  }
+
+  await api(`/api/orders/${encodeURIComponent(orderNumber)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ excludedFromPlanning: excluded })
+  });
+
+  state.ptvListOrderNumbers = state.ptvListOrderNumbers.filter((item) => item !== orderNumber);
+  state.ptvSelectedOrderNumbers.delete(orderNumber);
+  await Promise.all([loadPtvOrders(), loadOrders()]);
+  showToast(excluded ? `Auftrag ${orderNumber} wurde ausgenommen.` : `Auftrag ${orderNumber} ist wieder für die Tourplanung freigegeben.`);
 }
 
 function togglePtvListOrder(orderNumber) {
@@ -4966,12 +5031,15 @@ function ptvComment(order) {
 
 function ptvTagLine(order) {
   const tags = order.avis?.ptvExportTags || [];
+  const exclusionTag = order.avis?.excludedFromPlanning
+    ? `<span class="ptv-tag is-excluded">Ausgenommen</span>`
+    : "";
 
-  if (!tags.length) {
+  if (!tags.length && !exclusionTag) {
     return "";
   }
 
-  return `<span class="tag-list">${tags.slice(-2).map((tag) => {
+  return `<span class="tag-list">${exclusionTag}${tags.slice(-2).map((tag) => {
     const label = tag.status === "PTV optimiert" || tag.status === "Tour optimiert"
       ? "Tour optimiert"
       : "Tourzusammenstellung";
@@ -5364,6 +5432,10 @@ function statusBadge(notified) {
 }
 
 function ptvStatusBadge(order) {
+  if (order.avis.excludedFromPlanning) {
+    return `<span class="badge is-excluded">Ausgenommen</span>`;
+  }
+
   const state = ptvOptimizationState(order);
 
   if (state === "optimized") {
@@ -5566,6 +5638,14 @@ function logTypeLabel(type) {
 
   if (type === "abschluss_zurueckgenommen") {
     return "Abschluss zurückgenommen";
+  }
+
+  if (type === "planung_ausgenommen") {
+    return "Von Tourplanung ausgenommen";
+  }
+
+  if (type === "planung_freigegeben") {
+    return "Für Tourplanung freigegeben";
   }
 
   return "Gespeichert";

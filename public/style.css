@@ -1029,6 +1029,51 @@ select:disabled {
   color: #166534;
 }
 
+.ptv-tag.is-excluded,
+.badge.is-excluded {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.exclusion-button {
+  border-color: #fb923c;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.exclusion-button:hover,
+.exclusion-button:focus-visible,
+.exclusion-button.is-active {
+  border-color: #f97316;
+  background: #ffedd5;
+  color: #7c2d12;
+}
+
+.segment.is-exclusion-filter {
+  color: #9a3412;
+}
+
+.segment.is-exclusion-filter.is-active {
+  background: #ffedd5;
+  color: #7c2d12;
+}
+
+html[data-theme="dark"] .ptv-tag.is-excluded,
+html[data-theme="dark"] .badge.is-excluded,
+html[data-theme="dark"] .exclusion-button,
+html[data-theme="dark"] .segment.is-exclusion-filter.is-active {
+  border-color: #c2410c;
+  background: #431407;
+  color: #fed7aa;
+}
+
+html[data-theme="dark"] .exclusion-button:hover,
+html[data-theme="dark"] .exclusion-button:focus-visible,
+html[data-theme="dark"] .exclusion-button.is-active {
+  background: #7c2d12;
+  color: #ffedd5;
+}
+
 .table-wrap {
   overflow-x: auto;
   background: var(--surface);
@@ -1124,6 +1169,14 @@ tbody tr[data-order-number] {
 #ptv-body tr[data-ptv-order-number] {
   cursor: pointer;
   user-select: none;
+}
+
+#ptv-body tr.is-excluded {
+  background: color-mix(in srgb, #f97316 7%, var(--surface));
+}
+
+#ptv-body tr.is-excluded:hover {
+  background: color-mix(in srgb, #f97316 12%, var(--surface));
 }
 
 #ptv-list-body tr[data-ptv-order-number] {

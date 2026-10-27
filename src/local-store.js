@@ -494,6 +494,8 @@ export class LocalStore {
     const isRevokingNotification = update.notified === false && current.notified;
     const isCompleting = update.completed === true && !current.completed;
     const isReopening = update.completed === false && current.completed;
+    const isExcludingFromPlanning = update.excludedFromPlanning === true && !current.excludedFromPlanning;
+    const isReleasingForPlanning = update.excludedFromPlanning === false && current.excludedFromPlanning;
     const next = {
       ...current,
       ...update,
@@ -513,7 +515,11 @@ export class LocalStore {
             ? "abgeschlossen"
             : isReopening
               ? "abschluss_zurueckgenommen"
-              : "gespeichert",
+              : isExcludingFromPlanning
+                ? "planung_ausgenommen"
+                : isReleasingForPlanning
+                  ? "planung_freigegeben"
+                  : "gespeichert",
       at: now,
       by: actorName,
       byUserId: actor?.id || ""
@@ -541,6 +547,18 @@ export class LocalStore {
       next.completedAt = "";
       next.completedBy = "";
       next.completedByUserId = "";
+    }
+
+    if (isExcludingFromPlanning) {
+      next.excludedFromPlanningAt = now;
+      next.excludedFromPlanningBy = actorName;
+      next.excludedFromPlanningByUserId = actor?.id || "";
+    }
+
+    if (!next.excludedFromPlanning) {
+      next.excludedFromPlanningAt = "";
+      next.excludedFromPlanningBy = "";
+      next.excludedFromPlanningByUserId = "";
     }
 
     this.state.avisByOrder[orderNumber] = next;

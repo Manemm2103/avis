@@ -258,6 +258,7 @@ app.get("/api/ptv/exports", (request, response) => {
 app.post("/api/ptv/exports", async (request, response) => {
   try {
     const orderNumbers = sanitizeOrderNumbers(request.body.orderNumbers);
+    assertOrdersAvailableForPtv(orderNumbers);
     const entry = await store.createPtvExport({
       name: text(request.body.name),
       orderNumbers,
@@ -366,6 +367,7 @@ app.get("/api/tours", async (request, response) => {
 app.post("/api/ptv/remote-url", async (request, response) => {
   try {
     const orderNumbers = sanitizeOrderNumbers(request.body.orderNumbers);
+    assertOrdersAvailableForPtv(orderNumbers);
     const exportEntry = await store.createPtvExport({
       name: text(request.body.exportName),
       orderNumbers,
@@ -429,6 +431,14 @@ async function assignPtvExportAvisValues(input, orderNumbers, actor) {
 
   for (const orderNumber of orderNumbers) {
     await store.updateAvis(orderNumber, update, actor);
+  }
+}
+
+function assertOrdersAvailableForPtv(orderNumbers) {
+  const excludedOrderNumber = orderNumbers.find((orderNumber) => store.getAvis(orderNumber)?.excludedFromPlanning);
+
+  if (excludedOrderNumber) {
+    throw new Error(`Auftrag ${excludedOrderNumber} ist von der Tourplanung ausgenommen.`);
   }
 }
 
@@ -601,6 +611,14 @@ app.patch("/api/orders/:orderNumber", async (request, response) => {
     const update = sanitizeAvisUpdate(request.body);
     const currentAvis = store.getAvis(orderNumber);
     const shouldSendMail = update.notified === true && !currentAvis?.notified;
+
+    if (
+      update.excludedFromPlanning === true
+      && Array.isArray(currentAvis?.ptvExportTags)
+      && currentAvis.ptvExportTags.length > 0
+    ) {
+      throw new Error("Bereits eingeplante Aufträge können nicht ausgenommen werden.");
+    }
 
     if (shouldSendMail && request.body?.notifyAction !== true) {
       throw new Error("Avisiert kann nur über die Aktion Avisieren gesetzt werden.");
@@ -1222,6 +1240,9 @@ function mergeOrder(order, avis, driverMap) {
       completed: Boolean(avis?.completed),
       completedAt: avis?.completedAt || "",
       completedBy: avis?.completedBy || "",
+      excludedFromPlanning: Boolean(avis?.excludedFromPlanning),
+      excludedFromPlanningAt: avis?.excludedFromPlanningAt || "",
+      excludedFromPlanningBy: avis?.excludedFromPlanningBy || "",
       note: avis?.note || "",
       customerInfo: avis?.customerInfo || "",
       updatedAt: avis?.updatedAt || "",
@@ -1459,6 +1480,10 @@ function sanitizeAvisUpdate(input) {
 
   if (Object.hasOwn(input, "completed")) {
     update.completed = Boolean(input.completed);
+  }
+
+  if (Object.hasOwn(input, "excludedFromPlanning")) {
+    update.excludedFromPlanning = Boolean(input.excludedFromPlanning);
   }
 
   if (Object.hasOwn(input, "note")) {

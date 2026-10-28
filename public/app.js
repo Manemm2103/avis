@@ -510,7 +510,7 @@ function bindEvents() {
     state.ptvDeliveryWeek = "";
     state.ptvTour = "";
     elements.ptvFilterTour.value = "";
-    renderPtvWeekPicker();
+    updatePtvFilterWeeks();
     reconcilePtvSelection();
     renderPtv();
   });
@@ -527,6 +527,7 @@ function bindEvents() {
   elements.ptvFilterTour.addEventListener("change", () => {
     resetPtvOrderSelection();
     state.ptvTour = elements.ptvFilterTour.value;
+    updatePtvFilterWeeks();
     reconcilePtvSelection();
     renderPtv();
   });
@@ -4080,6 +4081,7 @@ function renderTourSettings() {
 
 function renderPtvTours() {
   const tours = [...new Set(state.ptvOrders
+    .filter(orderMatchesPtvStatus)
     .filter((order) => !state.ptvDeliveryDate || (order.displayDeliveryDate || order.deliveryDate) === state.ptvDeliveryDate)
     .filter((order) => !state.ptvDeliveryWeek || (order.displayDeliveryWeek || isoWeekValue(order.displayDeliveryDate || order.deliveryDate)) === state.ptvDeliveryWeek)
     .map((order) => order.displayTour || order.tour)
@@ -4088,6 +4090,7 @@ function renderPtvTours() {
 
   if (state.ptvTour && !tours.includes(state.ptvTour)) {
     state.ptvTour = "";
+    updatePtvFilterWeeks();
   }
 
   elements.ptvFilterTour.innerHTML = [
@@ -4139,6 +4142,8 @@ function selectPtvWeekFilter(week) {
 function updatePtvFilterWeeks() {
   state.ptvFilterWeeks = [...new Set(state.ptvOrders
     .filter(orderMatchesPtvStatus)
+    .filter((order) => !state.ptvDeliveryDate || (order.displayDeliveryDate || order.deliveryDate) === state.ptvDeliveryDate)
+    .filter((order) => !state.ptvTour || (order.displayTour || order.tour) === state.ptvTour)
     .map((order) => order.displayDeliveryWeek || isoWeekValue(order.displayDeliveryDate || order.deliveryDate))
     .filter(Boolean))]
     .sort();

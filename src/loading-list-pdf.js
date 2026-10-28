@@ -302,7 +302,8 @@ function loadingRow(order, sequence, transitionNumbers, twoDayTour) {
   const tags = [
     transition ? "2-Tagestour" : "",
     dayTwo ? "Tag 2" : "",
-    order.avis?.skipAvis ? "Keine Avis" : ""
+    order.avis?.skipAvis ? "Keine Avis" : "",
+    order.avis?.notified ? "Avisiert" : ""
   ].filter(Boolean);
   return {
     sequence: String(sequence),

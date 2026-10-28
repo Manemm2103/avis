@@ -2315,6 +2315,10 @@ function loadingListOrderTags(order, tourIsTwoDay) {
     tags.push(`<span class="ptv-tag is-no-avis">Keine Avis</span>`);
   }
 
+  if (order.avis?.notified) {
+    tags.push(`<span class="ptv-tag is-notified">Avisiert</span>`);
+  }
+
   return tags.length ? `<span class="tag-list">${tags.join("")}</span>` : "";
 }
 
@@ -3128,7 +3132,9 @@ function plannedTourOrders() {
         order.commission,
         order.displayTour || order.tour,
         formatDeliveryAddress(order),
-        order.avis.driverPhoneLabel
+        order.avis.driverPhoneLabel,
+        order.avis.skipAvis ? "keine avis ohne avis" : "",
+        order.avis.notified ? "avisiert" : "nicht avisiert"
       ].join(" ").toLowerCase().includes(query);
     })
     .sort((left, right) => {
@@ -3184,7 +3190,12 @@ function renderPlannedTours(errorMessage = "") {
           ${order.avis.twoDayTour ? `<span class="sub-text two-day-text">2-Tagestour</span>` : ""}
         </td>
         <td>${escapeHtml(order.displayTour || order.tour || "-")}</td>
-        <td>${statusBadge(order.avis.notified)}</td>
+        <td>
+          <span class="status-stack">
+            ${statusBadge(order.avis.notified)}
+            ${order.avis.skipAvis ? `<span class="badge is-no-avis">Keine Avis</span>` : ""}
+          </span>
+        </td>
         <td>${ptvStatusBadge(order) || `<span class="sub-text">Ohne PTV-Optimierung</span>`}</td>
         <td>
           <span class="main-text">${formatDateTime(order.avis.completedAt)}</span>

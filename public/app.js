@@ -70,6 +70,7 @@ const state = {
   ptvDeliveryWeek: "",
   ptvTour: "",
   ptvExportId: "",
+  ptvAddToExportId: "",
   ptvListOrderNumbers: [],
   ptvSelectedOrderNumbers: new Set(),
   ptvLastSelectedOrderNumber: "",
@@ -544,6 +545,7 @@ function bindEvents() {
   elements.ptvExportList.addEventListener("click", (event) => {
     const deleteButton = event.target.closest("[data-ptv-delete-export]");
     const sendButton = event.target.closest("[data-ptv-send-export]");
+    const addOrdersButton = event.target.closest("[data-ptv-add-orders]");
     const removeOrderButton = event.target.closest("[data-ptv-remove-export-order]");
     const saveButton = event.target.closest("[data-ptv-save-export]");
     const card = event.target.closest("[data-ptv-export-card]");
@@ -557,6 +559,12 @@ function bindEvents() {
     if (sendButton) {
       event.stopPropagation();
       openPtvExportRemoteControl(sendButton.dataset.ptvSendExport);
+      return;
+    }
+
+    if (addOrdersButton) {
+      event.stopPropagation();
+      startAddingOrdersToPtvExport(addOrdersButton.dataset.ptvAddOrders);
       return;
     }
 
@@ -1731,6 +1739,7 @@ function renderPtvExports() {
               <select name="driverPhoneId">${ptvDriverOptionsHtml(item.driverPhoneId || "")}</select>
             </label>
             <div class="ptv-export-edit-actions">
+              <button class="secondary small" data-ptv-add-orders="${escapeHtml(item.id)}" type="button">Aufträge hinzufügen</button>
               <button class="primary small" data-ptv-save-export="${escapeHtml(item.id)}" type="button">Änderungen speichern</button>
             </div>
           </form>
@@ -2814,14 +2823,27 @@ function updatePtvSelectionControls() {
   const exclusionMode = state.ptvStatus === "excluded";
   const selectedCount = activePtvSelectedOrderNumbers().length;
   const countLabel = selectedCount === 1 ? "1 Auftrag" : `${selectedCount} Aufträge`;
+  const addToExport = state.ptvExports.find((item) => item.id === state.ptvAddToExportId);
 
   elements.ptvCount.textContent = countLabel;
-  elements.ptvSubline.textContent = selectedCount > 0
-    ? "markiert für Tour oder Massenbearbeitung"
-    : "noch keine Aufträge markiert";
+  elements.ptvSubline.textContent = addToExport
+    ? selectedCount > 0
+      ? `markiert zum Hinzufügen zu „${addToExport.name}“`
+      : `freie Aufträge für „${addToExport.name}“ auswählen`
+    : selectedCount > 0
+      ? "markiert für Tour oder Massenbearbeitung"
+      : "noch keine Aufträge markiert";
   elements.ptvClearSelection.hidden = false;
   elements.ptvClearSelection.disabled = selectedCount === 0;
   elements.ptvOpenRemote.disabled = exclusionMode || selectedPtvOrderNumbers().length === 0;
+  elements.ptvOpenRemote.textContent = addToExport
+    ? isPtvExportOptimized(addToExport)
+      ? "Hinzufügen und erneut an PTV übergeben"
+      : "Aufträge zur Tour hinzufügen"
+    : "Tour speichern und in PTV öffnen";
+  elements.ptvExportName.disabled = Boolean(addToExport);
+  elements.ptvExportTruck.disabled = Boolean(addToExport);
+  elements.ptvExportDriver.disabled = Boolean(addToExport);
   elements.ptvExcludeSelection.textContent = exclusionMode ? "Markierte freigeben" : "Markierte ausnehmen";
   elements.ptvExcludeSelection.disabled = exclusionMode
     ? selectedExcludedPtvOrderNumbers().length === 0
@@ -4660,6 +4682,11 @@ async function openPtvRemoteControl() {
     return;
   }
 
+  if (state.ptvAddToExportId) {
+    await addOrdersToExistingPtvExport(state.ptvAddToExportId, orderNumbers);
+    return;
+  }
+
   const remoteWindow = window.open("about:blank", "_blank", "width=460,height=320,left=80,top=80");
 
   if (remoteWindow) {
@@ -4710,6 +4737,105 @@ async function openPtvRemoteControl() {
     }
 
     showToast(error.message || "PTV konnte nicht geöffnet werden.");
+  }
+}
+
+function startAddingOrdersToPtvExport(id) {
+  const entry = state.ptvExports.find((item) => item.id === id);
+
+  if (!entry) {
+    showToast("Tourzusammenstellung nicht gefunden.");
+    return;
+  }
+
+  showPtvPage("orders");
+  state.ptvAddToExportId = id;
+  state.ptvExportId = id;
+  state.ptvStatus = "none";
+  resetPtvOrderSelection();
+  elements.ptvExportName.value = entry.name || "";
+  elements.ptvExportTruck.value = entry.loadingListTruckId || "";
+  elements.ptvExportDriver.value = entry.driverPhoneId || "";
+  syncPtvStatusButtons();
+  reconcilePtvSelection();
+  renderPtv();
+  showToast(`Freie Aufträge für „${entry.name}“ auswählen.`);
+}
+
+async function addOrdersToExistingPtvExport(id, orderNumbers) {
+  const entry = state.ptvExports.find((item) => item.id === id);
+
+  if (!entry) {
+    showToast("Tourzusammenstellung nicht gefunden.");
+    return;
+  }
+
+  const wasOptimized = isPtvExportOptimized(entry);
+  const countLabel = orderNumbers.length === 1 ? "1 Auftrag" : `${orderNumbers.length} Aufträge`;
+  const confirmed = await requestConfirm(wasOptimized
+    ? `Soll ${countLabel} zur optimierten Tour "${entry.name}" hinzugefügt werden? Die bisherige Optimierung wird ungültig und die geänderte Tour anschließend erneut an PTV übergeben.`
+    : `Soll ${countLabel} zur Tourzusammenstellung "${entry.name}" hinzugefügt werden?`);
+
+  if (!confirmed) {
+    return;
+  }
+
+  const remoteWindow = wasOptimized
+    ? window.open("about:blank", "_blank", "width=460,height=320,left=80,top=80")
+    : null;
+
+  if (remoteWindow) {
+    try {
+      remoteWindow.document.title = "PTV wird geöffnet";
+      remoteWindow.document.body.textContent = "Die geänderte Tour wird erneut an PTV übergeben ...";
+    } catch {
+      // Die Navigation funktioniert auch dann noch.
+    }
+  }
+
+  try {
+    await api(`/api/ptv/exports/${encodeURIComponent(id)}/orders`, {
+      method: "POST",
+      body: JSON.stringify({ orderNumbers })
+    });
+
+    if (wasOptimized) {
+      const result = await api(`/api/ptv/exports/${encodeURIComponent(id)}/remote-url`, {
+        method: "POST",
+        body: JSON.stringify({})
+      });
+
+      if (remoteWindow) {
+        remoteWindow.location.href = result.url;
+      } else {
+        window.location.href = result.url;
+      }
+    }
+
+    state.ptvAddToExportId = "";
+    state.ptvExportId = "";
+    resetPtvOrderSelection();
+    clearPtvExportName();
+    await Promise.all([loadPtvExports(), loadPtvOrders(), loadOrders()]);
+    state.ptvOptimizationStatus = "exported";
+    state.ptvExpandedExportId = id;
+    document.querySelectorAll("[data-ptv-optimization]").forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.ptvOptimization === state.ptvOptimizationStatus);
+    });
+    showPtvPage("assemblies");
+    renderPtvExports();
+    showToast(wasOptimized
+      ? `${countLabel} hinzugefügt. Die Tour wurde erneut an PTV übergeben.`
+      : `${countLabel} zur Tourzusammenstellung hinzugefügt.`);
+  } catch (error) {
+    if (remoteWindow) {
+      try {
+        remoteWindow.close();
+      } catch {
+        // Popup ist möglicherweise bereits geschlossen.
+      }
+    }
+    showToast(error.message || "Aufträge konnten nicht zur Tour hinzugefügt werden.");
   }
 }
 
@@ -4791,6 +4917,7 @@ function clearPtvExportName() {
 function clearPtvPlanningAssignments() {
   clearPtvExportName();
   state.ptvExportId = "";
+  state.ptvAddToExportId = "";
   elements.ptvExportTruck.value = "";
   elements.ptvExportDriver.value = "";
 }

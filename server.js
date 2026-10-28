@@ -367,6 +367,33 @@ app.delete("/api/ptv/exports/:id/orders/:orderNumber", async (request, response)
   }
 });
 
+app.post("/api/ptv/exports/:id/orders", async (request, response) => {
+  try {
+    const orderNumbers = sanitizeOrderNumbers(request.body.orderNumbers);
+    assertOrdersAvailableForPtv(orderNumbers);
+    const result = await store.addOrdersToPtvExport(request.params.id, orderNumbers, request.user);
+
+    if (result.exportEntry.driverPhoneId) {
+      for (const orderNumber of result.addedOrderNumbers) {
+        await store.updateAvis(orderNumber, {
+          driverPhoneId: result.exportEntry.driverPhoneId
+        }, request.user);
+      }
+    }
+
+    response.json({
+      export: result.exportEntry,
+      addedOrderNumbers: result.addedOrderNumbers,
+      optimizationInvalidated: result.optimizationInvalidated
+    });
+  } catch (error) {
+    response.status(400).json({
+      error: "PTV_EXPORT_ORDER_ADD_FAILED",
+      message: error.message
+    });
+  }
+});
+
 app.get("/api/orders", async (request, response) => {
   try {
     const source = await loadSourceOrders();

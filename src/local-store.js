@@ -1032,8 +1032,9 @@ export class LocalStore {
     return exportEntry;
   }
 
-  findPtvExportDuplicate(orderNumbers) {
+  findPtvExportDuplicate(orderNumbers, excludedExportId = "") {
     const existingIds = new Set((this.state.ptvExports || []).map((item) => item.id));
+    existingIds.delete(excludedExportId);
 
     for (const orderNumber of orderNumbers) {
       const tags = this.state.avisByOrder[orderNumber]?.ptvExportTags || [];
@@ -1048,6 +1049,55 @@ export class LocalStore {
     }
 
     return null;
+  }
+
+  async addOrdersToPtvExport(id, orderNumbers, actor) {
+    const exportEntry = this.getPtvExport(id);
+
+    if (!exportEntry) {
+      throw new Error("Tourzusammenstellung nicht gefunden.");
+    }
+
+    const currentOrderNumbers = uniqueOrderNumbers([
+      ...(exportEntry.optimizedOrderNumbers || []),
+      ...(exportEntry.orderNumbers || [])
+    ]);
+    const additions = uniqueOrderNumbers(orderNumbers)
+      .filter((orderNumber) => !currentOrderNumbers.includes(orderNumber));
+
+    if (additions.length === 0) {
+      throw new Error("Es wurden keine neuen Aufträge für diese Tour ausgewählt.");
+    }
+
+    const duplicate = this.findPtvExportDuplicate(additions, id);
+
+    if (duplicate) {
+      throw new Error(`Auftrag ${duplicate.orderNumber} ist bereits in der Tourzusammenstellung "${duplicate.name}".`);
+    }
+
+    const optimizationInvalidated = isOptimizedPtvExport(exportEntry);
+    exportEntry.orderNumbers = [...currentOrderNumbers, ...additions];
+
+    if (optimizationInvalidated) {
+      exportEntry.status = "exportiert";
+      exportEntry.optimizedOrderNumbers = [];
+      exportEntry.routeInfos = {};
+      exportEntry.optimizedAt = "";
+      exportEntry.optimizedBy = "";
+      this.clearPtvRouteData(exportEntry.orderNumbers, actor);
+      this.applyTwoDayTransition(exportEntry, "", actor);
+    }
+
+    exportEntry.updatedAt = new Date().toISOString();
+    exportEntry.updatedBy = actor?.displayName || actor?.username || "";
+    await this.applyPtvExportTags(exportEntry, actor, false);
+    await this.save();
+
+    return {
+      exportEntry,
+      addedOrderNumbers: additions,
+      optimizationInvalidated
+    };
   }
 
   async optimizePtvExport(id, orderNumbers, actor, routeInfosByOrderNumber = {}) {

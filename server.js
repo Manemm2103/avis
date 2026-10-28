@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import { loadConfig } from "./src/config.js";
 import { demoOrders } from "./src/demo-orders.js";
 import { authenticateWithLdap } from "./src/ldap-auth.js";
+import { createLoadingListPdf } from "./src/loading-list-pdf.js";
 import { LocalStore } from "./src/local-store.js";
 import { MAIL_TEXT_MARKS, sendAvisMail } from "./src/mail-service.js";
 import { fetchOrdersFromMssql, fetchToursFromMssql, isMssqlConfigured } from "./src/mssql-source.js";
@@ -253,6 +254,47 @@ app.get("/api/ptv/callbacks", requireAdmin, (request, response) => {
 
 app.get("/api/ptv/exports", (request, response) => {
   response.json(store.listPtvExports());
+});
+
+app.get("/api/ptv/exports/:id/loading-list.pdf", async (request, response) => {
+  try {
+    const exportEntry = store.listPtvExports().find((entry) => entry.id === request.params.id);
+
+    if (!exportEntry) {
+      return response.status(404).json({ error: "LOADING_LIST_NOT_FOUND", message: "Tourzusammenstellung nicht gefunden." });
+    }
+
+    const orderNumbers = exportEntry.optimizedOrderNumbers || [];
+    if (orderNumbers.length === 0) {
+      return response.status(400).json({ error: "LOADING_LIST_NOT_OPTIMIZED", message: "Eine PDF-Ladeliste kann nur aus einer optimierten Tour erstellt werden." });
+    }
+
+    const source = await loadSourceOrders();
+    const allOrders = await loadMergedOrders(source.orders);
+    const orderMap = new Map(allOrders.map((order) => [order.orderNumber, order]));
+    const orders = orderNumbers.map((orderNumber) => orderMap.get(orderNumber)).filter(Boolean);
+
+    if (orders.length === 0) {
+      return response.status(404).json({ error: "LOADING_LIST_EMPTY", message: "Für diese Ladeliste wurden keine Aufträge gefunden." });
+    }
+
+    const pdf = await createLoadingListPdf({
+      exportEntry,
+      orders,
+      settings: store.getLoadingListSettings(),
+      logoPath: path.join(__dirname, "public", "assets", "logo-bayerwald-print.png")
+    });
+    const filename = loadingListPdfFilename(exportEntry.name);
+    response.setHeader("Content-Type", "application/pdf");
+    response.setHeader("Content-Length", String(pdf.length));
+    response.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    return response.send(pdf);
+  } catch (error) {
+    return response.status(500).json({
+      error: "LOADING_LIST_PDF_FAILED",
+      message: error.message
+    });
+  }
 });
 
 app.post("/api/ptv/exports", async (request, response) => {
@@ -1829,6 +1871,16 @@ function publicLoadingListSettings(settings) {
     updatedAt: settings.updatedAt || "",
     updatedBy: settings.updatedBy || ""
   };
+}
+
+function loadingListPdfFilename(name) {
+  const safeName = String(name || "Tour")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "Tour";
+  return `Ladeliste-${safeName}.pdf`;
 }
 
 function sanitizeLoadingListTrucks(value) {

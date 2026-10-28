@@ -168,6 +168,7 @@ const elements = {
   loadingListTrailer: document.querySelector("#loading-list-trailer"),
   loadingListTwoDay: document.querySelector("#loading-list-two-day"),
   loadingListClearSelection: document.querySelector("#loading-list-clear-selection"),
+  loadingListPdf: document.querySelector("#loading-list-pdf"),
   loadingListNotify: document.querySelector("#loading-list-notify"),
   loadingListRemoveOrders: document.querySelector("#loading-list-remove-orders"),
   loadingListSummary: document.querySelector("#loading-list-summary"),
@@ -394,6 +395,7 @@ function bindEvents() {
   });
   elements.loadingListTwoDay.addEventListener("click", applySelectedLoadingListStopsTwoDay);
   elements.loadingListClearSelection.addEventListener("click", clearLoadingListSelection);
+  elements.loadingListPdf.addEventListener("click", downloadLoadingListPdf);
   elements.loadingListNotify.addEventListener("click", notifyLoadingList);
   elements.loadingListRemoveOrders.addEventListener("click", removeSelectedOrdersFromLoadingList);
   elements.loadingListContent.addEventListener("click", handleLoadingListClick);
@@ -1762,6 +1764,7 @@ function renderLoadingList(errorMessage = "") {
     elements.loadingListSummary.innerHTML = "";
     elements.loadingListContent.innerHTML = `<p class="help-text">Eine Ladeliste kann erst aus einer von PTV optimierten Tour erstellt werden.</p>`;
     elements.loadingListNotify.disabled = true;
+    elements.loadingListPdf.disabled = true;
     elements.loadingListTwoDay.disabled = true;
     elements.loadingListRemoveOrders.hidden = true;
     return;
@@ -1785,6 +1788,7 @@ function renderLoadingList(errorMessage = "") {
   if (errorMessage) {
     elements.loadingListSummary.innerHTML = "";
     elements.loadingListContent.innerHTML = `<p class="help-text is-error">${escapeHtml(errorMessage)}</p>`;
+    elements.loadingListPdf.disabled = true;
     return;
   }
 
@@ -1795,6 +1799,7 @@ function renderLoadingList(errorMessage = "") {
     elements.loadingListSummary.innerHTML = "";
     elements.loadingListContent.innerHTML = `<p class="help-text">Für diese optimierte Tour wurden keine Aufträge gefunden.</p>`;
     elements.loadingListNotify.disabled = true;
+    elements.loadingListPdf.disabled = true;
     elements.loadingListTwoDay.disabled = true;
     elements.loadingListRemoveOrders.hidden = true;
     return;
@@ -1839,6 +1844,7 @@ function renderLoadingList(errorMessage = "") {
   `;
   elements.loadingListClearSelection.hidden = selectedCount === 0 && selectedStopCount === 0;
   elements.loadingListNotify.disabled = loadingOrders.length === 0;
+  elements.loadingListPdf.disabled = loadingOrders.length === 0;
   elements.loadingListRemoveOrders.hidden = selectedCount === 0;
   elements.loadingListRemoveOrders.textContent = selectedCount === 1
     ? "Auftrag aus Ladeliste entfernen"
@@ -2308,6 +2314,55 @@ async function notifyLoadingList() {
     await loadMailJobs();
   }
   showToast(`${result.updated} Aufträge avisiert.${mailToastSuffix(result.mail)}`);
+}
+
+async function downloadLoadingListPdf() {
+  const exportId = state.loadingListExportId;
+
+  if (!exportId) {
+    showToast("Bitte zuerst eine optimierte Tour auswählen.");
+    return;
+  }
+
+  const originalText = elements.loadingListPdf.textContent;
+  elements.loadingListPdf.disabled = true;
+  elements.loadingListPdf.textContent = "PDF wird erstellt...";
+
+  try {
+    const response = await fetch(`/api/ptv/exports/${encodeURIComponent(exportId)}/loading-list.pdf`, {
+      headers: { Authorization: `Bearer ${state.token}` }
+    });
+
+    if (response.status === 401) {
+      localStorage.removeItem("avisToken");
+      state.token = "";
+      showLogin("Bitte neu anmelden.");
+      return;
+    }
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => null);
+      throw new Error(error?.message || `HTTP ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const disposition = response.headers.get("Content-Disposition") || "";
+    const filename = disposition.match(/filename="([^"]+)"/i)?.[1] || "Ladeliste.pdf";
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    showToast("Ladeliste als PDF heruntergeladen.");
+  } catch (error) {
+    showToast(`PDF konnte nicht erstellt werden: ${error.message}`);
+  } finally {
+    elements.loadingListPdf.textContent = originalText;
+    elements.loadingListPdf.disabled = !state.loadingListExportId;
+  }
 }
 
 async function removeSelectedOrdersFromLoadingList() {

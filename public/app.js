@@ -172,6 +172,7 @@ const elements = {
   loadingListDriver: document.querySelector("#loading-list-driver"),
   loadingListTrailer: document.querySelector("#loading-list-trailer"),
   loadingListTwoDay: document.querySelector("#loading-list-two-day"),
+  loadingListNoAvis: document.querySelector("#loading-list-no-avis"),
   loadingListClearSelection: document.querySelector("#loading-list-clear-selection"),
   loadingListPdf: document.querySelector("#loading-list-pdf"),
   loadingListNotify: document.querySelector("#loading-list-notify"),
@@ -403,6 +404,7 @@ function bindEvents() {
     applyLoadingListTrailerMark(elements.loadingListTrailer.checked);
   });
   elements.loadingListTwoDay.addEventListener("click", applySelectedLoadingListStopsTwoDay);
+  elements.loadingListNoAvis.addEventListener("click", toggleSelectedLoadingListNoAvis);
   elements.loadingListClearSelection.addEventListener("click", clearLoadingListSelection);
   elements.loadingListPdf.addEventListener("click", downloadLoadingListPdf);
   elements.loadingListNotify.addEventListener("click", notifyLoadingList);
@@ -1905,6 +1907,7 @@ function renderLoadingList(errorMessage = "") {
     elements.loadingListNotify.disabled = true;
     elements.loadingListPdf.disabled = true;
     elements.loadingListTwoDay.disabled = true;
+    elements.loadingListNoAvis.disabled = true;
     elements.loadingListRemoveOrders.hidden = true;
     return;
   }
@@ -1940,6 +1943,7 @@ function renderLoadingList(errorMessage = "") {
     elements.loadingListNotify.disabled = true;
     elements.loadingListPdf.disabled = true;
     elements.loadingListTwoDay.disabled = true;
+    elements.loadingListNoAvis.disabled = true;
     elements.loadingListRemoveOrders.hidden = true;
     return;
   }
@@ -1984,6 +1988,13 @@ function renderLoadingList(errorMessage = "") {
   elements.loadingListClearSelection.hidden = selectedCount === 0 && selectedStopCount === 0;
   elements.loadingListNotify.disabled = loadingOrders.length === 0;
   elements.loadingListPdf.disabled = loadingOrders.length === 0;
+  const selectedOrdersHaveNoAvis = selectedOrders.length > 0
+    && selectedOrders.every((order) => order.avis?.skipAvis);
+  elements.loadingListNoAvis.disabled = selectedCount === 0;
+  elements.loadingListNoAvis.textContent = selectedOrdersHaveNoAvis
+    ? "Avis wieder aktivieren"
+    : "Keine Avis";
+  elements.loadingListNoAvis.classList.toggle("is-active", selectedOrdersHaveNoAvis);
   elements.loadingListRemoveOrders.hidden = selectedCount === 0;
   elements.loadingListRemoveOrders.textContent = selectedCount === 1
     ? "Auftrag aus Ladeliste entfernen"
@@ -2299,6 +2310,10 @@ function loadingListOrderTags(order, tourIsTwoDay) {
     tags.push(`<span class="ptv-tag is-trailer">HÄ</span>`);
   }
 
+  if (order.avis?.skipAvis) {
+    tags.push(`<span class="ptv-tag is-no-avis">Keine Avis</span>`);
+  }
+
   return tags.length ? `<span class="tag-list">${tags.join("")}</span>` : "";
 }
 
@@ -2412,13 +2427,49 @@ function clearLoadingListSelection() {
   renderLoadingList();
 }
 
+async function toggleSelectedLoadingListNoAvis() {
+  const orders = currentLoadingListOrders();
+  const selectedOrders = orders.filter((order) => state.loadingListSelectedOrderNumbers.has(order.orderNumber));
+
+  if (!selectedOrders.length) {
+    showToast("Bitte mindestens einen Auftrag markieren.");
+    return;
+  }
+
+  const skipAvis = !selectedOrders.every((order) => order.avis?.skipAvis);
+  const action = skipAvis ? "als „Keine Avis“ markieren" : "wieder für die Avis freigeben";
+  const confirmed = await requestConfirm(`Sollen ${selectedOrders.length} markierte Aufträge ${action} werden?`);
+
+  if (!confirmed) {
+    return;
+  }
+
+  await api("/api/orders/bulk", {
+    method: "PATCH",
+    body: JSON.stringify({
+      orderNumbers: selectedOrders.map((order) => order.orderNumber),
+      skipAvis
+    })
+  });
+
+  await loadPtvOrders();
+  await loadOrders();
+  showToast(skipAvis
+    ? `${selectedOrders.length} Aufträge als „Keine Avis“ markiert.`
+    : `${selectedOrders.length} Aufträge wieder für die Avis freigegeben.`);
+}
+
 async function notifyLoadingList() {
   const orders = currentLoadingListOrders();
   const selected = orders.filter((order) => state.loadingListSelectedOrderNumbers.has(order.orderNumber));
-  const targetOrders = selected.length ? selected : orders;
+  const candidates = selected.length ? selected : orders;
+  const targetOrders = candidates.filter((order) => !order.avis?.skipAvis);
+  const skippedCount = candidates.length - targetOrders.length;
 
   if (!targetOrders.length) {
-    showToast("Keine Aufträge in der Ladeliste.");
+    showToast(skippedCount
+      ? "Alle ausgewählten Aufträge sind als „Keine Avis“ markiert."
+      : "Keine Aufträge in der Ladeliste.");
     return;
   }
 
@@ -2430,9 +2481,12 @@ async function notifyLoadingList() {
   }
 
   const label = selected.length
-    ? `${selected.length} markierte Aufträge`
+    ? `${targetOrders.length} markierte Aufträge`
     : `alle ${targetOrders.length} Aufträge dieser Ladeliste`;
-  const confirmed = await requestConfirm(`Sollen ${label} jetzt avisiert werden? Gleiche Empfänger an gleicher Entladestelle werden in einer E-Mail gebündelt.`);
+  const skipNote = skippedCount
+    ? ` ${skippedCount} als „Keine Avis“ markierte Aufträge werden übersprungen.`
+    : "";
+  const confirmed = await requestConfirm(`Sollen ${label} jetzt avisiert werden?${skipNote} Gleiche Empfänger an gleicher Entladestelle werden in einer E-Mail gebündelt.`);
 
   if (!confirmed) {
     showToast("Avisierung abgebrochen.");
@@ -2452,7 +2506,7 @@ async function notifyLoadingList() {
   if (isAdmin()) {
     await loadMailJobs();
   }
-  showToast(`${result.updated} Aufträge avisiert.${mailToastSuffix(result.mail)}`);
+  showToast(`${result.updated} Aufträge avisiert.${skippedCount ? ` ${skippedCount} ohne Avis übersprungen.` : ""}${mailToastSuffix(result.mail)}`);
 }
 
 async function downloadLoadingListPdf() {

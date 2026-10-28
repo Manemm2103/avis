@@ -1342,6 +1342,7 @@ export class LocalStore {
       delete next.tourDeliveryDayOffset;
       delete next.tourDeliveryDate;
       delete next.mwTrailer;
+      delete next.skipAvis;
       delete next.ptvExportTags;
 
       if (!exportEntry?.driverPhoneId || current.driverPhoneId === exportEntry.driverPhoneId) {

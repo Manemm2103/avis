@@ -64,7 +64,7 @@
       <nav class="tabs" aria-label="Bereiche">
         <button class="tab is-active" id="tab-ptv" type="button">Tourzusammenstellung</button>
         <button class="tab" id="tab-loading-list" type="button">Ladeliste</button>
-        <button class="tab" id="tab-orders" type="button">Avis</button>
+        <button class="tab" id="tab-orders" type="button" hidden>Avis</button>
         <button class="tab" id="tab-planned-tours" type="button">Touren verplant</button>
         <button class="tab" id="tab-import" type="button">Import</button>
         <button class="tab" id="tab-masterdata" type="button">Stammdaten</button>
@@ -316,6 +316,7 @@
             </label>
             <div class="loading-list-actions">
               <button class="secondary" id="loading-list-two-day" type="button" disabled>Als 2-Tagestour markieren</button>
+              <button class="secondary no-avis-button" id="loading-list-no-avis" type="button" disabled>Keine Avis</button>
               <button class="secondary" id="loading-list-clear-selection" type="button" hidden>Auswahl aufheben</button>
               <button class="secondary" id="loading-list-pdf" type="button">PDF herunterladen</button>
               <button class="primary" id="loading-list-notify" type="button">Ladeliste avisieren</button>
@@ -807,7 +808,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.10.28.06</footer>
+      <footer class="app-footer">Version 2026.10.28.07</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -1044,6 +1045,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20261028-tour-refresh" type="module"></script>
+    <script src="/app.js?v=20261028-no-avis" type="module"></script>
   </body>
 </html>

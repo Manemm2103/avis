@@ -1342,6 +1342,7 @@ function mergeOrder(order, avis, driverMap) {
       twoDayTransition: Boolean(avis?.twoDayTransition),
       tourDeliveryDayOffset: Number(avis?.tourDeliveryDayOffset) || 0,
       mwTrailer: Boolean(avis?.mwTrailer),
+      skipAvis: Boolean(avis?.skipAvis),
       notified: Boolean(avis?.notified),
       notifiedAt: avis?.notifiedAt || "",
       notifiedBy: avis?.notifiedBy || "",
@@ -1582,6 +1583,10 @@ function sanitizeAvisUpdate(input) {
     update.mwTrailer = Boolean(input.mwTrailer);
   }
 
+  if (Object.hasOwn(input, "skipAvis")) {
+    update.skipAvis = Boolean(input.skipAvis);
+  }
+
   if (Object.hasOwn(input, "notified")) {
     update.notified = Boolean(input.notified);
   }
@@ -1627,6 +1632,10 @@ function sanitizeBulkAvisUpdate(input) {
 
   if (Object.hasOwn(input, "mwTrailer")) {
     values.mwTrailer = Boolean(input.mwTrailer);
+  }
+
+  if (Object.hasOwn(input, "skipAvis")) {
+    values.skipAvis = Boolean(input.skipAvis);
   }
 
   if (input.notified === true) {

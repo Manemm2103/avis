@@ -890,6 +890,25 @@ select:disabled {
   color: #92400e;
 }
 
+.ptv-tag.is-no-avis {
+  border: 1px solid #dc2626;
+  background: #fff1f2;
+  color: #9f1239;
+}
+
+.no-avis-button {
+  border-color: #dc2626;
+  color: #b91c1c;
+}
+
+.no-avis-button:hover,
+.no-avis-button:focus-visible,
+.no-avis-button.is-active {
+  border-color: #b91c1c;
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 .tag-list {
   display: flex;
   flex-wrap: wrap;
@@ -950,6 +969,14 @@ html[data-theme="dark"] .segment.is-exclusion-filter.is-active {
   border-color: #c2410c;
   background: #431407;
   color: #fed7aa;
+}
+
+html[data-theme="dark"] .ptv-tag.is-no-avis,
+html[data-theme="dark"] .no-avis-button,
+html[data-theme="dark"] .no-avis-button.is-active {
+  border-color: #f87171;
+  background: #450a0a;
+  color: #fecaca;
 }
 
 html[data-theme="dark"] .exclusion-button:hover,

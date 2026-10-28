@@ -299,7 +299,11 @@ function fitSingleLine(doc, value, width) {
 function loadingRow(order, sequence, transitionNumbers, twoDayTour) {
   const transition = transitionNumbers.has(order.orderNumber) || order.avis?.twoDayTransition || order.avis?.twoDayTour;
   const dayTwo = twoDayTour && Number(order.avis?.tourDeliveryDayOffset) === 1 && !transition;
-  const tags = [transition ? "2-Tagestour" : "", dayTwo ? "Tag 2" : ""].filter(Boolean);
+  const tags = [
+    transition ? "2-Tagestour" : "",
+    dayTwo ? "Tag 2" : "",
+    order.avis?.skipAvis ? "Keine Avis" : ""
+  ].filter(Boolean);
   return {
     sequence: String(sequence),
     orderNumber: order.orderNumber,

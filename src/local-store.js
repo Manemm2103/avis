@@ -106,6 +106,13 @@ Bayerwald Fenster und Türen`,
     updatedAt: "",
     updatedBy: ""
   },
+  retentionSettings: {
+    retentionDays: 365,
+    lastCleanupAt: "",
+    lastCleanupResult: null,
+    updatedAt: "",
+    updatedBy: ""
+  },
   ptvCallbacks: [],
   ptvExports: []
 };
@@ -173,6 +180,10 @@ export class LocalStore {
     this.state.loadingListSettings = {
       ...structuredClone(EMPTY_STATE.loadingListSettings),
       ...(this.state.loadingListSettings || {})
+    };
+    this.state.retentionSettings = {
+      ...structuredClone(EMPTY_STATE.retentionSettings),
+      ...(this.state.retentionSettings || {})
     };
     this.state.ptvCallbacks ||= [];
     this.state.ptvExports ||= [];
@@ -850,6 +861,96 @@ export class LocalStore {
     return this.getLoadingListSettings();
   }
 
+  getRetentionSettings() {
+    return {
+      ...structuredClone(EMPTY_STATE.retentionSettings),
+      ...(this.state.retentionSettings || {})
+    };
+  }
+
+  async updateRetentionSettings(input, actor) {
+    this.state.retentionSettings = {
+      ...this.getRetentionSettings(),
+      retentionDays: Math.min(3650, Math.max(1, Number(input.retentionDays) || 365)),
+      updatedAt: new Date().toISOString(),
+      updatedBy: actor?.displayName || actor?.username || ""
+    };
+
+    await this.save();
+    return this.getRetentionSettings();
+  }
+
+  async cleanupWorkflowData(retentionDays = this.getRetentionSettings().retentionDays) {
+    const days = Math.min(3650, Math.max(1, Number(retentionDays) || 365));
+    const cutoff = Date.now() - (days * 24 * 60 * 60 * 1000);
+    const expiredExportIds = new Set((this.state.ptvExports || [])
+      .filter((entry) => isBeforeCutoff(entry.updatedAt || entry.createdAt, cutoff))
+      .map((entry) => entry.id));
+    const result = {
+      retentionDays: days,
+      ptvExports: expiredExportIds.size,
+      ptvCallbacks: 0,
+      orderStates: 0,
+      orderLogs: 0,
+      mailLogs: 0
+    };
+
+    this.state.ptvExports = (this.state.ptvExports || [])
+      .filter((entry) => !expiredExportIds.has(entry.id));
+
+    const callbacksBefore = (this.state.ptvCallbacks || []).length;
+    this.state.ptvCallbacks = (this.state.ptvCallbacks || [])
+      .filter((entry) => !isBeforeCutoff(entry.at, cutoff));
+    result.ptvCallbacks = callbacksBefore - this.state.ptvCallbacks.length;
+
+    for (const [orderNumber, current] of Object.entries(this.state.avisByOrder || {})) {
+      const logs = Array.isArray(current.log) ? current.log : [];
+      const mailLogs = Array.isArray(current.mailLog) ? current.mailLog : [];
+      const tags = Array.isArray(current.ptvExportTags) ? current.ptvExportTags : [];
+      const next = {
+        ...current,
+        log: logs.filter((entry) => !isBeforeCutoff(entry.at, cutoff)),
+        mailLog: mailLogs.filter((entry) => !isBeforeCutoff(entry.sentAt || entry.at, cutoff)),
+        ptvExportTags: tags.filter((tag) => !expiredExportIds.has(tag.id))
+      };
+
+      result.orderLogs += logs.length - next.log.length;
+      result.mailLogs += mailLogs.length - next.mailLog.length;
+
+      if (isBeforeCutoff(workflowActivityAt(current), cutoff)) {
+        delete this.state.avisByOrder[orderNumber];
+        result.orderStates += 1;
+        continue;
+      }
+
+      if (tags.length > 0 && next.ptvExportTags.length === 0) {
+        delete next.ptvExportTags;
+        delete next.routeSequence;
+        delete next.routeSequenceUpdatedAt;
+        delete next.routeSequenceUpdatedBy;
+        delete next.routeSequenceUpdatedByUserId;
+        delete next.ptvRouteInfo;
+        delete next.twoDayTour;
+        delete next.twoDayTransition;
+        delete next.tourDeliveryDayOffset;
+        delete next.tourDeliveryDate;
+        delete next.mwTrailer;
+      }
+
+      this.state.avisByOrder[orderNumber] = next;
+    }
+
+    const now = new Date().toISOString();
+    this.state.retentionSettings = {
+      ...this.getRetentionSettings(),
+      retentionDays: days,
+      lastCleanupAt: now,
+      lastCleanupResult: result
+    };
+    await this.save();
+    return { ...result, at: now };
+  }
+
   async updatePtvExportLoadingList(id, input, actor) {
     const exportEntry = this.getPtvExport(id);
 
@@ -1518,6 +1619,29 @@ function normalizeSortPreference(value) {
 
 function uniqueOrderNumbers(values) {
   return [...new Set((values || []).map((value) => String(value || "").trim()).filter(Boolean))];
+}
+
+function isBeforeCutoff(value, cutoff) {
+  const timestamp = typeof value === "number" ? value : Date.parse(String(value || ""));
+  return Number.isFinite(timestamp) && timestamp < cutoff;
+}
+
+function workflowActivityAt(avis) {
+  const values = [
+    avis?.updatedAt,
+    avis?.notifiedAt,
+    avis?.completedAt,
+    avis?.excludedFromPlanningAt,
+    avis?.routeSequenceUpdatedAt,
+    ...(avis?.log || []).map((entry) => entry.at),
+    ...(avis?.mailLog || []).map((entry) => entry.sentAt || entry.at),
+    ...(avis?.ptvExportTags || []).flatMap((tag) => [tag.optimizedAt, tag.exportedAt])
+  ];
+
+  return values
+    .map((value) => Date.parse(String(value || "")))
+    .filter(Number.isFinite)
+    .sort((left, right) => right - left)[0] || "";
 }
 
 function isOptimizedPtvExport(exportEntry) {

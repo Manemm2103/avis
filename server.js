@@ -248,6 +248,33 @@ app.patch("/api/loading-list-settings", requireAdmin, async (request, response) 
   }
 });
 
+app.get("/api/retention-settings", requireAdmin, (request, response) => {
+  response.json(publicRetentionSettings(store.getRetentionSettings()));
+});
+
+app.patch("/api/retention-settings", requireAdmin, async (request, response) => {
+  try {
+    const settings = await store.updateRetentionSettings(sanitizeRetentionSettings(request.body), request.user);
+    response.json(publicRetentionSettings(settings));
+  } catch (error) {
+    response.status(400).json({
+      error: "RETENTION_SETTINGS_SAVE_FAILED",
+      message: error.message
+    });
+  }
+});
+
+app.post("/api/retention-settings/cleanup", requireAdmin, async (request, response) => {
+  try {
+    response.json(await runWorkflowDataCleanup());
+  } catch (error) {
+    response.status(400).json({
+      error: "WORKFLOW_CLEANUP_FAILED",
+      message: error.message
+    });
+  }
+});
+
 app.get("/api/ptv/callbacks", requireAdmin, (request, response) => {
   response.json(store.listPtvCallbacks());
 });
@@ -772,6 +799,7 @@ http.createServer(app).listen(config.port, () => {
 });
 
 startHttpsServer();
+scheduleWorkflowDataCleanup();
 
 async function loginUser(username, password) {
   let ldapError = null;
@@ -1805,6 +1833,12 @@ function sanitizeLoadingListSettings(input) {
   };
 }
 
+function sanitizeRetentionSettings(input) {
+  return {
+    retentionDays: Math.min(3650, Math.max(1, number(input.retentionDays, 365)))
+  };
+}
+
 function sanitizePtvExportLoadingList(input) {
   return {
     hasTruckId: Object.hasOwn(input, "truckId"),
@@ -1895,6 +1929,16 @@ function publicLoadingListSettings(settings) {
   return {
     shippingEhLimit: Math.max(1, number(settings.shippingEhLimit, 100)),
     trucks: sanitizeLoadingListTrucks(settings.trucks),
+    updatedAt: settings.updatedAt || "",
+    updatedBy: settings.updatedBy || ""
+  };
+}
+
+function publicRetentionSettings(settings) {
+  return {
+    retentionDays: Math.min(3650, Math.max(1, number(settings.retentionDays, 365))),
+    lastCleanupAt: settings.lastCleanupAt || "",
+    lastCleanupResult: settings.lastCleanupResult || null,
     updatedAt: settings.updatedAt || "",
     updatedBy: settings.updatedBy || ""
   };
@@ -2517,6 +2561,50 @@ function ptvCallbackUrl(value) {
   } catch {
     return input;
   }
+}
+
+function scheduleWorkflowDataCleanup() {
+  runWorkflowDataCleanup().catch((error) => {
+    console.error(`event=workflow-cleanup status=failed message=${error.message}`);
+  });
+
+  const timer = setInterval(() => {
+    runWorkflowDataCleanup().catch((error) => {
+      console.error(`event=workflow-cleanup status=failed message=${error.message}`);
+    });
+  }, 6 * 60 * 60 * 1000);
+  timer.unref();
+}
+
+async function runWorkflowDataCleanup() {
+  const result = await store.cleanupWorkflowData();
+  const cutoff = Date.now() - (result.retentionDays * 24 * 60 * 60 * 1000);
+  let mailJobsRemoved = 0;
+
+  for (let index = mailJobs.length - 1; index >= 0; index -= 1) {
+    const job = mailJobs[index];
+    const finishedAt = Date.parse(String(job.finishedAt || ""));
+
+    if (!["queued", "running"].includes(job.status) && Number.isFinite(finishedAt) && finishedAt < cutoff) {
+      mailJobs.splice(index, 1);
+      mailJobsRemoved += 1;
+    }
+  }
+
+  const summary = { ...result, mailJobs: mailJobsRemoved };
+  console.log([
+    `at=${result.at}`,
+    "event=workflow-cleanup",
+    "status=completed",
+    `retentionDays=${result.retentionDays}`,
+    `ptvExports=${result.ptvExports}`,
+    `ptvCallbacks=${result.ptvCallbacks}`,
+    `orderStates=${result.orderStates}`,
+    `orderLogs=${result.orderLogs}`,
+    `mailLogs=${result.mailLogs}`,
+    `mailJobs=${mailJobsRemoved}`
+  ].join(" "));
+  return summary;
 }
 
 function startHttpsServer() {

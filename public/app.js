@@ -32,6 +32,9 @@ const state = {
   loadingListSettings: {
     shippingEhLimit: 100
   },
+  retentionSettings: {
+    retentionDays: 365
+  },
   ptvCallbacks: [],
   ptvCallbackSearch: "",
   ptvExports: [],
@@ -183,6 +186,10 @@ const elements = {
   loadingListSettingsForm: document.querySelector("#loading-list-settings-form"),
   loadingListShippingEhLimit: document.querySelector("#loading-list-shipping-eh-limit"),
   loadingListTrucks: document.querySelector("#loading-list-trucks"),
+  retentionSettingsForm: document.querySelector("#retention-settings-form"),
+  retentionDays: document.querySelector("#retention-days"),
+  retentionStatus: document.querySelector("#retention-status"),
+  retentionCleanupNow: document.querySelector("#retention-cleanup-now"),
   demoNotice: document.querySelector("#demo-notice"),
   sourceErrorNotice: document.querySelector("#source-error-notice"),
   drawer: document.querySelector("#order-drawer"),
@@ -444,6 +451,8 @@ function bindEvents() {
     });
   });
   elements.loadingListSettingsForm.addEventListener("submit", saveLoadingListSettings);
+  elements.retentionSettingsForm.addEventListener("submit", saveRetentionSettings);
+  elements.retentionCleanupNow.addEventListener("click", cleanupWorkflowDataNow);
   elements.filterDate.addEventListener("change", () => {
     state.deliveryDate = elements.filterDate.value;
     state.deliveryWeek = "";
@@ -955,6 +964,7 @@ async function enterApp() {
     await loadMailJobs();
     await loadTourSettings();
     await loadPtvSettings();
+    await loadRetentionSettings();
     await loadUsers();
   }
 
@@ -1273,7 +1283,7 @@ function canSeeMasterdataPage(page) {
     return false;
   }
 
-  return ["auth", "sql"].includes(page) ? isFullAdmin() : ["drivers", "tours", "mail", "ptv", "loadingList", "users"].includes(page);
+  return ["auth", "sql"].includes(page) ? isFullAdmin() : ["drivers", "tours", "mail", "ptv", "loadingList", "retention", "users"].includes(page);
 }
 
 function isAdmin() {
@@ -1473,6 +1483,35 @@ async function loadLoadingListSettings() {
   renderPtvTruckOptions();
   renderLoadingListTruckOptions();
   renderLoadingList();
+}
+
+async function loadRetentionSettings() {
+  state.retentionSettings = await api("/api/retention-settings");
+  elements.retentionDays.value = state.retentionSettings.retentionDays ?? 365;
+  renderRetentionStatus();
+}
+
+function renderRetentionStatus(result = state.retentionSettings?.lastCleanupResult) {
+  if (!elements.retentionStatus) {
+    return;
+  }
+
+  const lastCleanupAt = state.retentionSettings?.lastCleanupAt || result?.at || "";
+
+  if (!lastCleanupAt) {
+    elements.retentionStatus.textContent = "Noch keine Bereinigung durchgeführt.";
+    return;
+  }
+
+  const values = result || {};
+  elements.retentionStatus.textContent = [
+    `Letzte Bereinigung: ${formatDateTime(lastCleanupAt)}`,
+    `${Number(values.ptvExports || 0)} Tourzusammenstellungen`,
+    `${Number(values.ptvCallbacks || 0)} PTV-Rückgaben`,
+    `${Number(values.orderStates || 0)} Auftragszustände`,
+    `${Number(values.orderLogs || 0)} Auftragslogs`,
+    `${Number(values.mailLogs || 0)} E-Mail-Logs`
+  ].join(" · ");
 }
 
 async function refreshPtvData() {
@@ -5262,6 +5301,47 @@ async function saveLoadingListSettings(event) {
 
   await loadLoadingListSettings();
   showToast("Ladeliste gespeichert.");
+}
+
+async function saveRetentionSettings(event) {
+  event.preventDefault();
+
+  if (!isAdmin()) {
+    showToast("Nur Admins und Abteilungsleiter dürfen die Aufbewahrungsfrist speichern.");
+    return;
+  }
+
+  await api("/api/retention-settings", {
+    method: "PATCH",
+    body: JSON.stringify({
+      retentionDays: elements.retentionDays.value
+    })
+  });
+
+  await loadRetentionSettings();
+  showToast("Aufbewahrungsfrist gespeichert.");
+}
+
+async function cleanupWorkflowDataNow() {
+  if (!isAdmin()) {
+    showToast("Nur Admins und Abteilungsleiter dürfen Workflow-Daten bereinigen.");
+    return;
+  }
+
+  const days = Number(state.retentionSettings?.retentionDays || 365);
+  const confirmed = await requestConfirm(`Sollen jetzt alle Workflow-Daten gelöscht werden, die älter als ${days} Tage sind? Stammdaten und manuell angelegte Aufträge bleiben erhalten.`);
+
+  if (!confirmed) {
+    return;
+  }
+
+  const result = await api("/api/retention-settings/cleanup", {
+    method: "POST"
+  });
+  await loadRetentionSettings();
+  await Promise.all([loadPtvExports(), loadPtvOrders(), loadOrders(), loadMailJobs()]);
+  renderRetentionStatus(result);
+  showToast(`${Number(result.ptvExports || 0)} Touren und ${Number(result.orderStates || 0)} Auftragszustände bereinigt.`);
 }
 
 async function saveLdapSettings(event) {

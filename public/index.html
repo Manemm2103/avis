@@ -399,6 +399,7 @@
               <button class="masterdata-nav-button" data-masterdata-tab="mail" type="button">E-Mail</button>
               <button class="masterdata-nav-button" data-masterdata-tab="ptv" type="button">PTV</button>
               <button class="masterdata-nav-button" data-masterdata-tab="loadingList" type="button">Ladeliste</button>
+              <button class="masterdata-nav-button" data-masterdata-tab="retention" type="button">Datenaufbewahrung</button>
               <button class="masterdata-nav-button" data-masterdata-tab="auth" type="button">Authentifizierung</button>
               <button class="masterdata-nav-button" data-masterdata-tab="sql" type="button">SQL-Abfragen</button>
               <button class="masterdata-nav-button" data-masterdata-tab="users" type="button">Benutzer</button>
@@ -651,6 +652,23 @@
                 </form>
               </div>
 
+              <div class="masterdata-section masterdata-panel" id="retention-settings-section" data-masterdata-panel="retention" hidden>
+                <h2>Datenaufbewahrung</h2>
+                <form id="retention-settings-form" class="panel compact-grid">
+                  <label>
+                    <span>Workflow-Daten aufbewahren (Tage)</span>
+                    <input id="retention-days" name="retentionDays" type="number" min="1" max="3650" step="1" value="365" required>
+                  </label>
+                  <p class="help-text wide-field">Tourzusammenstellungen, Ladelisten, PTV-Rückgaben, Avis-Zustände sowie Auftrags- und E-Mail-Protokolle werden nach Ablauf dieser Frist automatisch entfernt. Die Bereinigung läuft beim Serverstart und danach alle sechs Stunden.</p>
+                  <p class="help-text wide-field">Stammdaten, Benutzer, Fahrertelefone, Fahrzeuge, Einstellungen sowie manuell oder per CSV angelegte Aufträge werden nicht automatisch gelöscht.</p>
+                  <div class="retention-status wide-field" id="retention-status">Noch keine Bereinigung durchgeführt.</div>
+                  <div class="form-actions wide-field">
+                    <button class="primary" type="submit">Aufbewahrungsfrist speichern</button>
+                    <button class="secondary danger" id="retention-cleanup-now" type="button">Jetzt bereinigen</button>
+                  </div>
+                </form>
+              </div>
+
               <div class="masterdata-section masterdata-panel" id="ldap-settings-section" data-masterdata-panel="auth" hidden>
                 <h2>Authentifizierung</h2>
                 <form id="ldap-settings-form" class="panel compact-grid">
@@ -788,7 +806,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.10.28.03</footer>
+      <footer class="app-footer">Version 2026.10.28.04</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -1025,6 +1043,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20261028-add-orders-to-tour" type="module"></script>
+    <script src="/app.js?v=20261028-workflow-retention" type="module"></script>
   </body>
 </html>

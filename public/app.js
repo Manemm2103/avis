@@ -492,6 +492,7 @@ function bindEvents() {
   elements.bulkDriver.addEventListener("change", renderBulkState);
   elements.bulkTwoDayTour.addEventListener("change", renderBulkState);
   elements.ptvFilterDate.addEventListener("change", () => {
+    resetPtvOrderSelection();
     state.ptvDeliveryDate = elements.ptvFilterDate.value;
     state.ptvDeliveryWeek = "";
     state.ptvTour = "";
@@ -511,6 +512,7 @@ function bindEvents() {
     selectPtvWeekFilter(button.dataset.ptvWeek || "");
   });
   elements.ptvFilterTour.addEventListener("change", () => {
+    resetPtvOrderSelection();
     state.ptvTour = elements.ptvFilterTour.value;
     reconcilePtvSelection();
     renderPtv();
@@ -524,6 +526,7 @@ function bindEvents() {
     renderPtvExports();
   });
   elements.ptvSearchInput.addEventListener("input", debounce(() => {
+    resetPtvOrderSelection();
     state.ptvSearch = elements.ptvSearchInput.value;
     reconcilePtvSelection();
     renderPtv();
@@ -684,6 +687,7 @@ function bindEvents() {
 
   document.querySelectorAll("[data-ptv-status]").forEach((button) => {
     button.addEventListener("click", () => {
+      resetPtvOrderSelection();
       state.ptvStatus = button.dataset.ptvStatus || "none";
       syncPtvStatusButtons();
       updatePtvFilterWeeks();
@@ -3475,12 +3479,16 @@ function clearActivePtvSelection() {
 }
 
 function clearPtvSelection() {
+  resetPtvOrderSelection();
+  renderPtv();
+}
+
+function resetPtvOrderSelection() {
   state.ptvListOrderNumbers = [];
   state.ptvSelectedOrderNumbers.clear();
   state.ptvLastSelectedOrderNumber = "";
   state.ptvExcludedSelectedOrderNumbers.clear();
   state.ptvExcludedLastSelectedOrderNumber = "";
-  renderPtv();
 }
 
 function loadPtvExport(id) {
@@ -3914,6 +3922,7 @@ function closePtvWeekPicker() {
 }
 
 function selectPtvWeekFilter(week) {
+  resetPtvOrderSelection();
   state.ptvDeliveryWeek = week;
   state.ptvDeliveryDate = "";
   state.ptvTour = "";
@@ -4617,6 +4626,7 @@ async function importCsvOrders(event) {
 }
 
 function clearPtvFilters() {
+  resetPtvOrderSelection();
   state.ptvStatus = "none";
   state.ptvOptimizationStatus = "exported";
   state.ptvSearch = "";

@@ -13,7 +13,6 @@ const COLORS = {
   muted: "#5d6b78",
   line: "#cbd5dc",
   stop: "#dfecef",
-  danger: "#c21f2f",
   white: "#ffffff"
 };
 
@@ -31,7 +30,7 @@ const COLUMNS = [
 
 const TABLE_WIDTH = COLUMNS.reduce((sum, column) => sum + column.width, 0);
 
-export async function createLoadingListPdf({ exportEntry, orders, settings, logoPath }) {
+export async function createLoadingListPdf({ exportEntry, orders, logoPath }) {
   const doc = new PDFDocument({
     autoFirstPage: false,
     bufferPages: true,
@@ -52,7 +51,6 @@ export async function createLoadingListPdf({ exportEntry, orders, settings, logo
   });
 
   const groupedStops = groupStops(orders);
-  const shippingEhLimit = Math.max(1, parseNumber(settings?.shippingEhLimit) || 100);
   const totals = calculateTotals(orders);
   const transitionNumbers = new Set(
     exportEntry.twoDayTransitionOrderNumbers?.length
@@ -62,7 +60,6 @@ export async function createLoadingListPdf({ exportEntry, orders, settings, logo
   const twoDayTour = Boolean(exportEntry.twoDayTour || orders.some((order) => order.avis?.twoDayTour));
   const headerContext = { exportEntry, orders, totals, groupedStops, twoDayTour, logoPath };
   let y = 0;
-  let cumulativeShippingEh = 0;
 
   doc.on("pageAdded", () => {
     drawPageHeader(doc, headerContext);
@@ -82,7 +79,7 @@ export async function createLoadingListPdf({ exportEntry, orders, settings, logo
   addPage();
 
   groupedStops.forEach((stop, stopIndex) => {
-    const stopHeight = estimatedStopHeight(doc, stop, cumulativeShippingEh, shippingEhLimit);
+    const stopHeight = estimatedStopHeight(doc, stop);
     const availablePageHeight = PAGE.contentBottom - 154;
 
     if (y > 400 || (y + stopHeight > PAGE.contentBottom && stopHeight <= availablePageHeight)) {
@@ -98,21 +95,12 @@ export async function createLoadingListPdf({ exportEntry, orders, settings, logo
       const sequence = orders.indexOf(order) + 1;
       const row = loadingRow(order, sequence, transitionNumbers, twoDayTour);
       const rowHeight = measureRowHeight(doc, row);
-      const shippingEh = parseNumber(order.shippingEh);
-      const nextCumulative = cumulativeShippingEh + shippingEh;
-      const capacityCrossed = Math.floor(cumulativeShippingEh / shippingEhLimit) < Math.floor(nextCumulative / shippingEhLimit);
-      const requiredHeight = rowHeight + (capacityCrossed ? 16 : 0);
 
-      if (y + requiredHeight > PAGE.contentBottom) {
+      if (y + rowHeight > PAGE.contentBottom) {
         addPage(stop.address);
       }
 
       y = drawTableRow(doc, y, row, rowHeight, sequence % 2 === 0);
-      cumulativeShippingEh = nextCumulative;
-
-      if (capacityCrossed) {
-        y = drawCapacityMarker(doc, y, Math.floor(cumulativeShippingEh / shippingEhLimit) * shippingEhLimit);
-      }
     });
 
     y += 8;
@@ -123,18 +111,12 @@ export async function createLoadingListPdf({ exportEntry, orders, settings, logo
   return completed;
 }
 
-function estimatedStopHeight(doc, stop, initialShippingEh, shippingEhLimit) {
+function estimatedStopHeight(doc, stop) {
   let height = 57;
-  let cumulativeShippingEh = initialShippingEh;
 
   stop.orders.forEach((order) => {
     const row = loadingRow(order, 1, new Set(), false);
     height += measureRowHeight(doc, row);
-    const nextCumulative = cumulativeShippingEh + parseNumber(order.shippingEh);
-    if (Math.floor(cumulativeShippingEh / shippingEhLimit) < Math.floor(nextCumulative / shippingEhLimit)) {
-      height += 16;
-    }
-    cumulativeShippingEh = nextCumulative;
   });
 
   return height;
@@ -201,10 +183,11 @@ function drawStopHeader(doc, y, address, detail, sequence = "") {
 }
 
 function drawTableHeader(doc, y) {
-  doc.rect(PAGE.margin, y, TABLE_WIDTH, 20).fill(COLORS.text);
+  doc.moveTo(PAGE.margin, y).lineTo(PAGE.margin + TABLE_WIDTH, y).lineWidth(0.8).strokeColor(COLORS.text).stroke();
+  doc.moveTo(PAGE.margin, y + 20).lineTo(PAGE.margin + TABLE_WIDTH, y + 20).lineWidth(0.8).strokeColor(COLORS.text).stroke();
   let x = PAGE.margin;
   COLUMNS.forEach((column) => {
-    doc.fillColor(COLORS.white).font("Helvetica-Bold").fontSize(6.2).text(column.label, x + 2, y + 6, {
+    doc.fillColor(COLORS.text).font("Helvetica-Bold").fontSize(6.2).text(column.label, x + 2, y + 6, {
       width: column.width - 4,
       align: column.align || "left",
       lineBreak: false
@@ -235,15 +218,6 @@ function drawTableRow(doc, y, row, height, shaded) {
     x += column.width;
   });
   return y + height;
-}
-
-function drawCapacityMarker(doc, y, value) {
-  doc.moveTo(PAGE.margin, y + 5).lineTo(PAGE.margin + TABLE_WIDTH, y + 5).lineWidth(2).strokeColor(COLORS.danger).stroke();
-  doc.fillColor(COLORS.danger).font("Helvetica-Bold").fontSize(6.2).text(`Kapazitätsgrenze ${formatNumber(value)} Versand EH`, PAGE.margin, y + 7, {
-    width: TABLE_WIDTH,
-    align: "right"
-  });
-  return y + 16;
 }
 
 function drawFooters(doc) {

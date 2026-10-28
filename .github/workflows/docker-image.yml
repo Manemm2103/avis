@@ -35,6 +35,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Read AVIS version
+        id: version
+        shell: bash
+        run: |
+          version=$(grep -oE 'Version [0-9]{4}\.[0-9]{2}\.[0-9]{2}\.[0-9]{2}' public/index.html | head -n 1 | cut -d' ' -f2)
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -42,6 +50,7 @@ jobs:
           images: ${{ steps.image.outputs.image }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.version.outputs.version }}
             type=sha,prefix=sha-
             type=ref,event=tag
 

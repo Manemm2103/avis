@@ -84,6 +84,7 @@ const state = {
   mailJobsAutoRefreshTimer: null,
   sortPreferenceSaveTimer: null,
   ptvRefreshInFlight: false,
+  ptvDataRevision: 0,
   selectedOrder: null,
   notifySelectedOrder: false,
   confirmResolve: null,
@@ -1335,8 +1336,15 @@ async function loadOrders() {
 }
 
 async function loadPtvOrders() {
+  const revision = state.ptvDataRevision;
+
   try {
     const data = await api("/api/orders?status=all");
+
+    if (revision !== state.ptvDataRevision) {
+      return;
+    }
+
     state.ptvOrders = data.orders;
     state.ptvOrderMap = new Map(state.ptvOrders.map((order) => [order.orderNumber, order]));
     updatePtvFilterWeeks();
@@ -1346,6 +1354,10 @@ async function loadPtvOrders() {
     renderLoadingList();
     renderPlannedTours();
   } catch (error) {
+    if (revision !== state.ptvDataRevision) {
+      return;
+    }
+
     state.ptvOrders = [];
     state.ptvOrderMap = new Map();
     updatePtvFilterWeeks();
@@ -1534,6 +1546,74 @@ async function refreshPtvData() {
   }
 }
 
+async function reloadPtvDataAfterMutation() {
+  while (state.ptvRefreshInFlight) {
+    await new Promise((resolve) => window.setTimeout(resolve, 25));
+  }
+
+  state.ptvRefreshInFlight = true;
+
+  try {
+    await Promise.all([
+      loadPtvExports(),
+      loadPtvOrders(),
+      loadOrders()
+    ]);
+  } finally {
+    state.ptvRefreshInFlight = false;
+  }
+}
+
+function applyPtvExportToLocalState(exportEntry) {
+  if (!exportEntry?.id) {
+    return;
+  }
+
+  state.ptvDataRevision += 1;
+
+  const orderNumbers = new Set([
+    ...(exportEntry.orderNumbers || []),
+    ...(exportEntry.optimizedOrderNumbers || [])
+  ]);
+  const tag = {
+    id: exportEntry.id,
+    name: exportEntry.name,
+    status: isPtvExportOptimized(exportEntry) ? "Tour optimiert" : "Tourzusammenstellung",
+    exportedAt: exportEntry.createdAt || new Date().toISOString(),
+    optimizedAt: exportEntry.optimizedAt || ""
+  };
+  const applyTag = (order) => {
+    if (!orderNumbers.has(order.orderNumber)) {
+      return order;
+    }
+
+    const tags = [...(order.avis?.ptvExportTags || [])];
+    const index = tags.findIndex((item) => item.id === exportEntry.id);
+
+    if (index === -1) {
+      tags.push(tag);
+    } else {
+      tags[index] = { ...tags[index], ...tag };
+    }
+
+    return {
+      ...order,
+      avis: {
+        ...order.avis,
+        ptvExportTags: tags
+      }
+    };
+  };
+
+  state.ptvExports = [
+    exportEntry,
+    ...state.ptvExports.filter((item) => item.id !== exportEntry.id)
+  ];
+  state.ptvOrders = state.ptvOrders.map(applyTag);
+  state.ptvOrderMap = new Map(state.ptvOrders.map((order) => [order.orderNumber, order]));
+  state.orders = state.orders.map(applyTag);
+}
+
 function startPtvAutoRefresh() {
   if (state.ptvAutoRefreshTimer) {
     return;
@@ -1586,7 +1666,14 @@ async function loadPtvCallbacks() {
 }
 
 async function loadPtvExports() {
-  state.ptvExports = await api("/api/ptv/exports");
+  const revision = state.ptvDataRevision;
+  const exports = await api("/api/ptv/exports");
+
+  if (revision !== state.ptvDataRevision) {
+    return;
+  }
+
+  state.ptvExports = exports;
   renderPtvExportControls();
   renderPtvExports();
   renderLoadingList();
@@ -4754,13 +4841,13 @@ async function openPtvRemoteControl() {
 
     if (result.export?.id) {
       state.ptvExportId = result.export.id;
+      applyPtvExportToLocalState(result.export);
     }
 
     if (remoteWindow) {
       remoteWindow.location.href = result.url;
       resetPtvPlanningForm();
-      await loadPtvExports();
-      await loadPtvOrders();
+      await reloadPtvDataAfterMutation();
       return;
     }
 
@@ -4833,10 +4920,11 @@ async function addOrdersToExistingPtvExport(id, orderNumbers) {
   }
 
   try {
-    await api(`/api/ptv/exports/${encodeURIComponent(id)}/orders`, {
+    const addResult = await api(`/api/ptv/exports/${encodeURIComponent(id)}/orders`, {
       method: "POST",
       body: JSON.stringify({ orderNumbers })
     });
+    applyPtvExportToLocalState(addResult.export);
 
     if (wasOptimized) {
       const result = await api(`/api/ptv/exports/${encodeURIComponent(id)}/remote-url`, {
@@ -4855,7 +4943,7 @@ async function addOrdersToExistingPtvExport(id, orderNumbers) {
     state.ptvExportId = "";
     resetPtvOrderSelection();
     clearPtvExportName();
-    await Promise.all([loadPtvExports(), loadPtvOrders(), loadOrders()]);
+    await reloadPtvDataAfterMutation();
     state.ptvOptimizationStatus = "exported";
     state.ptvExpandedExportId = id;
     document.querySelectorAll("[data-ptv-optimization]").forEach((button) => {

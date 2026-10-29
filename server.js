@@ -126,6 +126,18 @@ app.post("/api/users", requireAdmin, async (request, response) => {
   }
 });
 
+app.patch("/api/users/active", requireAdmin, async (request, response) => {
+  try {
+    const updates = sanitizeUserActiveUpdates(request.body);
+    response.json(await store.updateUsersActive(updates, request.user));
+  } catch (error) {
+    response.status(400).json({
+      error: "USER_ACTIVE_UPDATE_FAILED",
+      message: error.message
+    });
+  }
+});
+
 app.patch("/api/users/:id", requireAdmin, async (request, response) => {
   try {
     const user = await store.updateUser(request.params.id, sanitizeUser(request.body, true), request.user);
@@ -2809,6 +2821,26 @@ function sanitizeUser(input, partial = false) {
   }
 
   return user;
+}
+
+function sanitizeUserActiveUpdates(input) {
+  if (!Array.isArray(input.updates) || input.updates.length === 0) {
+    throw new Error("Keine Aktivstatus-Änderungen ausgewählt.");
+  }
+
+  const updates = new Map();
+
+  for (const item of input.updates) {
+    const id = text(item?.id);
+
+    if (!id || !Object.hasOwn(item || {}, "active")) {
+      throw new Error("Ungültige Aktivstatus-Änderung.");
+    }
+
+    updates.set(id, Boolean(item.active));
+  }
+
+  return [...updates].map(([id, active]) => ({ id, active }));
 }
 
 function sanitizeUserPreferences(input) {

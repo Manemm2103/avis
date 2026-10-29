@@ -1367,6 +1367,38 @@ tbody tr:last-child td {
   align-items: start;
 }
 
+.user-list-panel {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.user-list-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.user-active-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.user-active-toggle input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.user-active-toggle:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .masterdata-section {
   display: grid;
   gap: 12px;

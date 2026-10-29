@@ -776,32 +776,30 @@
                         <option value="superuser">Abteilungsleiter</option>
                       </select>
                     </label>
+                    <label class="checkbox">
+                      <input id="user-active" name="active" type="checkbox" checked>
+                      <span>Benutzer ist aktiv</span>
+                    </label>
                     <div class="form-actions">
                       <button class="primary" id="user-submit" type="submit">Benutzer anlegen</button>
                       <button class="secondary" id="user-cancel" type="button" hidden>Abbrechen</button>
                     </div>
                   </form>
 
-                  <div class="user-list-panel">
-                    <div class="table-wrap">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Benutzername</th>
-                            <th>Name</th>
-                            <th>Rolle</th>
-                            <th>Aktiv</th>
-                            <th>Zuletzt aktiv</th>
-                            <th></th>
-                          </tr>
-                        </thead>
-                        <tbody id="users-body"></tbody>
-                      </table>
-                    </div>
-                    <div class="user-list-actions">
-                      <span class="bulk-subline" id="users-active-changes">Keine offenen Änderungen</span>
-                      <button class="primary" id="users-save-active" type="button" disabled>Aktivstatus speichern</button>
-                    </div>
+                  <div class="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Benutzername</th>
+                          <th>Name</th>
+                          <th>Rolle</th>
+                          <th>Aktiv</th>
+                          <th>Zuletzt aktiv</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody id="users-body"></tbody>
+                    </table>
                   </div>
                 </div>
               </div>
@@ -810,7 +808,7 @@
         </section>
       </main>
 
-      <footer class="app-footer">Version 2026.10.29.01</footer>
+      <footer class="app-footer">Version 2026.10.28.09</footer>
     </div>
 
     <aside class="drawer" id="order-drawer" aria-hidden="true">
@@ -1047,6 +1045,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20261029-user-status" type="module"></script>
+    <script src="/app.js?v=20261028-avis-status" type="module"></script>
   </body>
 </html>

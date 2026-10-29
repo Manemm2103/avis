@@ -19,7 +19,6 @@ const state = {
   filterWeeks: [],
   ptvFilterWeeks: [],
   users: [],
-  userActiveDrafts: new Map(),
   sqlSettings: null,
   ldapSettings: null,
   mailSettings: null,
@@ -286,10 +285,9 @@ const elements = {
   userDisplayName: document.querySelector("#user-display-name"),
   userPassword: document.querySelector("#user-password"),
   userRole: document.querySelector("#user-role"),
+  userActive: document.querySelector("#user-active"),
   userSubmit: document.querySelector("#user-submit"),
   userCancel: document.querySelector("#user-cancel"),
-  usersActiveChanges: document.querySelector("#users-active-changes"),
-  usersSaveActive: document.querySelector("#users-save-active"),
   toast: document.querySelector("#toast"),
   stats: {
     total: document.querySelector("#stat-total"),
@@ -695,7 +693,6 @@ function bindEvents() {
   elements.ldapSettingsForm.addEventListener("submit", saveLdapSettings);
   elements.userForm.addEventListener("submit", saveUser);
   elements.userCancel.addEventListener("click", resetUserForm);
-  elements.usersSaveActive.addEventListener("click", saveUserActiveStatuses);
   elements.markNotified.addEventListener("click", () => {
     state.notifySelectedOrder = true;
     elements.drawerFields.notified.checked = true;
@@ -885,19 +882,26 @@ function bindEvents() {
     await deleteDriverPhone(deleteButton.dataset.deleteDriver);
   });
 
-  elements.usersBody.addEventListener("click", (event) => {
+  elements.usersBody.addEventListener("click", async (event) => {
     const editButton = event.target.closest("[data-edit-user]");
 
     if (editButton) {
       editUser(editButton.dataset.editUser);
+      return;
     }
-  });
-  elements.usersBody.addEventListener("change", (event) => {
-    const checkbox = event.target.closest("[data-user-active]");
 
-    if (checkbox) {
-      updateUserActiveDraft(checkbox.dataset.userActive, checkbox.checked);
+    const button = event.target.closest("[data-deactivate-user]");
+
+    if (!button) {
+      return;
     }
+
+    await api(`/api/users/${encodeURIComponent(button.dataset.deactivateUser)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ active: false })
+    });
+    await loadUsers();
+    showToast("Benutzer deaktiviert.");
   });
 }
 
@@ -949,7 +953,6 @@ async function logout() {
 
 async function enterApp() {
   setStatusFilter("open");
-  state.userActiveDrafts.clear();
   applyUserSortPreferences();
   elements.loginView.hidden = true;
   elements.appShell.hidden = false;
@@ -4262,91 +4265,22 @@ function renderDrivers() {
 function renderUsers() {
   if (state.users.length === 0) {
     elements.usersBody.innerHTML = `<tr><td class="empty" colspan="6">Noch keine Benutzer angelegt.</td></tr>`;
-    renderUserActiveSaveState();
     return;
   }
 
-  elements.usersBody.innerHTML = state.users.map((user) => {
-    const active = state.userActiveDrafts.has(user.id)
-      ? state.userActiveDrafts.get(user.id)
-      : user.active;
-    const editable = canEditUser(user);
-
-    return `
-    <tr class="${active ? "" : "is-muted"}" data-user-row="${escapeHtml(user.id)}">
+  elements.usersBody.innerHTML = state.users.map((user) => `
+    <tr class="${user.active ? "" : "is-muted"}">
       <td><strong>${escapeHtml(user.username)}</strong></td>
       <td>${escapeHtml(user.displayName)}</td>
       <td>${escapeHtml(roleLabel(user.role))}</td>
-      <td>
-        <label class="user-active-toggle">
-          <input data-user-active="${escapeHtml(user.id)}" type="checkbox" ${active ? "checked" : ""} ${editable ? "" : "disabled"}>
-          <span>${active ? "Aktiv" : "Inaktiv"}</span>
-        </label>
-      </td>
+      <td>${user.active ? "Ja" : "Nein"}</td>
       <td>${user.lastActiveAt || user.lastLoginAt ? escapeHtml(formatDateTime(user.lastActiveAt || user.lastLoginAt)) : "-"}</td>
       <td>
-        ${editable ? `<button class="secondary small" data-edit-user="${escapeHtml(user.id)}" type="button">Bearbeiten</button>` : ""}
+        ${canEditUser(user) ? `<button class="secondary small" data-edit-user="${escapeHtml(user.id)}" type="button">Bearbeiten</button>` : ""}
+        ${canEditUser(user) && user.active ? `<button class="secondary small" data-deactivate-user="${escapeHtml(user.id)}" type="button">Deaktivieren</button>` : ""}
       </td>
     </tr>
-  `;
-  }).join("");
-  renderUserActiveSaveState();
-}
-
-function updateUserActiveDraft(userId, active) {
-  const user = state.users.find((item) => item.id === userId);
-
-  if (!user || !canEditUser(user)) {
-    return;
-  }
-
-  if (Boolean(user.active) === Boolean(active)) {
-    state.userActiveDrafts.delete(userId);
-  } else {
-    state.userActiveDrafts.set(userId, Boolean(active));
-  }
-
-  const row = elements.usersBody.querySelector(`[data-user-row="${CSS.escape(userId)}"]`);
-  row?.classList.toggle("is-muted", !active);
-  const label = row?.querySelector("[data-user-active] + span");
-  if (label) {
-    label.textContent = active ? "Aktiv" : "Inaktiv";
-  }
-  renderUserActiveSaveState();
-}
-
-function renderUserActiveSaveState() {
-  const count = state.userActiveDrafts.size;
-  elements.usersActiveChanges.textContent = count === 0
-    ? "Keine offenen Änderungen"
-    : count === 1 ? "1 offene Änderung" : `${count} offene Änderungen`;
-  elements.usersSaveActive.disabled = count === 0;
-}
-
-async function saveUserActiveStatuses() {
-  const updates = [...state.userActiveDrafts].map(([id, active]) => ({ id, active }));
-
-  if (!updates.length) {
-    return;
-  }
-
-  const confirmed = await requestConfirm(`Sollen die Aktivstatus von ${updates.length} Benutzern gespeichert werden?`);
-
-  if (!confirmed) {
-    return;
-  }
-
-  try {
-    const result = await api("/api/users/active", {
-      method: "PATCH",
-      body: JSON.stringify({ updates })
-    });
-    state.userActiveDrafts.clear();
-    await loadUsers();
-    showToast(`${result.updated} Aktivstatus gespeichert.`);
-  } catch (error) {
-    showToast(`Aktivstatus konnte nicht gespeichert werden: ${error.message}`);
-  }
+  `).join("");
 }
 
 function canEditUser(user) {
@@ -5611,7 +5545,8 @@ async function saveUser(event) {
   const body = {
     username: form.get("username"),
     displayName: form.get("displayName"),
-    role: form.get("role")
+    role: form.get("role"),
+    active: form.get("active") === "on"
   };
 
   if (String(form.get("password") || "").trim()) {
@@ -5626,7 +5561,6 @@ async function saveUser(event) {
     showToast("Benutzer gespeichert.");
   } else {
     body.password = form.get("password");
-    body.active = true;
     await api("/api/users", {
       method: "POST",
       body: JSON.stringify(body)
@@ -5659,6 +5593,7 @@ function editUser(userId) {
   elements.userPassword.placeholder = "Leer lassen, wenn unverändert";
   renderUserRoleOptions(user.role || "user");
   elements.userRole.value = user.role || "user";
+  elements.userActive.checked = user.active;
   elements.userSubmit.textContent = "Benutzer speichern";
   elements.userCancel.hidden = false;
 }
@@ -5670,6 +5605,7 @@ function resetUserForm() {
   elements.userPassword.placeholder = "";
   renderUserRoleOptions("user");
   elements.userRole.value = "user";
+  elements.userActive.checked = true;
   elements.userSubmit.textContent = "Benutzer anlegen";
   elements.userCancel.hidden = true;
 }

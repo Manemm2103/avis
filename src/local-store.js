@@ -342,43 +342,6 @@ export class LocalStore {
     return publicUser(next);
   }
 
-  async updateUsersActive(updates, actor) {
-    const updatesById = new Map(updates.map((item) => [item.id, Boolean(item.active)]));
-    const now = new Date().toISOString();
-    const actorName = actor?.displayName || actor?.username || "";
-
-    for (const id of updatesById.keys()) {
-      const existing = this.state.users.find((user) => user.id === id);
-
-      if (!existing) {
-        throw new Error("Benutzer nicht gefunden.");
-      }
-
-      this.ensureActorMayWriteUser({ active: updatesById.get(id) }, existing, actor);
-    }
-
-    const users = this.state.users.map((user) => updatesById.has(user.id)
-      ? {
-        ...user,
-        active: updatesById.get(user.id),
-        updatedAt: now,
-        updatedBy: actorName
-      }
-      : user);
-    const activeAdmins = users.filter((user) => user.active !== false && user.role === ROLE_ADMIN);
-
-    if (activeAdmins.length === 0) {
-      throw new Error("Mindestens ein aktiver Admin muss erhalten bleiben.");
-    }
-
-    this.state.users = users;
-    await this.save();
-    return {
-      updated: updatesById.size,
-      users: users.filter((user) => updatesById.has(user.id)).map(publicUser)
-    };
-  }
-
   async login(username, password) {
     const normalizedUsername = username.trim().toLowerCase();
     const user = this.state.users.find((item) => item.username.toLowerCase() === normalizedUsername && item.active);
